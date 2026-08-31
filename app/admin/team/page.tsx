@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import {
   Users,
   UserCheck,
@@ -18,6 +19,8 @@ import {
   ChevronDown,
   Check,
   Tag,
+  Building2,
+  Award,
 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 
@@ -476,60 +479,93 @@ export default function AdminTeamPage() {
         </div>
       </div>
 
-      {/* Add Modal with Interactive Dropdown & Multi-Select Tags */}
+      {/* Spacious, Beautifully Styled Add Team Member Modal with Brand Logo */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="font-bold font-heading text-lg text-slate-900">
-                  Add Team Member
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Register a solar installer, electrician, or survey engineer
-                </p>
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-2xl sm:max-w-3xl w-full shadow-2xl border border-slate-200 space-y-6 animate-in fade-in zoom-in-95 duration-150 my-auto">
+            {/* Modal Header with Sunlife Logo */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3.5">
+                <Image
+                  src="/logo/logo.svg"
+                  alt="Sunlife Solar Energy Solution"
+                  width={140}
+                  height={40}
+                  className="h-8 w-auto object-contain"
+                  priority
+                />
+                <div className="h-6 w-px bg-slate-200 hidden sm:block" />
+                <div>
+                  <h3 className="font-bold font-heading text-lg text-slate-900 leading-tight">
+                    Add Team Member
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Register solar installation technicians, electricians & survey crew
+                  </p>
+                </div>
               </div>
+
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleAddMember} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Technician Name"
-                  value={newMember.name}
-                  onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Designation Role
+            {/* Modal Form */}
+            <form onSubmit={handleAddMember} className="space-y-5 text-xs">
+              {/* 2-Column Inputs Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Full Name */}
+                <div className="space-y-1">
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider">
+                    Full Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Rooftop GI Fitter"
-                    value={newMember.role}
-                    onChange={(e) => setNewMember({ ...newMember, role: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900"
+                    placeholder="e.g. Technician / Engineer Name"
+                    value={newMember.name}
+                    onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900 text-sm"
                   />
                 </div>
 
-                <div>
-                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Department
+                {/* Phone Number */}
+                <div className="space-y-1">
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider">
+                    Contact Phone Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="e.g. 98260XXXXX"
+                    value={newMember.phone}
+                    onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900 text-sm"
+                  />
+                </div>
+
+                {/* Role / Title */}
+                <div className="space-y-1">
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider">
+                    Designation / Title <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Senior Rooftop GI Fitter"
+                    value={newMember.role}
+                    onChange={(e) => setNewMember({ ...newMember, role: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900 text-sm"
+                  />
+                </div>
+
+                {/* Department Dropdown */}
+                <div className="space-y-1">
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider">
+                    Department Category
                   </label>
                   <select
                     value={newMember.category}
@@ -539,35 +575,20 @@ export default function AdminTeamPage() {
                         category: e.target.value as TeamMember["category"],
                       })
                     }
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900 text-sm"
                   >
-                    <option value="Fitter">Installation Fitter</option>
-                    <option value="Electrician">Solar Electrician</option>
-                    <option value="Survey">Site Survey Officer</option>
-                    <option value="Engineer">PV Engineer</option>
-                    <option value="Management">Management</option>
+                    <option value="Fitter">Installation Fitter & GI Rigging</option>
+                    <option value="Electrician">Solar Electrician & Wiring</option>
+                    <option value="Survey">Site Survey & Shadow Analysis</option>
+                    <option value="Engineer">Solar PV Design Engineer</option>
+                    <option value="Management">Operations & Management</option>
                   </select>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="e.g. 98260XXXXX"
-                    value={newMember.phone}
-                    onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Assigned Territory
+                {/* Territory */}
+                <div className="space-y-1">
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider">
+                    Assigned Territory Hub
                   </label>
                   <input
                     type="text"
@@ -576,31 +597,58 @@ export default function AdminTeamPage() {
                     onChange={(e) =>
                       setNewMember({ ...newMember, territory: e.target.value })
                     }
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900 text-sm"
                   />
+                </div>
+
+                {/* Initial Duty Status */}
+                <div className="space-y-1">
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider">
+                    Initial Duty Status
+                  </label>
+                  <select
+                    value={newMember.status}
+                    onChange={(e) =>
+                      setNewMember({
+                        ...newMember,
+                        status: e.target.value as TeamMember["status"],
+                      })
+                    }
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900 text-sm"
+                  >
+                    <option value="Available">Available (Ready for assignment)</option>
+                    <option value="Active On-Site">Active On-Site (In the field)</option>
+                    <option value="On Survey">On Survey (Rooftop assessment)</option>
+                    <option value="Off-Duty">Off-Duty</option>
+                  </select>
                 </div>
               </div>
 
-              {/* Multi-Select & Custom Tag Input */}
-              <div className="space-y-2">
-                <label className="block font-bold text-slate-700 uppercase tracking-wider">
-                  Skills & Certifications (Multi-Select & Custom)
-                </label>
+              {/* Skills & Certifications Section */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider">
+                    Skills & Technical Certifications
+                  </label>
+                  <span className="text-[11px] text-slate-400">
+                    {selectedSkills.length} selected
+                  </span>
+                </div>
 
                 {/* Selected Skills Chips */}
                 {selectedSkills.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 rounded-xl border border-slate-200 min-h-[36px]">
+                  <div className="flex flex-wrap gap-1.5 p-3 bg-slate-50 rounded-2xl border border-slate-200 min-h-[44px]">
                     {selectedSkills.map((skill) => (
                       <span
                         key={skill}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-solar-deep text-xs font-semibold rounded-lg border border-emerald-200/80 animate-in fade-in"
+                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-solar-deep text-xs font-semibold rounded-xl border border-emerald-200/80 animate-in fade-in"
                       >
                         <Tag className="w-3 h-3 text-solar-emerald" />
                         <span>{skill}</span>
                         <button
                           type="button"
                           onClick={() => removeSkillTag(skill)}
-                          className="p-0.5 rounded-md hover:bg-emerald-200/60 text-emerald-800 cursor-pointer"
+                          className="p-0.5 rounded-md hover:bg-emerald-200/60 text-emerald-800 cursor-pointer transition-colors"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -610,15 +658,16 @@ export default function AdminTeamPage() {
                 )}
 
                 {/* Dropdown Toggle & Custom Write-in Row */}
-                <div className="relative" ref={dropdownRef}>
-                  <div className="flex gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {/* Predefined Dropdown Trigger */}
+                  <div className="relative" ref={dropdownRef}>
                     <button
                       type="button"
                       onClick={() => setIsSkillDropdownOpen(!isSkillDropdownOpen)}
-                      className="flex-1 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-left text-slate-700 flex items-center justify-between transition-colors cursor-pointer"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-left text-slate-700 flex items-center justify-between transition-colors cursor-pointer text-xs font-medium"
                     >
                       <span className="truncate">
-                        {isSkillDropdownOpen ? "Close Skills List" : "Select from Solar Skills..."}
+                        {isSkillDropdownOpen ? "Close Skills List" : "Select Predefined Skills..."}
                       </span>
                       <ChevronDown
                         className={`w-4 h-4 text-slate-400 transition-transform ${
@@ -626,76 +675,77 @@ export default function AdminTeamPage() {
                         }`}
                       />
                     </button>
+
+                    {/* Dropdown Options Box */}
+                    {isSkillDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-2xl shadow-xl border border-slate-200 p-2.5 z-50 space-y-1.5 max-h-56 overflow-y-auto">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 py-1">
+                          Click to toggle skill:
+                        </div>
+                        <div className="grid grid-cols-1 gap-1">
+                          {PREDEFINED_SKILLS.map((skill) => {
+                            const isSelected = selectedSkills.includes(skill);
+                            return (
+                              <button
+                                key={skill}
+                                type="button"
+                                onClick={() => toggleSkill(skill)}
+                                className={`w-full px-3 py-2 rounded-xl text-left flex items-center justify-between text-xs transition-colors cursor-pointer ${
+                                  isSelected
+                                    ? "bg-emerald-50 text-solar-deep font-bold border border-emerald-200/80"
+                                    : "hover:bg-slate-50 text-slate-700"
+                                }`}
+                              >
+                                <span>{skill}</span>
+                                {isSelected && (
+                                  <Check className="w-4 h-4 text-solar-emerald shrink-0" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Dropdown Menu */}
-                  {isSkillDropdownOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-2xl shadow-xl border border-slate-200 p-3 z-50 space-y-2 max-h-56 overflow-y-auto">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">
-                        Select Solar Expertise (Click to toggle)
-                      </div>
-                      <div className="grid grid-cols-1 gap-1">
-                        {PREDEFINED_SKILLS.map((skill) => {
-                          const isSelected = selectedSkills.includes(skill);
-                          return (
-                            <button
-                              key={skill}
-                              type="button"
-                              onClick={() => toggleSkill(skill)}
-                              className={`w-full px-3 py-2 rounded-xl text-left flex items-center justify-between text-xs transition-colors cursor-pointer ${
-                                isSelected
-                                  ? "bg-emerald-50 text-solar-deep font-bold border border-emerald-200/80"
-                                  : "hover:bg-slate-50 text-slate-700"
-                              }`}
-                            >
-                              <span>{skill}</span>
-                              {isSelected && (
-                                <Check className="w-4 h-4 text-solar-emerald shrink-0" />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Custom Write-in Input */}
-                <div className="flex gap-2 pt-1">
-                  <input
-                    type="text"
-                    placeholder="Or type custom skill / certification..."
-                    value={customSkillInput}
-                    onChange={(e) => setCustomSkillInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleAddCustomSkill();
-                      }
-                    }}
-                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddCustomSkill}
-                    className="px-3.5 py-2 bg-slate-100 hover:bg-emerald-50 hover:text-solar-deep text-slate-700 font-bold rounded-xl border border-slate-200 transition-colors shrink-0 cursor-pointer"
-                  >
-                    + Add Tag
-                  </button>
+                  {/* Custom Write-in Input */}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Type custom skill..."
+                      value={customSkillInput}
+                      onChange={(e) => setCustomSkillInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddCustomSkill();
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900 text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCustomSkill}
+                      className="px-3 py-2 bg-slate-100 hover:bg-emerald-50 hover:text-solar-deep text-slate-700 font-bold rounded-xl border border-slate-200 transition-colors shrink-0 cursor-pointer text-xs"
+                    >
+                      + Add
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
+              {/* Modal Footer Buttons */}
+              <div className="pt-4 flex justify-end gap-2.5 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 font-semibold text-slate-700 cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 cursor-pointer transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-solar-deep hover:bg-slate-900 text-white font-bold cursor-pointer"
+                  className="px-6 py-2.5 rounded-xl bg-solar-deep hover:bg-slate-900 text-white font-bold cursor-pointer transition-all shadow-md shadow-emerald-950/15"
                 >
                   Save Team Member
                 </button>
