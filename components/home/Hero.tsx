@@ -84,29 +84,6 @@ export function Hero() {
               <span className="truncate">Call Now</span>
             </motion.a>
           </motion.div>
-
-          {/* Clean Structured Grid for Trust Indicators */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.35 }}
-            className="pt-4 sm:pt-6 border-t border-white/15 max-w-3xl"
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-              <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-xs text-slate-200 backdrop-blur-sm">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span className="truncate">PM Surya Ghar Subsidy</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-xs text-slate-200 backdrop-blur-sm">
-                <CheckCircle2 className="w-3.5 h-3.5 text-sun-amber shrink-0" />
-                <span className="truncate">DISCOM Net Metering</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-xs text-slate-200 backdrop-blur-sm">
-                <CheckCircle2 className="w-3.5 h-3.5 text-yellow-300 shrink-0" />
-                <span className="truncate">25-Year Panel Warranty</span>
-              </div>
-            </div>
-          </motion.div>
         </div>
       </div>
 
