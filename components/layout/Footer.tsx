@@ -1,14 +1,17 @@
+"use client";
+
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Sun, Phone, MapPin, Mail, Shield, CheckCircle2, ArrowRight } from "lucide-react";
+import { Phone, Mail, MapPin, Clock, ArrowRight, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 
 export function Footer() {
   return (
-    <footer className="bg-solar-dark text-slate-300 pt-14 pb-10 border-t border-emerald-950">
-      <div className="fluid-container">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-10 pb-10 border-b border-emerald-900/60">
+    <footer className="bg-solar-dark text-slate-300 pt-12 sm:pt-16 pb-10 border-t border-emerald-950">
+      <div className="site-container">
+        {/* Responsive Grid: 1 col on mobile, 2 cols on sm/tablet, 4 cols on desktop */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-10 pb-10 sm:pb-12 border-b border-emerald-900/60">
           {/* Column 1: About */}
           <div className="space-y-4">
             <Link href="/" className="inline-block">
@@ -17,73 +20,59 @@ export function Footer() {
                 alt="Sunlife Solar Energy Solution Logo"
                 width={360}
                 height={150}
-                className="h-16 sm:h-20 w-auto object-contain drop-shadow-xl hover:opacity-95 transition-opacity"
+                className="h-12 sm:h-16 w-auto object-contain drop-shadow-xl hover:opacity-95 transition-opacity"
               />
             </Link>
 
-            <p className="text-slate-300/90 text-sm leading-relaxed">
-              Trusted rooftop solar installation partner for homes, businesses, and industrial facilities in Narmadapuram and across Madhya Pradesh.
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              Professional solar EPC & rooftop installation company based in Narmadapuram, Madhya Pradesh. Founded on {siteConfig.foundedDateFormatted}.
             </p>
 
-            <div className="pt-2 text-xs text-emerald-300/80 space-y-1">
-              <div>
-                <strong className="text-white">Founded:</strong> {siteConfig.foundedDateFormatted}
+            <div className="pt-1">
+              <div className="text-xs font-semibold text-sun-amber">
+                Founder: {siteConfig.owner.name}
               </div>
-              <div>
-                <strong className="text-white">Owner / Founder:</strong> {siteConfig.owner.name}
+              <div className="text-xs text-slate-400">
+                Authorized Solar Energy Specialist
               </div>
             </div>
           </div>
 
-          {/* Column 2: Solutions */}
+          {/* Column 2: Solar Solutions */}
           <div>
-            <h4 className="text-white font-heading font-semibold text-base mb-4 tracking-wide">
+            <h4 className="text-white font-heading font-semibold text-sm sm:text-base mb-3 sm:mb-4 tracking-wide">
               Solar Solutions
             </h4>
-            <ul className="space-y-2.5 text-sm">
+            <ul className="space-y-2 text-xs sm:text-sm">
               <li>
-                <Link
-                  href="/residential-solar"
-                  className="hover:text-sun-amber transition-colors flex items-center gap-1.5"
-                >
-                  <ArrowRight className="w-3 h-3 text-emerald-500" />
+                <Link href="/residential-solar" className="hover:text-sun-amber transition-colors">
                   Residential Rooftop Solar
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/commercial-solar"
-                  className="hover:text-sun-amber transition-colors flex items-center gap-1.5"
-                >
-                  <ArrowRight className="w-3 h-3 text-emerald-500" />
+                <Link href="/commercial-solar" className="hover:text-sun-amber transition-colors">
                   Commercial Solar Systems
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/industrial-solar"
-                  className="hover:text-sun-amber transition-colors flex items-center gap-1.5"
-                >
-                  <ArrowRight className="w-3 h-3 text-emerald-500" />
+                <Link href="/industrial-solar" className="hover:text-sun-amber transition-colors">
                   Industrial Solar Plants
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/rooftop-solar"
-                  className="hover:text-sun-amber transition-colors flex items-center gap-1.5"
-                >
-                  <ArrowRight className="w-3 h-3 text-emerald-500" />
-                  Rooftop Solar Engineering
+                <Link href="/rooftop-solar" className="hover:text-sun-amber transition-colors">
+                  Rooftop Solar & Gazebo Frames
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/solar-panel-installation"
-                  className="hover:text-sun-amber transition-colors flex items-center gap-1.5"
-                >
-                  <ArrowRight className="w-3 h-3 text-emerald-500" />
-                  Solar Installation Process
+                <Link href="/solar-panel-installation" className="hover:text-sun-amber transition-colors">
+                  Installation Quality & Standards
+                </Link>
+              </li>
+              <li>
+                <Link href="/solar-solutions" className="text-sun-amber font-semibold hover:underline inline-flex items-center gap-1 pt-1">
+                  <span>View All Services</span>
+                  <span>→</span>
                 </Link>
               </li>
             </ul>
@@ -91,18 +80,18 @@ export function Footer() {
 
           {/* Column 3: Quick Links */}
           <div>
-            <h4 className="text-white font-heading font-semibold text-base mb-4 tracking-wide">
+            <h4 className="text-white font-heading font-semibold text-sm sm:text-base mb-3 sm:mb-4 tracking-wide">
               Company & Tools
             </h4>
-            <ul className="space-y-2.5 text-sm">
+            <ul className="space-y-2 text-xs sm:text-sm">
               <li>
                 <Link href="/about" className="hover:text-sun-amber transition-colors">
                   About Sunlife Solar
                 </Link>
               </li>
               <li>
-                <Link href="/solar-calculator" className="hover:text-sun-amber transition-colors flex items-center gap-1.5">
-                  <span className="text-sun-amber">★</span> Solar Savings Calculator
+                <Link href="/solar-calculator" className="hover:text-sun-amber transition-colors flex items-center gap-1.5 text-sun-amber font-medium">
+                  <span>★</span> Solar Savings Calculator
                 </Link>
               </li>
               <li>
@@ -134,13 +123,13 @@ export function Footer() {
           </div>
 
           {/* Column 4: Contact & Office */}
-          <div className="space-y-3.5 text-sm">
-            <h4 className="text-white font-heading font-semibold text-base mb-4 tracking-wide">
+          <div className="space-y-3 text-xs sm:text-sm">
+            <h4 className="text-white font-heading font-semibold text-sm sm:text-base mb-3 sm:mb-4 tracking-wide">
               Office Location
             </h4>
             <div className="flex items-start gap-2.5">
-              <MapPin className="w-4 h-4 text-sun-amber shrink-0 mt-1" />
-              <div className="leading-relaxed text-slate-300 text-xs sm:text-sm">
+              <MapPin className="w-4 h-4 text-sun-amber shrink-0 mt-0.5" />
+              <div className="leading-relaxed text-slate-300">
                 {siteConfig.contact.address.street},
                 <br />
                 {siteConfig.contact.address.city}, {siteConfig.contact.address.state} – {siteConfig.contact.address.postalCode}
@@ -151,13 +140,13 @@ export function Footer() {
               <Phone className="w-4 h-4 text-sun-amber shrink-0" />
               <a
                 href={`tel:${siteConfig.contact.phoneClean}`}
-                className="text-white font-semibold hover:text-sun-amber transition-colors text-sm"
+                className="text-white font-bold hover:text-sun-amber transition-colors"
               >
                 {siteConfig.contact.phoneDisplay}
               </a>
             </div>
 
-            <div className="pt-2">
+            <div className="pt-1">
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-900/60 border border-emerald-700/40 text-xs text-emerald-200">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                 Serving Narmadapuram & Central MP
@@ -167,11 +156,11 @@ export function Footer() {
         </div>
 
         {/* Footer Bottom */}
-        <div className="pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-400">
+        <div className="pt-6 sm:pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-400 text-center sm:text-left">
           <div>
             © {new Date().getFullYear()} {siteConfig.name}. All rights reserved.
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
             <span>Clean Energy • Engineering Excellence • Local Trust</span>
             <Link
               href="/admin/login"

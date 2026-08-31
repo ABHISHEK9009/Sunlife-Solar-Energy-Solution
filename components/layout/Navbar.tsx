@@ -5,12 +5,12 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  Sun,
-  ChevronDown,
   Menu,
   X,
-  ArrowRight,
   Phone,
+  ChevronDown,
+  ArrowRight,
+  ShieldCheck,
   Zap,
 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
@@ -21,6 +21,7 @@ export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [solutionsOpen, setSolutionsOpen] = useState(false);
+  const [mobileSolutionsOpen, setMobileSolutionsOpen] = useState(false);
   const [quoteModalOpen, setQuoteModalOpen] = useState(false);
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export function Navbar() {
   useEffect(() => {
     setMobileMenuOpen(false);
     setSolutionsOpen(false);
+    setMobileSolutionsOpen(false);
   }, [pathname]);
 
   const solutions = siteConfig.navLinks.find((l) => l.name === "Solutions")?.children || [];
@@ -47,29 +49,29 @@ export function Navbar() {
       <header
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           isScrolled
-            ? "py-2.5 bg-slate-950/90 backdrop-blur-xl border-b border-white/10 shadow-lg"
-            : "py-3 sm:py-4 bg-transparent"
+            ? "py-2 sm:py-2.5 bg-slate-950/95 backdrop-blur-xl border-b border-white/10 shadow-xl"
+            : "py-2.5 sm:py-3.5 bg-slate-950/80 backdrop-blur-md lg:bg-transparent"
         }`}
       >
-        <div className="fluid-container flex items-center justify-between gap-4">
-          {/* Left Brand Logo - Prominent & Bold Vector */}
-          <Link href="/" className="flex items-center group shrink-0 py-1">
+        <div className="site-container flex items-center justify-between gap-3">
+          {/* Left Brand Logo - Scaled responsibly across breakpoints */}
+          <Link href="/" className="flex items-center group shrink-0 py-0.5">
             <Image
               src="/logo/logo.svg"
               alt="Sunlife Solar Energy Solution Logo"
-              width={380}
-              height={160}
-              className="h-14 sm:h-18 md:h-20 lg:h-22 xl:h-24 w-auto object-contain drop-shadow-2xl group-hover:scale-105 transition-all duration-300"
+              width={340}
+              height={140}
+              className="h-9 sm:h-12 md:h-16 lg:h-20 xl:h-22 w-auto object-contain drop-shadow-2xl group-hover:scale-105 transition-all duration-300"
               priority
             />
           </Link>
 
-          {/* Right Floating Nav Pill (Matching Reference Design) */}
+          {/* Right Floating Nav Pill (Desktop lg: 1024px+) */}
           <nav className="hidden lg:flex items-center bg-white/95 backdrop-blur-md rounded-full px-2 py-1.5 shadow-xl border border-white/60">
-            <div className="flex items-center gap-1 px-2">
+            <div className="flex items-center gap-0.5 xl:gap-1 px-1">
               <Link
                 href="/"
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
                   pathname === "/"
                     ? "bg-slate-200/80 text-solar-dark"
                     : "text-slate-700 hover:text-solar-dark hover:bg-slate-100/70"
@@ -80,7 +82,7 @@ export function Navbar() {
 
               <Link
                 href="/about"
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
                   pathname === "/about"
                     ? "bg-slate-200/80 text-solar-dark"
                     : "text-slate-700 hover:text-solar-dark hover:bg-slate-100/70"
@@ -96,7 +98,7 @@ export function Navbar() {
                 onMouseLeave={() => setSolutionsOpen(false)}
               >
                 <button
-                  className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
                     pathname.includes("solar") &&
                     pathname !== "/solar-calculator" &&
                     pathname !== "/solar-subsidy"
@@ -144,18 +146,18 @@ export function Navbar() {
 
               <Link
                 href="/solar-calculator"
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-1 ${
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
                   pathname === "/solar-calculator"
                     ? "bg-slate-200/80 text-solar-dark"
                     : "text-slate-700 hover:text-solar-dark hover:bg-slate-100/70"
                 }`}
               >
-                <span>Calculator</span>
+                Calculator
               </Link>
 
               <Link
                 href="/solar-subsidy"
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
                   pathname === "/solar-subsidy"
                     ? "bg-slate-200/80 text-solar-dark"
                     : "text-slate-700 hover:text-solar-dark hover:bg-slate-100/70"
@@ -166,7 +168,7 @@ export function Navbar() {
 
               <Link
                 href="/projects"
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
                   pathname === "/projects"
                     ? "bg-slate-200/80 text-solar-dark"
                     : "text-slate-700 hover:text-solar-dark hover:bg-slate-100/70"
@@ -177,7 +179,7 @@ export function Navbar() {
 
               <Link
                 href="/faqs"
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
                   pathname === "/faqs"
                     ? "bg-slate-200/80 text-solar-dark"
                     : "text-slate-700 hover:text-solar-dark hover:bg-slate-100/70"
@@ -188,7 +190,7 @@ export function Navbar() {
 
               <Link
                 href="/contact"
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
                   pathname === "/contact"
                     ? "bg-slate-200/80 text-solar-dark"
                     : "text-slate-700 hover:text-solar-dark hover:bg-slate-100/70"
@@ -198,27 +200,27 @@ export function Navbar() {
               </Link>
             </div>
 
-            {/* Nested CTA Pill Button (Inside the pill on the right, as in reference) */}
+            {/* Nested CTA Pill Button */}
             <button
               onClick={() => setQuoteModalOpen(true)}
-              className="ml-2 inline-flex items-center gap-1.5 px-5 py-2.5 bg-gradient-to-r from-solar-dark to-solar-deep hover:from-solar-deep hover:to-solar-emerald text-white rounded-full text-xs font-bold uppercase tracking-wider shadow-md hover:shadow-lg transition-all group cursor-pointer"
+              className="ml-1.5 inline-flex items-center gap-1.5 px-4 xl:px-5 py-2.5 bg-gradient-to-r from-solar-dark to-solar-deep hover:from-solar-deep hover:to-solar-emerald text-white rounded-full text-xs font-bold uppercase tracking-wider shadow-md hover:shadow-lg transition-all group cursor-pointer"
             >
               <span>Get Free Quote</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </button>
           </nav>
 
-          {/* Mobile Right Bar */}
+          {/* Mobile Right Controls (< 1024px) */}
           <div className="flex items-center gap-2 lg:hidden">
             <button
               onClick={() => setQuoteModalOpen(true)}
-              className="px-3.5 py-1.5 bg-sun-amber text-slate-950 text-xs font-bold rounded-full shadow-sm"
+              className="px-3.5 py-1.5 bg-gradient-to-r from-sun-amber to-amber-500 text-slate-950 text-xs font-extrabold rounded-full shadow-md"
             >
-              Quote
+              Get Quote
             </button>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-xl bg-white/10 text-white hover:bg-white/20 backdrop-blur-md"
+              className="p-2 rounded-xl bg-white/10 text-white hover:bg-white/20 border border-white/15 backdrop-blur-md transition-colors"
               aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -228,78 +230,111 @@ export function Navbar() {
 
         {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
-          <div className="lg:hidden mt-3 mx-4 bg-slate-900/95 backdrop-blur-2xl border border-white/15 rounded-3xl p-5 space-y-2 text-white shadow-2xl animate-in slide-in-from-top-2 duration-200">
-            <Link
-              href="/"
-              className="block px-3 py-2 rounded-xl text-sm font-semibold hover:bg-white/10"
-            >
-              Home
-            </Link>
-            <Link
-              href="/about"
-              className="block px-3 py-2 rounded-xl text-sm font-semibold hover:bg-white/10"
-            >
-              About Sunlife
-            </Link>
-            <Link
-              href="/solar-solutions"
-              className="block px-3 py-2 rounded-xl text-sm font-semibold hover:bg-white/10"
-            >
-              Solar Solutions
-            </Link>
-            <Link
-              href="/solar-calculator"
-              className="block px-3 py-2 rounded-xl text-sm font-semibold text-sun-amber hover:bg-white/10"
-            >
-              Solar Calculator
-            </Link>
-            <Link
-              href="/solar-subsidy"
-              className="block px-3 py-2 rounded-xl text-sm font-semibold hover:bg-white/10"
-            >
-              Subsidy Guide
-            </Link>
-            <Link
-              href="/projects"
-              className="block px-3 py-2 rounded-xl text-sm font-semibold hover:bg-white/10"
-            >
-              Projects Portfolio
-            </Link>
-            <Link
-              href="/blog"
-              className="block px-3 py-2 rounded-xl text-sm font-semibold hover:bg-white/10"
-            >
-              Blog & Guides
-            </Link>
-            <Link
-              href="/faqs"
-              className="block px-3 py-2 rounded-xl text-sm font-semibold hover:bg-white/10"
-            >
-              FAQs
-            </Link>
+          <div className="lg:hidden mt-2 mx-3 sm:mx-6 bg-slate-950/95 backdrop-blur-2xl border border-white/15 rounded-3xl p-5 space-y-3 text-white shadow-2xl animate-in slide-in-from-top-2 duration-200 max-h-[85vh] overflow-y-auto">
+            <div className="grid grid-cols-2 gap-2">
+              <Link
+                href="/"
+                className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-xs font-bold uppercase tracking-wider text-center"
+              >
+                Home
+              </Link>
+              <Link
+                href="/about"
+                className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-xs font-bold uppercase tracking-wider text-center"
+              >
+                About Us
+              </Link>
+              <Link
+                href="/solar-calculator"
+                className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-xs font-bold uppercase tracking-wider text-center text-sun-amber"
+              >
+                Calculator
+              </Link>
+              <Link
+                href="/solar-subsidy"
+                className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-xs font-bold uppercase tracking-wider text-center"
+              >
+                Subsidy
+              </Link>
+              <Link
+                href="/projects"
+                className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-xs font-bold uppercase tracking-wider text-center"
+              >
+                Projects
+              </Link>
+              <Link
+                href="/faqs"
+                className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-xs font-bold uppercase tracking-wider text-center"
+              >
+                FAQs
+              </Link>
+            </div>
+
+            {/* Mobile Solutions Accordion */}
+            <div className="pt-2 border-t border-white/10">
+              <button
+                onClick={() => setMobileSolutionsOpen(!mobileSolutionsOpen)}
+                className="w-full flex items-center justify-between p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-xs font-bold uppercase tracking-wider"
+              >
+                <span>Solar Solutions</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${mobileSolutionsOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {mobileSolutionsOpen && (
+                <div className="grid grid-cols-1 gap-1.5 mt-2 pl-2">
+                  {solutions.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="p-2.5 rounded-xl bg-white/[0.03] hover:bg-emerald-500/20 text-xs text-slate-200 hover:text-white font-medium flex items-center justify-between"
+                    >
+                      <span>{item.name}</span>
+                      <span className="text-[10px] text-emerald-400">View →</span>
+                    </Link>
+                  ))}
+                  <Link
+                    href="/solar-solutions"
+                    className="p-2.5 rounded-xl bg-solar-deep/50 text-xs font-bold text-sun-amber text-center"
+                  >
+                    View All Solutions Overview
+                  </Link>
+                </div>
+              )}
+            </div>
+
             <Link
               href="/contact"
-              className="block px-3 py-2 rounded-xl text-sm font-semibold hover:bg-white/10"
+              className="block p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-xs font-bold uppercase tracking-wider text-center"
             >
-              Contact Us
+              Contact & Location
             </Link>
 
-            <div className="pt-3 border-t border-white/10 flex flex-col gap-2">
+            {/* Direct Action CTAs in Drawer */}
+            <div className="pt-3 border-t border-white/10 space-y-2">
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
                   setQuoteModalOpen(true);
                 }}
-                className="w-full py-3 bg-sun-amber text-slate-950 text-xs font-bold uppercase tracking-wider rounded-xl text-center shadow-md"
+                className="w-full py-3.5 bg-gradient-to-r from-sun-amber to-amber-500 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-2xl shadow-lg flex items-center justify-center gap-2"
               >
-                Get Free Solar Quote
+                <span>Get Free Solar Quote</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
+
+              <a
+                href={`tel:${siteConfig.contact.phoneClean}`}
+                className="w-full py-3 bg-white/10 text-white font-semibold text-xs rounded-2xl flex items-center justify-center gap-2 border border-white/15"
+              >
+                <Phone className="w-4 h-4 text-sun-amber" />
+                <span>Call {siteConfig.contact.phoneDisplay}</span>
+              </a>
             </div>
           </div>
         )}
       </header>
 
-      {/* Quote Modal */}
+      {/* Quote Form Modal */}
       <LeadQuoteModal
         isOpen={quoteModalOpen}
         onClose={() => setQuoteModalOpen(false)}

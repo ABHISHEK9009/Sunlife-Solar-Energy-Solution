@@ -50,45 +50,45 @@ export function WhySolar() {
   ];
 
   return (
-    <section className="fluid-py bg-slate-50 border-b border-slate-200/80">
-      <div className="fluid-container">
+    <section className="section-py bg-slate-50 border-b border-slate-200/80">
+      <div className="site-container">
         <motion.div
-          initial={{ opacity: 0, y: 25 }}
+          initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.6 }}
-          className="text-center max-w-3xl mx-auto mb-14"
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.5 }}
+          className="text-center max-w-3xl mx-auto mb-8 sm:mb-12 md:mb-14"
         >
           <span className="text-xs font-bold text-solar-emerald uppercase tracking-wider bg-emerald-100/80 px-3.5 py-1.5 rounded-full inline-block mb-3">
             Core Advantages
           </span>
-          <h2 className="fluid-h2 font-extrabold font-heading text-slate-950">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold font-heading text-slate-950 leading-tight">
             Why Switch to Solar Energy?
           </h2>
-          <p className="fluid-p text-slate-600 mt-3 leading-relaxed">
+          <p className="text-sm sm:text-base text-slate-600 mt-3 leading-relaxed">
             A transition to solar provides financial stability, technical autonomy, and measurable environmental benefits for decades to come.
           </p>
         </motion.div>
 
-        {/* Intrinsic Fluid Grid 3 with Staggered Entrance */}
-        <div className="fluid-grid-3">
+        {/* Responsive Grid: 1 col on mobile, 2 cols on sm, 3 cols on lg */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-5 lg:gap-6">
           {benefits.map((b, idx) => {
             const Icon = b.icon;
             return (
               <motion.div
                 key={idx}
-                initial={{ opacity: 0, y: 25 }}
+                initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{ duration: 0.5, delay: idx * 0.08 }}
-                whileHover={{ y: -6, scale: 1.02 }}
-                className="p-8 rounded-3xl bg-white border border-slate-200/80 hover:border-emerald-500/40 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col justify-between"
+                viewport={{ once: true, margin: "-40px" }}
+                transition={{ duration: 0.4, delay: idx * 0.06 }}
+                whileHover={{ y: -4 }}
+                className="p-5 sm:p-6 md:p-7 rounded-3xl bg-white border border-slate-200/80 hover:border-emerald-500/40 shadow-sm hover:shadow-lg transition-all duration-300 group flex flex-col justify-between"
               >
-                <div className="space-y-4">
-                  <div className="w-12 h-12 rounded-2xl bg-solar-light text-solar-deep flex items-center justify-center group-hover:bg-solar-deep group-hover:text-sun-amber transition-colors duration-300 shadow-sm">
-                    <Icon className="w-6 h-6" />
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-solar-light text-solar-deep flex items-center justify-center group-hover:bg-solar-deep group-hover:text-sun-amber transition-colors duration-300 shadow-sm">
+                    <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
-                  <h3 className="font-heading font-bold text-lg text-slate-900 leading-snug">
+                  <h3 className="font-heading font-bold text-base sm:text-lg text-slate-900 leading-snug">
                     {b.title}
                   </h3>
                   <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
@@ -102,17 +102,17 @@ export function WhySolar() {
 
         {/* Action button */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 15 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-          className="mt-12 text-center"
+          transition={{ duration: 0.4, delay: 0.3 }}
+          className="mt-8 sm:mt-12 text-center"
         >
           <motion.button
-            whileHover={{ scale: 1.04, y: -2 }}
+            whileHover={{ scale: 1.03, y: -2 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setModalOpen(true)}
-            className="inline-flex items-center gap-2 px-8 py-4 bg-solar-deep hover:bg-solar-dark text-white font-bold text-sm sm:text-base rounded-full shadow-lg shadow-emerald-950/20 transition-all group cursor-pointer"
+            className="inline-flex items-center gap-2 px-7 py-3.5 sm:px-8 sm:py-4 bg-solar-deep hover:bg-solar-dark text-white font-bold text-xs sm:text-sm md:text-base rounded-full shadow-lg shadow-emerald-950/20 transition-all group cursor-pointer"
           >
             <span>Claim Your Free Solar Consultation</span>
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
