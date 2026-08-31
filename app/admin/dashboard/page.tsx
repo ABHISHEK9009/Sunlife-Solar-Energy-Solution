@@ -18,6 +18,7 @@ import {
   Building2,
   Home,
   Factory,
+  MessageSquare,
 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 
@@ -50,168 +51,179 @@ export default function AdminDashboardPage() {
   const contactedLeads = leads.filter((l) => l.status === "CONTACTED");
   const completedLeads = leads.filter((l) => l.status === "COMPLETED");
 
-  const residentialCount = leads.filter((l) => (l.propertyType || "").toLowerCase().includes("res")).length;
-  const commercialCount = leads.filter((l) => (l.propertyType || "").toLowerCase().includes("com")).length;
-  const industrialCount = leads.filter((l) => (l.propertyType || "").toLowerCase().includes("ind")).length;
+  const residentialCount = leads.filter((l) =>
+    (l.propertyType || "").toLowerCase().includes("res")
+  ).length;
+  const commercialCount = leads.filter((l) =>
+    (l.propertyType || "").toLowerCase().includes("com")
+  ).length;
+  const industrialCount = leads.filter((l) =>
+    (l.propertyType || "").toLowerCase().includes("ind")
+  ).length;
+
+  const totalCategorized = residentialCount + commercialCount + industrialCount || 1;
+  const resPercent = Math.round((residentialCount / totalCategorized) * 100);
+  const comPercent = Math.round((commercialCount / totalCategorized) * 100);
+  const indPercent = Math.round((industrialCount / totalCategorized) * 100);
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      {/* Top Banner with Quick Actions */}
-      <div className="bg-gradient-to-r from-solar-dark via-solar-deep to-emerald-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-sun-amber text-xs font-semibold uppercase tracking-wider">
-            <ShieldCheck className="w-3.5 h-3.5" /> Founder & Admin Center
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold font-heading">
-            Welcome, Rahul Kumar Bamne
+      {/* Clean Page Title Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900 tracking-tight">
+            Dashboard Overview
           </h1>
-          <p className="text-emerald-100/90 text-xs sm:text-sm max-w-xl">
-            Real-time management portal for solar inquiries, rooftop surveys, and customer estimates across Central Madhya Pradesh.
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Welcome, Rahul. Here is what is happening with Sunlife Solar leads & inquiries.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0">
           <button
             onClick={fetchDashboardData}
             disabled={loading}
-            className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer"
+            className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-            <span>Sync Data</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-solar-deep" : ""}`} />
+            <span>Sync</span>
           </button>
 
           <Link
             href="/admin/leads"
-            className="px-5 py-2.5 rounded-xl bg-sun-amber hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-lg flex items-center gap-1.5 transition-all"
+            className="px-4 py-2 bg-solar-deep hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5"
           >
-            <span>View All Leads</span>
+            <span>All Leads</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
       </div>
 
-      {/* 4 Stat KPI Cards */}
+      {/* 4 Crisp KPI Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
-        {/* Card 1: Total Leads */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        {/* Card 1 */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Total Inquiries
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Total Leads
             </span>
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-50 text-solar-deep flex items-center justify-center">
-              <Users className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
+              <Users className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
+          <div className="mt-4">
             <div className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900">
-              {loading ? "..." : leads.length}
+              {loading ? "-" : leads.length}
             </div>
-            <div className="text-[11px] text-emerald-600 font-semibold mt-1 flex items-center gap-1">
-              <span>{newLeads.length} new awaiting review</span>
+            <div className="text-[11px] text-emerald-600 font-semibold mt-1">
+              {newLeads.length} new awaiting review
             </div>
           </div>
         </div>
 
-        {/* Card 2: New Leads */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        {/* Card 2 */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              New Leads
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              New Inquiries
             </span>
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <AlertCircle className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <AlertCircle className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
+          <div className="mt-4">
             <div className="text-2xl sm:text-3xl font-extrabold font-heading text-amber-600">
-              {loading ? "..." : newLeads.length}
+              {loading ? "-" : newLeads.length}
             </div>
             <div className="text-[11px] text-slate-500 mt-1">
-              Direct form submissions
+              Direct quote requests
             </div>
           </div>
         </div>
 
-        {/* Card 3: Calculator Estimates */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        {/* Card 3 */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Solar Estimates
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Calculations
             </span>
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Zap className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-solar-deep flex items-center justify-center">
+              <Zap className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
+          <div className="mt-4">
             <div className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900">
-              {loading ? "..." : estimates.length}
+              {loading ? "-" : estimates.length}
             </div>
-            <div className="text-[11px] text-blue-600 font-semibold mt-1">
-              Calculated on website
+            <div className="text-[11px] text-solar-deep font-semibold mt-1">
+              Generated on website
             </div>
           </div>
         </div>
 
-        {/* Card 4: Service Territory */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        {/* Card 4 */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Primary Hub
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Primary Region
             </span>
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-              <MapPin className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+              <MapPin className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-base sm:text-lg font-extrabold font-heading text-slate-900 truncate">
-              Narmadapuram, MP
+          <div className="mt-4">
+            <div className="text-lg sm:text-xl font-bold font-heading text-slate-900 truncate">
+              Narmadapuram
             </div>
             <div className="text-[11px] text-slate-500 mt-1 truncate">
-              Itarsi • Babai • Pipariya
+              MP Central Division
             </div>
           </div>
         </div>
       </div>
 
-      {/* Grid: 2 Columns on Desktop */}
+      {/* Main 2-Column Split */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
-        {/* Left Column: Recent Leads (7 Cols) */}
-        <div className="lg:col-span-8 bg-white rounded-3xl p-5 sm:p-7 border border-slate-200 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+        {/* Left Column: Recent Lead Submissions (8 Cols) */}
+        <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
             <div>
-              <h2 className="text-base sm:text-lg font-bold font-heading text-slate-900">
-                Recent Lead Submissions
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 font-heading">
+                Recent Inquiries
               </h2>
-              <p className="text-xs text-slate-500">
-                Latest customer quote inquiries requiring follow-up
+              <p className="text-xs text-slate-500 mt-0.5">
+                Latest customer quote & consultation submissions
               </p>
             </div>
+
             <Link
               href="/admin/leads"
-              className="text-xs font-bold text-solar-deep hover:underline flex items-center gap-1"
+              className="text-xs font-bold text-solar-deep hover:underline inline-flex items-center gap-1"
             >
-              <span>View All</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <span>View All ({leads.length})</span>
+              <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
 
           {loading ? (
-            <div className="py-12 text-center text-xs text-slate-400">
+            <div className="py-14 text-center text-xs text-slate-400">
               <RefreshCw className="w-5 h-5 animate-spin mx-auto text-solar-deep mb-2" />
-              Loading inquiries...
+              Loading database records...
             </div>
           ) : leads.length === 0 ? (
-            <div className="py-12 text-center text-xs text-slate-400">
-              No leads currently in the database.
+            <div className="py-14 text-center text-xs text-slate-400 space-y-1">
+              <Users className="w-7 h-7 text-slate-300 mx-auto mb-1" />
+              <p className="font-semibold text-slate-600">No leads recorded in database yet.</p>
+              <p>When customers fill out the quote or contact forms, they will show up here.</p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
               {leads.slice(0, 5).map((lead) => (
                 <div
                   key={lead.id}
-                  className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/80 -mx-2 px-2 rounded-xl transition-colors"
+                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors"
                 >
-                  <div className="space-y-0.5">
+                  <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-slate-900 text-sm">
                         {lead.name}
@@ -228,7 +240,8 @@ export default function AdminDashboardPage() {
                         {lead.status}
                       </span>
                     </div>
-                    <div className="text-xs text-slate-500 flex flex-wrap items-center gap-3">
+
+                    <div className="text-xs text-slate-500 flex flex-wrap items-center gap-2.5">
                       <span className="flex items-center gap-1 text-slate-700 font-medium">
                         <MapPin className="w-3 h-3 text-slate-400" />
                         {lead.city || "Narmadapuram"}
@@ -243,10 +256,19 @@ export default function AdminDashboardPage() {
                   <div className="flex items-center gap-2 shrink-0">
                     <a
                       href={`tel:${lead.phone}`}
-                      className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-emerald-50 hover:text-solar-deep text-slate-700 font-semibold text-xs flex items-center gap-1 transition-colors"
+                      className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-emerald-50 hover:text-solar-deep text-slate-700 font-semibold text-xs flex items-center gap-1.5 transition-colors"
                     >
                       <Phone className="w-3.5 h-3.5 text-solar-deep" />
                       <span>{lead.phone}</span>
+                    </a>
+                    <a
+                      href={`https://wa.me/91${lead.phone.replace(/[^0-9]/g, "")}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors"
+                      title="WhatsApp"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
                     </a>
                   </div>
                 </div>
@@ -255,64 +277,84 @@ export default function AdminDashboardPage() {
           )}
         </div>
 
-        {/* Right Column: Category Distribution & System Status (4 Cols) */}
+        {/* Right Column: Category Distribution & Quick Links (4 Cols) */}
         <div className="lg:col-span-4 space-y-6">
           {/* Solution Mix Card */}
-          <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs space-y-4">
+          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
             <h3 className="font-bold font-heading text-sm text-slate-900">
               Inquiry Categories
             </h3>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-100">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-solar-deep flex items-center justify-center">
-                    <Home className="w-4 h-4" />
-                  </div>
-                  <span className="text-xs font-semibold text-slate-700">Residential</span>
+            <div className="space-y-3 text-xs">
+              <div>
+                <div className="flex justify-between text-slate-700 font-medium mb-1">
+                  <span>Residential Rooftop</span>
+                  <span className="font-bold text-slate-900">{residentialCount}</span>
                 </div>
-                <span className="text-xs font-bold text-slate-900">{residentialCount}</span>
+                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-solar-emerald rounded-full transition-all"
+                    style={{ width: `${resPercent || 15}%` }}
+                  />
+                </div>
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-100">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
-                    <Building2 className="w-4 h-4" />
-                  </div>
-                  <span className="text-xs font-semibold text-slate-700">Commercial</span>
+              <div>
+                <div className="flex justify-between text-slate-700 font-medium mb-1">
+                  <span>Commercial Systems</span>
+                  <span className="font-bold text-slate-900">{commercialCount}</span>
                 </div>
-                <span className="text-xs font-bold text-slate-900">{commercialCount}</span>
+                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 rounded-full transition-all"
+                    style={{ width: `${comPercent || 10}%` }}
+                  />
+                </div>
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-100">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
-                    <Factory className="w-4 h-4" />
-                  </div>
-                  <span className="text-xs font-semibold text-slate-700">Industrial</span>
+              <div>
+                <div className="flex justify-between text-slate-700 font-medium mb-1">
+                  <span>Industrial & Shed EPC</span>
+                  <span className="font-bold text-slate-900">{industrialCount}</span>
                 </div>
-                <span className="text-xs font-bold text-slate-900">{industrialCount}</span>
+                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-amber-500 rounded-full transition-all"
+                    style={{ width: `${indPercent || 5}%` }}
+                  />
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Quick Direct Link to Site */}
-          <div className="bg-gradient-to-br from-slate-950 to-slate-900 rounded-3xl p-5 sm:p-6 text-white space-y-3 border border-slate-800">
-            <div className="flex items-center gap-2 text-xs font-bold text-sun-amber">
-              <Zap className="w-4 h-4" />
-              <span>Production Live Website</span>
-            </div>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Website is running live with high conversion contact forms connected directly to this backend.
+          {/* Service Area Card */}
+          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-3">
+            <h3 className="font-bold font-heading text-sm text-slate-900">
+              Service Network
+            </h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Target operational districts for site surveys and rooftop installations:
             </p>
-            <Link
-              href="/"
-              target="_blank"
-              className="inline-flex items-center gap-2 text-xs font-bold text-white bg-white/10 hover:bg-white/20 px-4 py-2.5 rounded-xl transition-all"
-            >
-              <span>Visit Live Website</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+            <div className="flex flex-wrap gap-1.5 pt-1 text-[11px]">
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-solar-deep font-semibold border border-emerald-200/60">
+                Narmadapuram (HQ)
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium">
+                Itarsi
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium">
+                Pipariya
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium">
+                Babai
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium">
+                Seoni Malwa
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium">
+                Bhopal Region
+              </span>
+            </div>
           </div>
         </div>
       </div>

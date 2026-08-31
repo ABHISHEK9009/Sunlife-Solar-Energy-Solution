@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Lock, User, Eye, EyeOff, ShieldCheck, ArrowRight, Sun, CheckCircle2 } from "lucide-react";
+import { Lock, User, Eye, EyeOff, ShieldCheck, ArrowRight } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 
 export default function AdminLoginPage() {
@@ -58,13 +58,10 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 flex items-center justify-center p-4 sm:p-6 pt-24 sm:pt-28 pb-16">
-      {/* Background Decorative Glow */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-96 h-96 bg-solar-emerald/15 rounded-full blur-3xl pointer-events-none" />
-
-      <div className="relative z-10 w-full max-w-md">
+    <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4 sm:p-6">
+      <div className="w-full max-w-md">
         {/* Card Container */}
-        <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-6 sm:p-10 shadow-2xl border border-white/40 space-y-6 sm:space-y-8">
+        <div className="bg-white rounded-3xl p-6 sm:p-10 shadow-xl border border-slate-200/90 space-y-6">
           {/* Brand Header */}
           <div className="text-center space-y-3">
             <Link href="/" className="inline-block">
@@ -73,7 +70,7 @@ export default function AdminLoginPage() {
                 alt="Sunlife Solar Energy Solution Logo"
                 width={280}
                 height={100}
-                className="h-12 sm:h-14 w-auto mx-auto object-contain drop-shadow"
+                className="h-12 sm:h-14 w-auto mx-auto object-contain"
                 priority
               />
             </Link>
@@ -82,7 +79,7 @@ export default function AdminLoginPage() {
                 Admin Management Portal
               </h1>
               <p className="text-xs text-slate-500 mt-1">
-                Access your leads, inquiries & customer solar estimates
+                Access internal leads, inquiries & customer solar estimates
               </p>
             </div>
           </div>
@@ -109,7 +106,7 @@ export default function AdminLoginPage() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="e.g. admin or 7722995100"
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-solar-deep focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
                   required
                 />
               </div>
@@ -129,13 +126,13 @@ export default function AdminLoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-11 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-solar-deep focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-11 py-2.5 sm:py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
                   aria-label="Toggle password visibility"
                 >
                   {showPassword ? (
@@ -151,18 +148,18 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 sm:py-4 px-6 bg-gradient-to-r from-solar-dark to-solar-deep hover:from-slate-900 hover:to-solar-dark text-white font-bold text-xs sm:text-sm rounded-2xl shadow-xl shadow-emerald-950/20 transition-all flex items-center justify-center gap-2 group cursor-pointer disabled:opacity-70"
+              className="w-full py-3.5 sm:py-4 px-6 bg-solar-deep hover:bg-slate-900 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-emerald-950/15 transition-all flex items-center justify-center gap-2 group cursor-pointer disabled:opacity-70"
             >
               <span>{loading ? "Signing in..." : "Sign In to Dashboard"}</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </button>
           </form>
 
           {/* Quick Notice */}
-          <div className="p-3.5 sm:p-4 rounded-2xl bg-emerald-50/80 border border-emerald-100 flex items-start gap-2.5 sm:gap-3">
+          <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200/80 flex items-start gap-2.5">
             <ShieldCheck className="w-4 h-4 text-solar-emerald shrink-0 mt-0.5" />
             <div className="text-xs text-emerald-900 leading-relaxed">
-              <span className="font-bold">Authorized Access Only:</span> Secure database management portal for Sunlife Solar Energy Solution leads and customer inquiries.
+              <span className="font-bold">Authorized Access:</span> Internal database portal for Sunlife Solar leads and customer inquiries.
             </div>
           </div>
 
