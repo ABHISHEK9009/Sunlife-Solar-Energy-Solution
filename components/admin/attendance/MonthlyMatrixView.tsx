@@ -276,7 +276,7 @@ export function MonthlyMatrixView({
                 <th className="px-3 py-3 bg-slate-50 text-slate-900 font-bold min-w-[75px]">
                   Hours
                 </th>
-                <th className="px-3 py-3 bg-slate-900 text-sun-amber font-bold min-w-[70px]">
+                <th className="px-3 py-3 bg-emerald-50 text-solar-deep font-bold min-w-[70px]">
                   Att %
                 </th>
               </tr>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, Suspense } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
@@ -8,39 +8,26 @@ import { useSearchParams, useRouter } from "next/navigation";
 import html2canvas from "html2canvas";
 import {
   Users,
-  UserCheck,
   Plus,
   Phone,
   MessageSquare,
   MapPin,
-  ShieldCheck,
-  Zap,
   Search,
   CheckCircle2,
-  HardHat,
   X,
   Trash2,
-  ChevronDown,
-  Check,
-  Tag,
   Calendar,
   CreditCard,
   Clock,
-  Briefcase,
-  AlertCircle,
   FileSpreadsheet,
   CheckCheck,
   Smartphone,
-  ExternalLink,
   Edit3,
   Download,
   LogIn,
   LogOut,
-  Sparkles,
   Share2,
-  Printer,
   FileText,
-  TrendingUp,
   BarChart3,
   ImageIcon,
   Loader2,
@@ -748,7 +735,7 @@ function TeamContent() {
             setIsGeneratingImage(false);
             return;
           } catch (shareErr) {
-            console.log("Web share cancelled or failed, falling back to download & link:", shareErr);
+            console.log("Web share cancelled or failed, fallback to download & WhatsApp:", shareErr);
           }
         }
 
@@ -758,7 +745,6 @@ function TeamContent() {
         link.download = `Sunlife_Attendance_Slip_${cleanName}_${selectedMonthYear}.png`;
         link.click();
 
-        // Also trigger WhatsApp
         const waUrl = getWhatsAppShareUrl(member, selectedMonthYear);
         window.open(waUrl, "_blank");
         setIsGeneratingImage(false);
@@ -923,9 +909,9 @@ function TeamContent() {
           <Link
             href="/crew/punch"
             target="_blank"
-            className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-sun-amber text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+            className="px-3.5 py-2.5 bg-solar-deep hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
           >
-            <Smartphone className="w-4 h-4 text-sun-amber" />
+            <Smartphone className="w-4 h-4 text-emerald-300" />
             <span>Open Mobile Punch App ↗</span>
           </Link>
 
@@ -942,7 +928,7 @@ function TeamContent() {
           {activeTab === "profiles" && (
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="px-4 py-2.5 bg-solar-deep hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer"
+              className="px-4 py-2.5 bg-solar-deep hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Add Staff</span>
@@ -962,7 +948,7 @@ function TeamContent() {
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
           }`}
         >
-          <Calendar className={`w-4 h-4 ${activeTab === "attendance" ? "text-sun-amber" : "text-slate-400"}`} />
+          <Calendar className="w-4 h-4" />
           <span>Daily Attendance</span>
           <span
             className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
@@ -984,7 +970,7 @@ function TeamContent() {
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
           }`}
         >
-          <BarChart3 className={`w-4 h-4 ${activeTab === "monthly" ? "text-sun-amber" : "text-slate-400"}`} />
+          <BarChart3 className="w-4 h-4" />
           <span>Monthly Reports & Slips</span>
         </button>
 
@@ -997,7 +983,7 @@ function TeamContent() {
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
           }`}
         >
-          <Users className={`w-4 h-4 ${activeTab === "profiles" ? "text-sun-amber" : "text-slate-400"}`} />
+          <Users className="w-4 h-4" />
           <span>Employee Profiles</span>
           <span
             className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
@@ -1019,7 +1005,7 @@ function TeamContent() {
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
           }`}
         >
-          <CreditCard className={`w-4 h-4 ${activeTab === "payroll" ? "text-sun-amber" : "text-slate-400"}`} />
+          <CreditCard className="w-4 h-4" />
           <span>Payroll & Payment</span>
         </button>
       </div>
@@ -1041,7 +1027,7 @@ function TeamContent() {
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">
+              <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
                 Present Today
               </span>
               <div className="text-2xl font-extrabold font-heading text-solar-deep mt-1">
@@ -1050,28 +1036,28 @@ function TeamContent() {
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wider block">
+              <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">
                 Half Day
               </span>
-              <div className="text-2xl font-extrabold font-heading text-orange-600 mt-1">
+              <div className="text-2xl font-extrabold font-heading text-amber-800 mt-1">
                 {halfDayCount}
               </div>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold text-red-600 uppercase tracking-wider block">
+              <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block">
                 Absent
               </span>
-              <div className="text-2xl font-extrabold font-heading text-red-600 mt-1">
+              <div className="text-2xl font-extrabold font-heading text-rose-800 mt-1">
                 {absentCount}
               </div>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block">
+              <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider block">
                 On Leave
               </span>
-              <div className="text-2xl font-extrabold font-heading text-purple-600 mt-1">
+              <div className="text-2xl font-extrabold font-heading text-purple-800 mt-1">
                 {leaveCount}
               </div>
             </div>
@@ -1085,7 +1071,7 @@ function TeamContent() {
                 <span className="text-xs font-extrabold">
                   Today: {todayFormatted || "Live Today"}
                 </span>
-                <span className="px-2 py-0.5 bg-emerald-600 text-white rounded-md text-[10px] font-bold">
+                <span className="px-2 py-0.5 bg-solar-deep text-white rounded-md text-[10px] font-bold">
                   {liveClockTime || "LIVE"}
                 </span>
               </div>
@@ -1149,8 +1135,8 @@ function TeamContent() {
                     const statusStyles: Record<string, string> = {
                       Present: "bg-emerald-50 text-emerald-800 border-emerald-200",
                       "On Survey": "bg-amber-50 text-amber-900 border-amber-200",
-                      "Half Day": "bg-orange-50 text-orange-800 border-orange-200",
-                      Absent: "bg-red-50 text-red-800 border-red-200",
+                      "Half Day": "bg-amber-50 text-amber-800 border-amber-200",
+                      Absent: "bg-rose-50 text-rose-800 border-rose-200",
                       Leave: "bg-purple-50 text-purple-800 border-purple-200",
                     };
 
@@ -1184,9 +1170,9 @@ function TeamContent() {
                                   : rec.status === "On Survey"
                                   ? "bg-amber-500"
                                   : rec.status === "Half Day"
-                                  ? "bg-orange-500"
+                                  ? "bg-amber-500"
                                   : rec.status === "Absent"
-                                  ? "bg-red-500"
+                                  ? "bg-rose-500"
                                   : "bg-purple-500"
                               }`}
                             />
@@ -1204,7 +1190,7 @@ function TeamContent() {
 
                         <td className="px-6 py-4 font-semibold text-slate-800">
                           {rec.checkOut && rec.checkOut !== "--" ? (
-                            <span className="text-sun-amber font-bold">{rec.checkOut}</span>
+                            <span className="text-amber-800 font-bold">{rec.checkOut}</span>
                           ) : (
                             <span className="text-slate-400">--</span>
                           )}
@@ -1221,9 +1207,9 @@ function TeamContent() {
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               onClick={() => handleOpenUpdateModal(member)}
-                              className="px-3.5 py-1.5 rounded-xl bg-solar-deep hover:bg-slate-900 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                              className="px-3.5 py-1.5 rounded-xl bg-solar-deep hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
                             >
-                              <Edit3 className="w-3.5 h-3.5 text-sun-amber" />
+                              <Edit3 className="w-3.5 h-3.5 text-emerald-300" />
                               <span>Punch</span>
                             </button>
 
@@ -1326,7 +1312,7 @@ function TeamContent() {
                 </div>
 
                 <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-                  <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">
+                  <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
                     Registered Workforce
                   </span>
                   <div className="text-xl font-extrabold font-heading text-solar-deep mt-1">
@@ -1338,7 +1324,7 @@ function TeamContent() {
                 </div>
 
                 <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-                  <span className="text-[10px] font-bold text-sun-amber uppercase tracking-wider block">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                     Payable Wage Calculation
                   </span>
                   <div className="text-xl font-extrabold font-heading text-slate-900 mt-1">
@@ -1350,10 +1336,10 @@ function TeamContent() {
                 </div>
 
                 <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-                  <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block">
+                  <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider block">
                     Direct Sharing
                   </span>
-                  <div className="text-xl font-extrabold font-heading text-purple-700 mt-1">
+                  <div className="text-xl font-extrabold font-heading text-purple-800 mt-1">
                     WhatsApp Enabled
                   </div>
                   <span className="text-[11px] text-slate-500 mt-0.5 block">
@@ -1417,14 +1403,14 @@ function TeamContent() {
                               </span>
                             </td>
 
-                            <td className="px-3 py-4 text-center font-bold text-orange-700">
-                              <span className="px-2.5 py-1 bg-orange-50 rounded-lg border border-orange-200">
+                            <td className="px-3 py-4 text-center font-bold text-amber-800">
+                              <span className="px-2.5 py-1 bg-amber-50 rounded-lg border border-amber-200">
                                 {stats.halfDay}
                               </span>
                             </td>
 
-                            <td className="px-3 py-4 text-center font-bold text-red-700">
-                              <span className="px-2.5 py-1 bg-red-50 rounded-lg border border-red-200">
+                            <td className="px-3 py-4 text-center font-bold text-rose-700">
+                              <span className="px-2.5 py-1 bg-rose-50 rounded-lg border border-rose-200">
                                 {stats.absent}
                               </span>
                             </td>
@@ -1439,7 +1425,7 @@ function TeamContent() {
                               {stats.verifiedPayableDays} Days
                             </td>
 
-                            <td className="px-4 py-4 text-center font-bold text-emerald-600">
+                            <td className="px-4 py-4 text-center font-bold text-emerald-700">
                               {stats.attendancePercentage}%
                             </td>
 
@@ -1475,7 +1461,7 @@ function TeamContent() {
             </div>
           )}
 
-          {/* VIEW MODE 2: INDIVIDUAL EMPLOYEE MONTHLY REPORT SLIP (WITH HOVER TIMESTAMPS & SHARE AS IMAGE) */}
+          {/* VIEW MODE 2: INDIVIDUAL EMPLOYEE MONTHLY REPORT SLIP (CLEAN WHITE AESTHETIC) */}
           {monthlyFilterMemberId !== "ALL" && (() => {
             const singleMember = teamList.find((m) => m.id === monthlyFilterMemberId) || teamList[0];
             if (!singleMember) return null;
@@ -1511,12 +1497,12 @@ function TeamContent() {
                     <button
                       onClick={() => handleDownloadSlipImage(singleMember)}
                       disabled={isGeneratingImage}
-                      className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                      className="px-4 py-2 rounded-xl bg-solar-deep hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-50"
                     >
                       {isGeneratingImage ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
-                        <ImageIcon className="w-4 h-4 text-sun-amber" />
+                        <ImageIcon className="w-4 h-4 text-emerald-300" />
                       )}
                       <span>Download Image (.png)</span>
                     </button>
@@ -1550,7 +1536,7 @@ function TeamContent() {
                     </div>
 
                     <div className="text-left sm:text-right">
-                      <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-xl font-extrabold text-xs inline-block">
+                      <span className="px-3 py-1 bg-emerald-50 text-solar-deep border border-emerald-200 rounded-xl font-extrabold text-xs inline-block">
                         Verified Attendance: {stats.attendancePercentage}%
                       </span>
                     </div>
@@ -1576,18 +1562,18 @@ function TeamContent() {
                     </div>
                   </div>
 
-                  {/* 6 Monthly Stats KPI Cards */}
+                  {/* 6 Clean Monthly Stats KPI Cards */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-                    <div className="bg-emerald-50 border border-emerald-200/80 p-3.5 rounded-2xl">
+                    <div className="bg-emerald-50/70 border border-emerald-200 p-3.5 rounded-2xl">
                       <span className="text-[10px] uppercase font-bold text-emerald-800 block">
                         Present (Full Day)
                       </span>
-                      <div className="text-2xl font-extrabold text-emerald-900 mt-1">
+                      <div className="text-2xl font-extrabold text-solar-deep mt-1">
                         {stats.present} <span className="text-xs font-medium">Days</span>
                       </div>
                     </div>
 
-                    <div className="bg-amber-50 border border-amber-200/80 p-3.5 rounded-2xl">
+                    <div className="bg-amber-50/70 border border-amber-200 p-3.5 rounded-2xl">
                       <span className="text-[10px] uppercase font-bold text-amber-800 block">
                         On Site Survey
                       </span>
@@ -1596,25 +1582,25 @@ function TeamContent() {
                       </div>
                     </div>
 
-                    <div className="bg-orange-50 border border-orange-200/80 p-3.5 rounded-2xl">
-                      <span className="text-[10px] uppercase font-bold text-orange-800 block">
+                    <div className="bg-amber-50/70 border border-amber-200 p-3.5 rounded-2xl">
+                      <span className="text-[10px] uppercase font-bold text-amber-800 block">
                         Half Days
                       </span>
-                      <div className="text-2xl font-extrabold text-orange-900 mt-1">
+                      <div className="text-2xl font-extrabold text-amber-900 mt-1">
                         {stats.halfDay} <span className="text-xs font-medium">Days</span>
                       </div>
                     </div>
 
-                    <div className="bg-red-50 border border-red-200/80 p-3.5 rounded-2xl">
-                      <span className="text-[10px] uppercase font-bold text-red-800 block">
+                    <div className="bg-rose-50/70 border border-rose-200 p-3.5 rounded-2xl">
+                      <span className="text-[10px] uppercase font-bold text-rose-800 block">
                         Absent Days
                       </span>
-                      <div className="text-2xl font-extrabold text-red-900 mt-1">
+                      <div className="text-2xl font-extrabold text-rose-900 mt-1">
                         {stats.absent} <span className="text-xs font-medium">Days</span>
                       </div>
                     </div>
 
-                    <div className="bg-purple-50 border border-purple-200/80 p-3.5 rounded-2xl">
+                    <div className="bg-purple-50/70 border border-purple-200 p-3.5 rounded-2xl">
                       <span className="text-[10px] uppercase font-bold text-purple-800 block">
                         Approved Leave
                       </span>
@@ -1623,23 +1609,23 @@ function TeamContent() {
                       </div>
                     </div>
 
-                    <div className="bg-slate-900 text-white p-3.5 rounded-2xl">
-                      <span className="text-[10px] uppercase font-bold text-sun-amber block">
+                    <div className="bg-emerald-50 border border-emerald-300 p-3.5 rounded-2xl shadow-xs">
+                      <span className="text-[10px] uppercase font-bold text-solar-deep block">
                         Payable Days
                       </span>
-                      <div className="text-2xl font-extrabold text-white mt-1">
+                      <div className="text-2xl font-extrabold text-solar-deep mt-1">
                         {stats.verifiedPayableDays} <span className="text-xs font-medium">Days</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Day-by-Day Calendar Grid with Rich Hover Tooltips */}
+                  {/* Day-by-Day Calendar Grid with Clean White Hover Tooltips */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h4 className="font-bold font-heading text-sm text-slate-900 uppercase tracking-wider">
                         Day-by-Day Attendance Log ({monthNameFormatted})
                       </h4>
-                      <span className="text-[11px] text-slate-400 font-medium">
+                      <span className="text-[11px] text-slate-500 font-medium">
                         💡 Hover on any day card to inspect In/Out punch time & site
                       </span>
                     </div>
@@ -1659,9 +1645,9 @@ function TeamContent() {
                               isPresent
                                 ? "bg-emerald-50/80 border-emerald-200 text-emerald-900 hover:bg-emerald-100 hover:shadow-md hover:border-emerald-400"
                                 : isHalf
-                                ? "bg-orange-50/80 border-orange-200 text-orange-900 hover:bg-orange-100 hover:shadow-md hover:border-orange-400"
+                                ? "bg-amber-50/80 border-amber-200 text-amber-900 hover:bg-amber-100 hover:shadow-md hover:border-amber-400"
                                 : isAbsent
-                                ? "bg-red-50/80 border-red-200 text-red-900 font-bold hover:bg-red-100 hover:shadow-md hover:border-red-400"
+                                ? "bg-rose-50/80 border-rose-200 text-rose-900 font-bold hover:bg-rose-100 hover:shadow-md hover:border-rose-400"
                                 : isLeave
                                 ? "bg-purple-50/80 border-purple-200 text-purple-900 hover:bg-purple-100 hover:shadow-md hover:border-purple-400"
                                 : isSunday
@@ -1681,56 +1667,56 @@ function TeamContent() {
                               <span className="text-[10px] text-slate-400 block mt-1">--</span>
                             )}
 
-                            {/* HOVER TOOLTIP CARD */}
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 bg-slate-900 text-white rounded-2xl p-3 shadow-2xl z-50 text-left pointer-events-none opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
-                              <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-1.5">
-                                <span className="font-extrabold text-[11px] text-sun-amber">
+                            {/* CLEAN WHITE HOVER TOOLTIP CARD */}
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-white text-slate-800 rounded-2xl p-3.5 shadow-xl border border-slate-200 z-50 text-left pointer-events-none opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                              <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-1.5">
+                                <span className="font-extrabold text-[11px] text-slate-900">
                                   Day {item.day} • {item.formattedDate}
                                 </span>
                                 <span
-                                  className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold ${
+                                  className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold border ${
                                     isPresent
-                                      ? "bg-emerald-600 text-white"
+                                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                                       : isHalf
-                                      ? "bg-orange-600 text-white"
+                                      ? "bg-amber-50 text-amber-800 border-amber-200"
                                       : isAbsent
-                                      ? "bg-red-600 text-white"
+                                      ? "bg-rose-50 text-rose-800 border-rose-200"
                                       : isLeave
-                                      ? "bg-purple-600 text-white"
-                                      : "bg-slate-700 text-slate-300"
+                                      ? "bg-purple-50 text-purple-800 border-purple-200"
+                                      : "bg-slate-100 text-slate-600 border-slate-200"
                                   }`}
                                 >
                                   {item.status}
                                 </span>
                               </div>
 
-                              <div className="space-y-1 text-[10px]">
+                              <div className="space-y-1.5 text-[11px]">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-slate-400">Punch In:</span>
-                                  <span className="font-bold text-emerald-400">
+                                  <span className="text-slate-500 font-medium">Punch In:</span>
+                                  <span className="font-bold text-emerald-700">
                                     {item.checkIn || "--"}
                                   </span>
                                 </div>
 
                                 <div className="flex items-center justify-between">
-                                  <span className="text-slate-400">Punch Out:</span>
-                                  <span className="font-bold text-amber-400">
+                                  <span className="text-slate-500 font-medium">Punch Out:</span>
+                                  <span className="font-bold text-slate-800">
                                     {item.checkOut || "--"}
                                   </span>
                                 </div>
 
                                 {item.assignedSite && item.assignedSite !== "--" && (
-                                  <div className="pt-1 border-t border-slate-800">
-                                    <span className="text-slate-400 block">Site:</span>
-                                    <span className="font-medium text-slate-200 truncate block">
+                                  <div className="pt-1.5 border-t border-slate-100">
+                                    <span className="text-slate-400 text-[10px] block">Project Site:</span>
+                                    <span className="font-semibold text-slate-800 truncate block">
                                       {item.assignedSite}
                                     </span>
                                   </div>
                                 )}
                               </div>
 
-                              {/* Tooltip Arrow */}
-                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
+                              {/* Tooltip Arrow (Clean White) */}
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-white" />
                             </div>
                           </div>
                         );
@@ -1771,7 +1757,7 @@ function TeamContent() {
               </div>
               <button
                 onClick={() => setIsAddModalOpen(true)}
-                className="px-4 py-2 bg-solar-deep hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2 bg-solar-deep hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Member</span>
@@ -1873,7 +1859,7 @@ function TeamContent() {
                             <button
                               onClick={() => handleDeleteMember(member.id)}
                               title="Delete Member"
-                              className="p-1.5 rounded-lg bg-red-50 hover:bg-red-600 hover:text-white text-red-600 transition-colors cursor-pointer"
+                              className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600 transition-colors cursor-pointer"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -1904,7 +1890,7 @@ function TeamContent() {
                   Monthly wage calculation based on verified date-wise attendance records
                 </p>
               </div>
-              <span className="px-3 py-1.5 rounded-xl bg-slate-900 text-sun-amber text-xs font-bold">
+              <span className="px-3 py-1.5 rounded-xl bg-emerald-50 text-solar-deep border border-emerald-200 text-xs font-bold">
                 Cycle: {new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
               </span>
             </div>
@@ -1980,7 +1966,7 @@ function TeamContent() {
                             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                               record.paymentStatus === "PAID"
                                 ? "bg-slate-100 hover:bg-amber-50 hover:text-amber-700 text-slate-700 border border-slate-200"
-                                : "bg-solar-deep hover:bg-slate-900 text-white shadow-xs"
+                                : "bg-solar-deep hover:bg-slate-800 text-white shadow-xs"
                             }`}
                           >
                             {record.paymentStatus === "PAID" ? "Mark Pending" : "Mark as Paid"}
@@ -2069,9 +2055,9 @@ function TeamContent() {
                       <button
                         type="button"
                         onClick={handleTriggerPunchIn}
-                        className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all active:scale-95"
+                        className="w-full py-2.5 px-3 rounded-xl bg-solar-deep hover:bg-slate-800 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all active:scale-95"
                       >
-                        <LogIn className="w-4 h-4" />
+                        <LogIn className="w-4 h-4 text-emerald-300" />
                         <span>PUNCH IN</span>
                       </button>
                       <div className="text-center text-[11px] text-slate-600 font-semibold pt-1">
@@ -2090,14 +2076,14 @@ function TeamContent() {
                       <button
                         type="button"
                         onClick={handleTriggerPunchOut}
-                        className="w-full py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all active:scale-95"
+                        className="w-full py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all active:scale-95"
                       >
-                        <LogOut className="w-4 h-4" />
+                        <LogOut className="w-4 h-4 text-amber-200" />
                         <span>PUNCH OUT</span>
                       </button>
                       <div className="text-center text-[11px] text-slate-600 font-semibold pt-1">
                         {modalFormCheckOut && modalFormCheckOut !== "--" ? (
-                          <span className="text-sun-amber font-bold">
+                          <span className="text-amber-800 font-bold">
                             ✓ {modalFormCheckOut}
                           </span>
                         ) : (
@@ -2182,7 +2168,7 @@ function TeamContent() {
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2.5 rounded-xl bg-solar-deep hover:bg-slate-900 text-white font-bold cursor-pointer transition-all shadow-md shadow-emerald-950/15"
+                    className="px-6 py-2.5 rounded-xl bg-solar-deep hover:bg-slate-800 text-white font-bold cursor-pointer transition-all shadow-md shadow-emerald-950/15"
                   >
                     Save Attendance Record
                   </button>
@@ -2313,9 +2299,9 @@ function TeamContent() {
                 <button
                   type="button"
                   onClick={handleExecuteExport}
-                  className="px-6 py-2.5 rounded-xl bg-solar-deep hover:bg-slate-900 text-white font-bold cursor-pointer transition-all shadow-md shadow-emerald-950/15 flex items-center gap-2"
+                  className="px-6 py-2.5 rounded-xl bg-solar-deep hover:bg-slate-800 text-white font-bold cursor-pointer transition-all shadow-md shadow-emerald-950/15 flex items-center gap-2"
                 >
-                  <Download className="w-4 h-4 text-sun-amber" />
+                  <Download className="w-4 h-4 text-emerald-300" />
                   <span>Download Attendance Excel</span>
                 </button>
               </div>
@@ -2438,7 +2424,7 @@ function TeamContent() {
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2.5 rounded-xl bg-solar-deep hover:bg-slate-900 text-white font-bold cursor-pointer transition-all shadow-md"
+                    className="px-6 py-2.5 rounded-xl bg-solar-deep hover:bg-slate-800 text-white font-bold cursor-pointer transition-all shadow-md"
                   >
                     Save Member
                   </button>
