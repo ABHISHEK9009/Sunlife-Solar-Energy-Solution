@@ -1314,97 +1314,8 @@ function TeamContent() {
           </div>
 
           {/* VIEW MODE 1: ALL STAFF MONTHLY MATRIX */}
-          {monthlyFilterMemberId === "ALL" && (() => {
-            // Aggregate Monthly Stats across ALL team members for selectedMonthYear
-            let totalPresentDays = 0;
-            let totalSurveyDays = 0;
-            let totalHalfDays = 0;
-            let totalAbsentDays = 0;
-            let totalLeaveDays = 0;
-            let totalPayableDays = 0;
-            let totalLoggedEntries = 0;
-
-            teamList.forEach((m) => {
-              const stats = getMemberMonthlyStats(m.id, selectedMonthYear);
-              totalPresentDays += stats.present;
-              totalSurveyDays += stats.onSurvey;
-              totalHalfDays += stats.halfDay;
-              totalAbsentDays += stats.absent;
-              totalLeaveDays += stats.leave;
-              totalPayableDays += stats.verifiedPayableDays;
-              totalLoggedEntries += stats.totalLogged;
-            });
-
-            const avgAttendanceRate =
-              totalLoggedEntries > 0
-                ? (((totalPresentDays + totalSurveyDays + totalHalfDays * 0.5) / totalLoggedEntries) * 100).toFixed(1)
-                : "100.0";
-
-            return (
-              <div className="space-y-6">
-                {/* Data-Centric Real Monthly KPI Metrics */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 w-full">
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                      Team Attendance
-                    </span>
-                    <div className="text-2xl font-extrabold font-heading text-emerald-700 mt-1">
-                      {avgAttendanceRate}%
-                    </div>
-                    <span className="text-[11px] text-slate-400 mt-0.5 block">
-                      Avg across {teamList.length} staff
-                    </span>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
-                      Present Man-Days
-                    </span>
-                    <div className="text-2xl font-extrabold font-heading text-solar-deep mt-1">
-                      {totalPresentDays + totalSurveyDays} <span className="text-xs font-semibold text-slate-500">Days</span>
-                    </div>
-                    <span className="text-[11px] text-slate-400 mt-0.5 block">
-                      {totalPresentDays} Full • {totalSurveyDays} Survey
-                    </span>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-                    <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">
-                      Half Days Logged
-                    </span>
-                    <div className="text-2xl font-extrabold font-heading text-amber-800 mt-1">
-                      {totalHalfDays} <span className="text-xs font-semibold text-slate-500">Days</span>
-                    </div>
-                    <span className="text-[11px] text-slate-400 mt-0.5 block">
-                      0.5 wage equivalent
-                    </span>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-                    <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block">
-                      Absences & Leaves
-                    </span>
-                    <div className="text-2xl font-extrabold font-heading text-rose-800 mt-1">
-                      {totalAbsentDays + totalLeaveDays} <span className="text-xs font-semibold text-slate-500">Days</span>
-                    </div>
-                    <span className="text-[11px] text-slate-400 mt-0.5 block">
-                      {totalAbsentDays} Absent • {totalLeaveDays} Leave
-                    </span>
-                  </div>
-
-                  <div className="bg-emerald-50/70 p-4 rounded-2xl border border-emerald-300 shadow-xs">
-                    <span className="text-[10px] font-bold text-solar-deep uppercase tracking-wider block">
-                      Payable Man-Days
-                    </span>
-                    <div className="text-2xl font-extrabold font-heading text-solar-deep mt-1">
-                      {totalPayableDays} <span className="text-xs font-semibold text-solar-deep">Days</span>
-                    </div>
-                    <span className="text-[11px] text-emerald-800 font-medium mt-0.5 block">
-                      Payroll verified total
-                    </span>
-                  </div>
-                </div>
-
+          {monthlyFilterMemberId === "ALL" && (
+            <div className="space-y-6">
               {/* All Staff Matrix Table */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden w-full">
                 <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
@@ -1516,8 +1427,7 @@ function TeamContent() {
                 </div>
               </div>
             </div>
-          );
-        })()}
+          )}
 
           {/* VIEW MODE 2: INDIVIDUAL EMPLOYEE MONTHLY REPORT SLIP (CLEAN WHITE AESTHETIC) */}
           {monthlyFilterMemberId !== "ALL" && (() => {
