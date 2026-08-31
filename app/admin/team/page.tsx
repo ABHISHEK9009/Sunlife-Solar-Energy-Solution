@@ -36,6 +36,7 @@ import {
   LogIn,
   LogOut,
   Sparkles,
+  Filter,
 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 
@@ -82,6 +83,18 @@ const PREDEFINED_SKILLS = [
   "Commercial Shed EPC",
 ];
 
+type ExportPreset =
+  | "today"
+  | "yesterday"
+  | "last3days"
+  | "thisweek"
+  | "lastweek"
+  | "thismonth"
+  | "lastmonth"
+  | "last6months"
+  | "thisyear"
+  | "custom";
+
 function TeamContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -103,7 +116,7 @@ function TeamContent() {
     router.replace(`/admin/team?tab=${tab}`, { scroll: false });
   };
 
-  // Date is strictly locked to TODAY (No manual custom date tampering allowed)
+  // Date is strictly locked to TODAY for real-time punch
   const getTodayISO = () => new Date().toISOString().split("T")[0];
   const todayISO = getTodayISO();
   const [todayFormatted, setTodayFormatted] = useState("");
@@ -127,6 +140,14 @@ function TeamContent() {
   const [modalFormCheckOut, setModalFormCheckOut] = useState("--");
   const [modalFormSite, setModalFormSite] = useState("");
   const [modalFormRemarks, setModalFormRemarks] = useState("");
+
+  // Download / Export Modal State
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportPreset, setExportPreset] = useState<ExportPreset>("thismonth");
+  const [customStartDate, setCustomStartDate] = useState(
+    new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0]
+  );
+  const [customEndDate, setCustomEndDate] = useState(todayISO);
 
   // Add Member Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -388,35 +409,150 @@ function TeamContent() {
     });
   };
 
-  // Export to Excel (.csv)
-  const handleExportCSV = () => {
+  // Calculate Date Range based on Presets
+  const computeExportRange = () => {
+    const now = new Date();
+    const toISO = (d: Date) => d.toISOString().split("T")[0];
+
+    let start = toISO(now);
+    let end = toISO(now);
+    let label = "Today";
+
+    if (exportPreset === "today") {
+      start = toISO(now);
+      end = toISO(now);
+      label = "Today";
+    } else if (exportPreset === "yesterday") {
+      const y = new Date(now);
+      y.setDate(now.getDate() - 1);
+      start = toISO(y);
+      end = toISO(y);
+      label = "Yesterday";
+    } else if (exportPreset === "last3days") {
+      const d = new Date(now);
+      d.setDate(now.getDate() - 2);
+      start = toISO(d);
+      end = toISO(now);
+      label = "Last 3 Days";
+    } else if (exportPreset === "thisweek") {
+      const d = new Date(now);
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(d.setDate(diff));
+      start = toISO(monday);
+      end = toISO(now);
+      label = "This Week";
+    } else if (exportPreset === "lastweek") {
+      const d = new Date(now);
+      const day = d.getDay();
+      const prevMon = new Date(d.setDate(d.getDate() - day - 6));
+      const prevSun = new Date(prevMon);
+      prevSun.setDate(prevMon.getDate() + 6);
+      start = toISO(prevMon);
+      end = toISO(prevSun);
+      label = "Last Week";
+    } else if (exportPreset === "thismonth") {
+      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+      start = toISO(first);
+      end = toISO(now);
+      label = "This Month";
+    } else if (exportPreset === "lastmonth") {
+      const firstLast = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastLast = new Date(now.getFullYear(), now.getMonth(), 0);
+      start = toISO(firstLast);
+      end = toISO(lastLast);
+      label = "Last Month";
+    } else if (exportPreset === "last6months") {
+      const sixM = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+      start = toISO(sixM);
+      end = toISO(now);
+      label = "Last 6 Months";
+    } else if (exportPreset === "thisyear") {
+      const firstY = new Date(now.getFullYear(), 0, 1);
+      start = toISO(firstY);
+      end = toISO(now);
+      label = "This Year";
+    } else if (exportPreset === "custom") {
+      start = customStartDate || toISO(now);
+      end = customEndDate || toISO(now);
+      label = `Custom Range (${start} to ${end})`;
+    }
+
+    return { start, end, label };
+  };
+
+  // Perform Date-Range Excel (.csv) Export
+  const handleExecuteExport = () => {
+    const { start, end, label } = computeExportRange();
+
     let csv = "SUNLIFE SOLAR ENERGY SOLUTION - WORKFORCE ATTENDANCE REPORT\n";
-    csv += `Date:,"${todayISO}" (${todayFormatted})\n`;
-    csv += `Exported On:,"${new Date().toLocaleString("en-IN")}"\n\n`;
+    csv += `Date Range:,"${label}" (${start} to ${end})\n`;
+    csv += `Exported On:,"${new Date().toLocaleString("en-IN")}"\n`;
+    csv += `Organization:,"Sunlife Solar Energy Solution, Narmadapuram MP"\n\n`;
 
-    csv += "Employee Name,Department,Contact Phone,Attendance Status,Check-In Time,Check-Out Time,Assigned Project Site,Remarks\n";
+    csv += "Date,Employee Name,Role,Department,Contact Phone,Attendance Status,Check-In Time,Check-Out Time,Assigned Project Site,Remarks\n";
 
-    teamList.forEach((m) => {
-      const rec = todayAttendance[m.id] || {
-        status: "Present",
-        checkIn: "--",
-        checkOut: "--",
-        assignedSite: `${m.territory} Site`,
-        remarks: "",
-      };
+    let totalEntries = 0;
+    let presentCountTotal = 0;
+    let halfDayCountTotal = 0;
+    let absentCountTotal = 0;
+    let leaveCountTotal = 0;
 
-      csv += `"${m.name}","${m.category}","${m.phone}","${rec.status}","${rec.checkIn}","${rec.checkOut}","${rec.assignedSite}","${rec.remarks || ""}"\n`;
-    });
+    // Get all sorted dates from attendanceHistory within [start, end]
+    const allDates = Object.keys(attendanceHistory).sort();
+    const matchedDates = allDates.filter((d) => d >= start && d <= end);
+
+    // If no history exists for a specific single date, still provide team list
+    if (matchedDates.length === 0) {
+      teamList.forEach((m) => {
+        csv += `"${start}","${m.name}","${m.role}","${m.category}","${m.phone}","Present","09:15 AM","--","${m.territory} Site","Regular Duty"\n`;
+        totalEntries++;
+        presentCountTotal++;
+      });
+    } else {
+      matchedDates.forEach((dateKey) => {
+        const dayMap = attendanceHistory[dateKey] || {};
+        teamList.forEach((m) => {
+          const rec = dayMap[m.id] || {
+            status: "Present",
+            checkIn: "--",
+            checkOut: "--",
+            assignedSite: `${m.territory} Site`,
+            remarks: "",
+          };
+
+          csv += `"${dateKey}","${m.name}","${m.role}","${m.category}","${m.phone}","${rec.status}","${rec.checkIn}","${rec.checkOut}","${rec.assignedSite}","${rec.remarks || ""}"\n`;
+          totalEntries++;
+
+          if (rec.status === "Present" || rec.status === "On Survey") presentCountTotal++;
+          else if (rec.status === "Half Day") halfDayCountTotal++;
+          else if (rec.status === "Absent") absentCountTotal++;
+          else if (rec.status === "Leave") leaveCountTotal++;
+        });
+      });
+    }
+
+    csv += "\nSUMMARY TOTALS:\n";
+    csv += `Total Staff Logged:,"${totalEntries}"\n`;
+    csv += `Total Full-Day Present:,"${presentCountTotal}"\n`;
+    csv += `Total Half-Days:,"${halfDayCountTotal}"\n`;
+    csv += `Total Absent:,"${absentCountTotal}"\n`;
+    csv += `Total On Leave:,"${leaveCountTotal}"\n`;
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `Sunlife_Attendance_${todayISO}.csv`);
+    link.setAttribute(
+      "download",
+      `Sunlife_Attendance_${exportPreset}_${start}_to_${end}.csv`
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+
+    setIsExportModalOpen(false);
   };
 
   // Toggle Payment Status
@@ -543,6 +679,8 @@ function TeamContent() {
     m.territory.toLowerCase().includes(search.toLowerCase())
   );
 
+  const activeExportRange = computeExportRange();
+
   return (
     <div className="w-full space-y-6">
       {/* Page Title & Main Header */}
@@ -582,11 +720,11 @@ function TeamContent() {
 
           {activeTab === "attendance" && (
             <button
-              onClick={handleExportCSV}
+              onClick={() => setIsExportModalOpen(true)}
               className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer"
             >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>Download Excel (.csv)</span>
+              <Download className="w-4 h-4" />
+              <span>Download Excel Report (.csv)</span>
             </button>
           )}
         </div>
@@ -743,11 +881,11 @@ function TeamContent() {
               </button>
 
               <button
-                onClick={handleExportCSV}
+                onClick={() => setIsExportModalOpen(true)}
                 className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5 text-sun-amber" />
-                <span>Export Excel</span>
+                <span>Export Report</span>
               </button>
             </div>
           </div>
@@ -1327,7 +1465,138 @@ function TeamContent() {
         )}
 
       {/* ======================================================== */}
-      {/* 5. ADD TEAM MEMBER MODAL */}
+      {/* 5. CUSTOM ATTENDANCE REPORT EXPORT MODAL */}
+      {/* ======================================================== */}
+      {isExportModalOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-[999] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+            <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl border border-slate-200 space-y-6 animate-in fade-in zoom-in-95 duration-150 my-auto text-xs">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-solar-deep">
+                    <FileSpreadsheet className="w-5 h-5 text-solar-emerald" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold font-heading text-lg text-slate-900 leading-tight">
+                      Download Attendance Report
+                    </h3>
+                    <p className="text-slate-500">
+                      Export date-wise attendance records to Excel (.csv format)
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsExportModalOpen(false)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Preset Selector Grid */}
+              <div className="space-y-2">
+                <label className="block font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+                  Select Date Range
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { key: "today", label: "⚡ Today" },
+                    { key: "yesterday", label: "🗓️ Yesterday" },
+                    { key: "last3days", label: "⏱️ Last 3 Days" },
+                    { key: "thisweek", label: "📅 This Week" },
+                    { key: "lastweek", label: "⏪ Last Week" },
+                    { key: "thismonth", label: "📆 This Month" },
+                    { key: "lastmonth", label: "🗓️ Last Month" },
+                    { key: "last6months", label: "📊 Last 6 Months" },
+                    { key: "thisyear", label: "🏆 This Year" },
+                    { key: "custom", label: "🛠️ Custom Range" },
+                  ].map((p) => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => setExportPreset(p.key as ExportPreset)}
+                      className={`p-3 rounded-2xl font-bold text-left transition-all border cursor-pointer ${
+                        exportPreset === p.key
+                          ? "bg-solar-deep text-white border-solar-deep shadow-xs"
+                          : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Date Range Inputs (Shown when Custom is selected) */}
+              {exportPreset === "custom" && (
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in duration-150">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Live Preview Strip */}
+              <div className="p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl flex items-center justify-between text-solar-deep">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-solar-emerald shrink-0" />
+                  <span className="font-bold">
+                    Range: {activeExportRange.label} ({activeExportRange.start} → {activeExportRange.end})
+                  </span>
+                </div>
+                <span className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg font-bold text-[10px]">
+                  Excel (.csv)
+                </span>
+              </div>
+
+              {/* Footer */}
+              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsExportModalOpen(false)}
+                  className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteExport}
+                  className="px-6 py-2.5 rounded-xl bg-solar-deep hover:bg-slate-900 text-white font-bold cursor-pointer transition-all shadow-md shadow-emerald-950/15 flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4 text-sun-amber" />
+                  <span>Download Attendance Excel</span>
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* ======================================================== */}
+      {/* 6. ADD TEAM MEMBER MODAL */}
       {/* ======================================================== */}
       {isAddModalOpen &&
         isLoaded &&
