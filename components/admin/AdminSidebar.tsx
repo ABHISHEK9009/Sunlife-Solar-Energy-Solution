@@ -70,7 +70,9 @@ export function AdminSidebar({ mobileOpen, setMobileOpen }: AdminSidebarProps) {
 
       {/* Sidebar Container - Minimal, Clean SaaS Theme */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-white text-slate-800 flex flex-col justify-between border-r border-slate-200/90 transition-transform duration-200 ease-in-out ${
+        className={`fixed top-0 bottom-0 left-0 ${
+          mobileOpen ? "z-40" : "z-20"
+        } w-64 bg-white text-slate-800 flex flex-col justify-between border-r border-slate-200/90 transition-transform duration-200 ease-in-out ${
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
