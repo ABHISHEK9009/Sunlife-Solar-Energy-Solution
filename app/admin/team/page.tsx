@@ -33,7 +33,9 @@ import {
   ExternalLink,
   Edit3,
   Download,
-  MoreVertical,
+  LogIn,
+  LogOut,
+  Sparkles,
 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 
@@ -101,8 +103,12 @@ function TeamContent() {
     router.replace(`/admin/team?tab=${tab}`, { scroll: false });
   };
 
+  // Date is strictly locked to TODAY (No manual custom date tampering allowed)
   const getTodayISO = () => new Date().toISOString().split("T")[0];
-  const [selectedDate, setSelectedDate] = useState(getTodayISO());
+  const todayISO = getTodayISO();
+  const [todayFormatted, setTodayFormatted] = useState("");
+  const [liveClockTime, setLiveClockTime] = useState("");
+
   const [search, setSearch] = useState("");
   const [teamList, setTeamList] = useState<TeamMember[]>([]);
   
@@ -113,16 +119,12 @@ function TeamContent() {
   const [payrollRecords, setPayrollRecords] = useState<Record<string, PayrollRecord>>({});
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Active Action Menu Dropdown State (Member ID or null)
-  const [activeMenuMemberId, setActiveMenuMemberId] = useState<string | null>(null);
-
   // Update Attendance Card / Modal State
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [selectedMemberForUpdate, setSelectedMemberForUpdate] = useState<TeamMember | null>(null);
-  const [modalFormDate, setModalFormDate] = useState(getTodayISO());
   const [modalFormStatus, setModalFormStatus] = useState<AttendanceRecord["status"]>("Present");
-  const [modalFormCheckIn, setModalFormCheckIn] = useState("09:15 AM");
-  const [modalFormCheckOut, setModalFormCheckOut] = useState("05:30 PM");
+  const [modalFormCheckIn, setModalFormCheckIn] = useState("--");
+  const [modalFormCheckOut, setModalFormCheckOut] = useState("--");
   const [modalFormSite, setModalFormSite] = useState("");
   const [modalFormRemarks, setModalFormRemarks] = useState("");
 
@@ -141,15 +143,29 @@ function TeamContent() {
     "Hot-Dip GI Fabrication",
   ]);
 
-  // Close menus on outside click
+  // Clock ticker & formatted date
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (!(event.target as HTMLElement).closest(".action-menu-container")) {
-        setActiveMenuMemberId(null);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    const updateTime = () => {
+      const now = new Date();
+      setLiveClockTime(
+        now.toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        })
+      );
+      setTodayFormatted(
+        now.toLocaleDateString("en-IN", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        })
+      );
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   // Load real team list and date-wise attendance from localStorage
@@ -203,7 +219,7 @@ function TeamContent() {
             memberId: m.id,
             status: "Present",
             checkIn: "09:15 AM",
-            checkOut: "05:30 PM",
+            checkOut: "--",
             assignedSite: m.territory ? `${m.territory} Solar Site` : "Narmadapuram HQ",
             remarks: "On-site EPC duty",
           };
@@ -256,7 +272,6 @@ function TeamContent() {
     setAttendanceHistory(updated);
     if (typeof window !== "undefined") {
       localStorage.setItem("sunlife_attendance_database_v3", JSON.stringify(updated));
-      // Also sync with mobile punch storage
       localStorage.setItem("sunlife_admin_attendance_v2", JSON.stringify(updated));
     }
   };
@@ -268,39 +283,58 @@ function TeamContent() {
     }
   };
 
-  // Current selected date's attendance records
-  const currentDayAttendance = attendanceHistory[selectedDate] || {};
+  // Current selected date's attendance records (strictly today)
+  const todayAttendance = attendanceHistory[todayISO] || {};
 
-  // Open Update Attendance Modal Card for specific staff member
+  // Open Update Modal Card for specific staff member
   const handleOpenUpdateModal = (member: TeamMember) => {
-    setActiveMenuMemberId(null);
     setSelectedMemberForUpdate(member);
-    setModalFormDate(selectedDate);
 
-    const existing = currentDayAttendance[member.id] || {
+    const existing = todayAttendance[member.id] || {
       memberId: member.id,
       status: "Present" as const,
-      checkIn: "09:15 AM",
-      checkOut: "05:30 PM",
+      checkIn: "--",
+      checkOut: "--",
       assignedSite: `${member.territory} Solar Site`,
       remarks: "",
     };
 
     setModalFormStatus(existing.status || "Present");
-    setModalFormCheckIn(existing.checkIn || "09:15 AM");
-    setModalFormCheckOut(existing.checkOut || "05:30 PM");
+    setModalFormCheckIn(existing.checkIn || "--");
+    setModalFormCheckOut(existing.checkOut || "--");
     setModalFormSite(existing.assignedSite || `${member.territory} Solar Site`);
     setModalFormRemarks(existing.remarks || "");
     setIsUpdateModalOpen(true);
   };
 
-  // Save Attendance from Modal Card (Date-Wise Persistent)
+  // Trigger Punch In (Captures exact current real-time clock)
+  const handleTriggerPunchIn = () => {
+    const timeNow = new Date().toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    setModalFormCheckIn(timeNow);
+    if (modalFormStatus === "Absent" || modalFormStatus === "Leave") {
+      setModalFormStatus("Present");
+    }
+  };
+
+  // Trigger Punch Out (Captures exact current real-time clock)
+  const handleTriggerPunchOut = () => {
+    const timeNow = new Date().toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    setModalFormCheckOut(timeNow);
+  };
+
+  // Save Attendance from Modal Card (Date-Wise Persistent under today's date)
   const handleSaveModalAttendance = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedMemberForUpdate) return;
 
     const memberId = selectedMemberForUpdate.id;
-    const targetDate = modalFormDate;
+    const targetDate = todayISO;
 
     const dayRecords = attendanceHistory[targetDate] || {};
     const updatedRecord: AttendanceRecord = {
@@ -325,39 +359,48 @@ function TeamContent() {
     setIsUpdateModalOpen(false);
   };
 
-  // Quick Action: Mark All Present for Selected Date
+  // Quick Action: Mark All Present for Today
   const handleMarkAllPresent = () => {
-    const updatedDay = { ...currentDayAttendance };
+    const timeNow = new Date().toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const updatedDay = { ...todayAttendance };
     teamList.forEach((m) => {
-      const current = currentDayAttendance[m.id] || {
+      const current = todayAttendance[m.id] || {
         memberId: m.id,
         status: "Present",
-        checkIn: "09:15 AM",
-        checkOut: "05:30 PM",
+        checkIn: timeNow,
+        checkOut: "--",
         assignedSite: `${m.territory} Solar Site`,
       };
-      updatedDay[m.id] = { ...current, status: "Present" };
+      updatedDay[m.id] = {
+        ...current,
+        status: "Present",
+        checkIn: current.checkIn && current.checkIn !== "--" ? current.checkIn : timeNow,
+      };
     });
 
     saveAttendanceHistory({
       ...attendanceHistory,
-      [selectedDate]: updatedDay,
+      [todayISO]: updatedDay,
     });
   };
 
   // Export to Excel (.csv)
   const handleExportCSV = () => {
     let csv = "SUNLIFE SOLAR ENERGY SOLUTION - WORKFORCE ATTENDANCE REPORT\n";
-    csv += `Date:,"${selectedDate}"\n`;
+    csv += `Date:,"${todayISO}" (${todayFormatted})\n`;
     csv += `Exported On:,"${new Date().toLocaleString("en-IN")}"\n\n`;
 
-    csv += "Employee Name,Department,Contact Phone,Attendance Status,Check-In,Check-Out,Assigned Project Site,Remarks\n";
+    csv += "Employee Name,Department,Contact Phone,Attendance Status,Check-In Time,Check-Out Time,Assigned Project Site,Remarks\n";
 
     teamList.forEach((m) => {
-      const rec = currentDayAttendance[m.id] || {
+      const rec = todayAttendance[m.id] || {
         status: "Present",
-        checkIn: "09:15 AM",
-        checkOut: "05:30 PM",
+        checkIn: "--",
+        checkOut: "--",
         assignedSite: `${m.territory} Site`,
         remarks: "",
       };
@@ -369,7 +412,7 @@ function TeamContent() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `Sunlife_Attendance_${selectedDate}.csv`);
+    link.setAttribute("download", `Sunlife_Attendance_${todayISO}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -408,17 +451,17 @@ function TeamContent() {
     const updatedList = [created, ...teamList];
     saveTeamList(updatedList);
 
-    // Add attendance entry for selected date
-    const todayRecords = attendanceHistory[selectedDate] || {};
+    // Add attendance entry for today
+    const todayRecords = attendanceHistory[todayISO] || {};
     saveAttendanceHistory({
       ...attendanceHistory,
-      [selectedDate]: {
+      [todayISO]: {
         ...todayRecords,
         [created.id]: {
           memberId: created.id,
           status: "Present",
-          checkIn: "09:15 AM",
-          checkOut: "05:30 PM",
+          checkIn: "--",
+          checkOut: "--",
           assignedSite: `${created.territory} Site`,
         },
       },
@@ -478,18 +521,18 @@ function TeamContent() {
     };
   };
 
-  // KPI calculations for selected date
+  // KPI calculations for today
   const totalStaff = teamList.length;
-  const presentCount = Object.values(currentDayAttendance).filter(
+  const presentCount = Object.values(todayAttendance).filter(
     (a) => a.status === "Present" || a.status === "On Survey"
   ).length;
-  const halfDayCount = Object.values(currentDayAttendance).filter(
+  const halfDayCount = Object.values(todayAttendance).filter(
     (a) => a.status === "Half Day"
   ).length;
-  const absentCount = Object.values(currentDayAttendance).filter(
+  const absentCount = Object.values(todayAttendance).filter(
     (a) => a.status === "Absent"
   ).length;
-  const leaveCount = Object.values(currentDayAttendance).filter(
+  const leaveCount = Object.values(todayAttendance).filter(
     (a) => a.status === "Leave"
   ).length;
 
@@ -512,7 +555,7 @@ function TeamContent() {
             Team & Field Crew
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Manage daily attendance records date-wise, staff profiles, and monthly salary calculations.
+            Real-time punch attendance, field technician profiles, and verified wage records.
           </p>
         </div>
 
@@ -561,7 +604,7 @@ function TeamContent() {
           }`}
         >
           <Calendar className={`w-4 h-4 ${activeTab === "attendance" ? "text-sun-amber" : "text-slate-400"}`} />
-          <span>Daily Attendance</span>
+          <span>Today&apos;s Attendance</span>
           <span
             className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
               activeTab === "attendance"
@@ -610,7 +653,7 @@ function TeamContent() {
       </div>
 
       {/* ======================================================== */}
-      {/* 1. DAILY ATTENDANCE (CLEAN TABLE + THREE DOT ACTIONS) */}
+      {/* 1. DAILY ATTENDANCE (AUTO-DATE + PUNCH IN/OUT BUTTONS) */}
       {/* ======================================================== */}
       {activeTab === "attendance" && (
         <div className="space-y-5 animate-in fade-in duration-200">
@@ -627,7 +670,7 @@ function TeamContent() {
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
               <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">
-                Present on {selectedDate}
+                Present Today
               </span>
               <div className="text-2xl font-extrabold font-heading text-solar-deep mt-1">
                 {presentCount}
@@ -662,26 +705,19 @@ function TeamContent() {
             </div>
           </div>
 
-          {/* Date Picker & Action Strip */}
+          {/* Auto-Locked Live Date Banner & Search Strip */}
           <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3">
-              {/* Date Input */}
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
-                <Calendar className="w-4 h-4 text-solar-deep" />
-                <label className="text-xs font-bold text-slate-700">Attendance Date:</label>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
-                />
-              </div>
-
-              {selectedDate === getTodayISO() && (
-                <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-[11px] font-bold">
-                  Today
+              {/* Auto-Fetched Today Date Display (Read-Only to Prevent Date Tampering) */}
+              <div className="flex items-center gap-2 bg-emerald-50/80 border border-emerald-200/80 px-3.5 py-1.5 rounded-xl text-solar-deep">
+                <Calendar className="w-4 h-4 text-solar-emerald" />
+                <span className="text-xs font-extrabold">
+                  Today: {todayFormatted || "Live Today"}
                 </span>
-              )}
+                <span className="px-2 py-0.5 bg-emerald-600 text-white rounded-md text-[10px] font-bold">
+                  {liveClockTime || "LIVE"}
+                </span>
+              </div>
 
               {/* Search */}
               <div className="relative w-64">
@@ -725,19 +761,19 @@ function TeamContent() {
                     <th className="px-6 py-3.5">Staff Member</th>
                     <th className="px-6 py-3.5">Department</th>
                     <th className="px-6 py-3.5">Attendance Status</th>
-                    <th className="px-6 py-3.5">Check-In</th>
-                    <th className="px-6 py-3.5">Check-Out</th>
+                    <th className="px-6 py-3.5">Check-In Time</th>
+                    <th className="px-6 py-3.5">Check-Out Time</th>
                     <th className="px-6 py-3.5">Assigned Solar Site</th>
                     <th className="px-6 py-3.5 text-right min-w-[180px]">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredTeam.map((member) => {
-                    const rec = currentDayAttendance[member.id] || {
+                    const rec = todayAttendance[member.id] || {
                       memberId: member.id,
                       status: "Present",
-                      checkIn: "09:15 AM",
-                      checkOut: "05:30 PM",
+                      checkIn: "--",
+                      checkOut: "--",
                       assignedSite: `${member.territory} Solar Site`,
                     };
 
@@ -794,12 +830,20 @@ function TeamContent() {
 
                         {/* Check-In */}
                         <td className="px-6 py-4 font-semibold text-slate-800">
-                          {rec.checkIn || "--"}
+                          {rec.checkIn && rec.checkIn !== "--" ? (
+                            <span className="text-emerald-700 font-bold">{rec.checkIn}</span>
+                          ) : (
+                            <span className="text-slate-400">Not Punched</span>
+                          )}
                         </td>
 
                         {/* Check-Out */}
                         <td className="px-6 py-4 font-semibold text-slate-800">
-                          {rec.checkOut || "--"}
+                          {rec.checkOut && rec.checkOut !== "--" ? (
+                            <span className="text-sun-amber font-bold">{rec.checkOut}</span>
+                          ) : (
+                            <span className="text-slate-400">--</span>
+                          )}
                         </td>
 
                         {/* Assigned Site */}
@@ -813,13 +857,13 @@ function TeamContent() {
                         {/* Actions */}
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            {/* Update Attendance Button */}
+                            {/* Punch / Update Attendance Button */}
                             <button
                               onClick={() => handleOpenUpdateModal(member)}
-                              className="px-3 py-1.5 rounded-xl bg-solar-deep hover:bg-slate-900 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                              className="px-3.5 py-1.5 rounded-xl bg-solar-deep hover:bg-slate-900 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
                             >
                               <Edit3 className="w-3.5 h-3.5 text-sun-amber" />
-                              <span>Update Attendance</span>
+                              <span>Punch / Update</span>
                             </button>
 
                             {/* Call Staff */}
@@ -1086,7 +1130,7 @@ function TeamContent() {
       )}
 
       {/* ======================================================== */}
-      {/* 4. UPDATE ATTENDANCE CARD / MODAL (DATE-WISE PERSISTENT) */}
+      {/* 4. REAL-TIME PUNCH MODAL CARD (NO MANUAL TIME / NO DATE TAMPERING) */}
       {/* ======================================================== */}
       {isUpdateModalOpen &&
         selectedMemberForUpdate &&
@@ -1107,7 +1151,7 @@ function TeamContent() {
                   <div className="h-5 w-px bg-slate-200 hidden sm:block" />
                   <div>
                     <h3 className="font-bold font-heading text-base text-slate-900 leading-tight">
-                      Update Attendance
+                      Duty Punch & Attendance
                     </h3>
                     <p className="text-[11px] text-slate-500">
                       {selectedMemberForUpdate.name} ({selectedMemberForUpdate.role})
@@ -1125,40 +1169,101 @@ function TeamContent() {
 
               {/* Form */}
               <form onSubmit={handleSaveModalAttendance} className="space-y-4 text-xs">
-                {/* Date Picker */}
-                <div>
-                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Attendance Date <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={modalFormDate}
-                    onChange={(e) => setModalFormDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
-                  />
-                  <span className="text-[10px] text-slate-400 mt-1 block">
-                    Record will be saved permanently under date: {modalFormDate}
-                  </span>
+                {/* Auto-Locked Date Banner */}
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                      Attendance Date (Locked to Today)
+                    </span>
+                    <span className="text-sm font-extrabold text-slate-900 mt-0.5 block">
+                      {todayFormatted}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                      Live Clock
+                    </span>
+                    <span className="text-xs font-mono font-bold text-solar-deep mt-0.5 block">
+                      {liveClockTime}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Duty Status Buttons */}
+                {/* Real-Time Punch In / Out Action Buttons */}
+                <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-200/80 space-y-3">
+                  <div className="text-[11px] font-bold text-solar-deep uppercase tracking-wider flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-solar-emerald" />
+                    <span>Real-Time Time Capture</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Punch In Button */}
+                    <div className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={handleTriggerPunchIn}
+                        className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all active:scale-95"
+                      >
+                        <LogIn className="w-4 h-4" />
+                        <span>PUNCH IN</span>
+                      </button>
+                      <div className="text-center text-[11px] text-slate-600 font-semibold pt-1">
+                        {modalFormCheckIn && modalFormCheckIn !== "--" ? (
+                          <span className="text-emerald-700 font-bold">
+                            ✓ {modalFormCheckIn}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">Not Punched</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Punch Out Button */}
+                    <div className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={handleTriggerPunchOut}
+                        className="w-full py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all active:scale-95"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        <span>PUNCH OUT</span>
+                      </button>
+                      <div className="text-center text-[11px] text-slate-600 font-semibold pt-1">
+                        {modalFormCheckOut && modalFormCheckOut !== "--" ? (
+                          <span className="text-sun-amber font-bold">
+                            ✓ {modalFormCheckOut}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">Not Punched</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Duty Status Selector */}
                 <div>
                   <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Duty Status <span className="text-red-500">*</span>
+                    Select Duty Status <span className="text-red-500">*</span>
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {[
                       { key: "Present", label: "🟢 Present (Full Day)" },
                       { key: "On Survey", label: "🟡 On Site Survey" },
                       { key: "Half Day", label: "🟠 Half Day" },
-                      { key: "Absent", label: "🔴 Absent" },
+                      { key: "Absent", label: "🔴 Mark Absent" },
                       { key: "Leave", label: "🟣 On Leave" },
                     ].map((st) => (
                       <button
                         key={st.key}
                         type="button"
-                        onClick={() => setModalFormStatus(st.key as AttendanceRecord["status"])}
+                        onClick={() => {
+                          setModalFormStatus(st.key as AttendanceRecord["status"]);
+                          if (st.key === "Absent" || st.key === "Leave") {
+                            setModalFormCheckIn("--");
+                            setModalFormCheckOut("--");
+                          }
+                        }}
                         className={`p-2 rounded-xl font-bold text-left transition-all border cursor-pointer ${
                           modalFormStatus === st.key
                             ? "bg-solar-deep text-white border-solar-deep shadow-xs"
@@ -1171,41 +1276,10 @@ function TeamContent() {
                   </div>
                 </div>
 
-                {/* Timings (if present/survey/halfday) */}
-                {modalFormStatus !== "Absent" && modalFormStatus !== "Leave" && (
-                  <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200">
-                    <div>
-                      <label className="block font-bold text-slate-700 mb-1">
-                        Check-In Time
-                      </label>
-                      <input
-                        type="text"
-                        value={modalFormCheckIn}
-                        onChange={(e) => setModalFormCheckIn(e.target.value)}
-                        placeholder="09:15 AM"
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-slate-700 mb-1">
-                        Check-Out Time
-                      </label>
-                      <input
-                        type="text"
-                        value={modalFormCheckOut}
-                        onChange={(e) => setModalFormCheckOut(e.target.value)}
-                        placeholder="05:30 PM"
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                    </div>
-                  </div>
-                )}
-
                 {/* Assigned Solar Site */}
                 <div>
                   <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Assigned Solar Site / Location
+                    Assigned Solar Project Site
                   </label>
                   <input
                     type="text"
@@ -1225,7 +1299,7 @@ function TeamContent() {
                     type="text"
                     value={modalFormRemarks}
                     onChange={(e) => setModalFormRemarks(e.target.value)}
-                    placeholder="e.g. Structure erection and DC cabling completed"
+                    placeholder="e.g. Inverter mounting & earthing check completed"
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-medium"
                   />
                 </div>
@@ -1243,7 +1317,7 @@ function TeamContent() {
                     type="submit"
                     className="px-6 py-2.5 rounded-xl bg-solar-deep hover:bg-slate-900 text-white font-bold cursor-pointer transition-all shadow-md shadow-emerald-950/15"
                   >
-                    Save Attendance
+                    Save Attendance Record
                   </button>
                 </div>
               </form>
