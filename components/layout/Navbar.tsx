@@ -109,22 +109,33 @@ export function Navbar() {
                 </button>
 
                 {solutionsOpen && (
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 bg-white/98 backdrop-blur-lg rounded-2xl shadow-2xl border border-slate-100 p-2 space-y-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-72 bg-white rounded-2xl shadow-2xl ring-1 ring-black/10 border border-slate-200/80 p-2 space-y-1 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                      Our Solar Services
+                    </div>
                     {solutions.map((item) => (
                       <Link
                         key={item.href}
                         href={item.href}
-                        className="block px-3 py-2 rounded-xl text-xs font-semibold text-slate-800 hover:bg-emerald-50 hover:text-solar-deep transition-colors"
+                        onClick={() => setSolutionsOpen(false)}
+                        className="group flex flex-col px-3 py-2 rounded-xl text-left hover:bg-emerald-50/80 transition-colors"
                       >
-                        {item.name}
+                        <span className="text-xs font-bold text-slate-900 group-hover:text-solar-deep transition-colors">
+                          {item.name}
+                        </span>
+                        <span className="text-[11px] text-slate-500 font-normal mt-0.5">
+                          {item.desc}
+                        </span>
                       </Link>
                     ))}
-                    <div className="pt-1.5 border-t border-slate-100">
+                    <div className="pt-2 mt-1 border-t border-slate-100 px-2">
                       <Link
                         href="/solar-solutions"
-                        className="block px-3 py-1.5 text-[11px] font-bold text-solar-deep hover:underline"
+                        onClick={() => setSolutionsOpen(false)}
+                        className="flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-bold text-solar-deep hover:bg-emerald-100/50 transition-colors"
                       >
-                        View All Solutions →
+                        <span>View All Solutions</span>
+                        <span>→</span>
                       </Link>
                     </div>
                   </div>
