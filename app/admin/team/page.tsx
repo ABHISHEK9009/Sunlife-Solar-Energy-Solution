@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
+import html2canvas from "html2canvas";
 import {
   Users,
   UserCheck,
@@ -41,6 +42,8 @@ import {
   FileText,
   TrendingUp,
   BarChart3,
+  ImageIcon,
+  Loader2,
 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 
@@ -154,6 +157,7 @@ function TeamContent() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
   const [monthlyFilterMemberId, setMonthlyFilterMemberId] = useState<string>("ALL");
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
   // Add Member Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -575,14 +579,23 @@ function TeamContent() {
     const dayBreakdown: {
       day: number;
       dateISO: string;
+      formattedDate: string;
       status: string;
       checkIn: string;
       checkOut: string;
       assignedSite: string;
+      remarks: string;
     }[] = [];
 
     for (let d = 1; d <= daysInMonth; d++) {
       const dateISO = `${yearStr}-${monthStr}-${String(d).padStart(2, "0")}`;
+      const dayDate = new Date(year, month - 1, d);
+      const formattedDate = dayDate.toLocaleDateString("en-IN", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      });
+
       const dayMap = attendanceHistory[dateISO] || {};
       const rec = dayMap[memberId];
 
@@ -596,21 +609,24 @@ function TeamContent() {
         dayBreakdown.push({
           day: d,
           dateISO,
+          formattedDate,
           status: rec.status,
           checkIn: rec.checkIn || "--",
           checkOut: rec.checkOut || "--",
-          assignedSite: rec.assignedSite || "",
+          assignedSite: rec.assignedSite || "Narmadapuram Solar Site",
+          remarks: rec.remarks || "On-site solar installation duty",
         });
       } else {
-        const dayOfWeek = new Date(year, month - 1, d).getDay();
-        const isSunday = dayOfWeek === 0;
+        const isSunday = dayDate.getDay() === 0;
         dayBreakdown.push({
           day: d,
           dateISO,
+          formattedDate,
           status: isSunday ? "Sunday" : "--",
           checkIn: "--",
           checkOut: "--",
-          assignedSite: "",
+          assignedSite: isSunday ? "Weekly Off" : "--",
+          remarks: isSunday ? "Scheduled Weekly Off" : "--",
         });
       }
     }
@@ -636,7 +652,7 @@ function TeamContent() {
     };
   };
 
-  // Generate WhatsApp Sharing Link for Employee Monthly Attendance
+  // Generate WhatsApp Sharing Link
   const getWhatsAppShareUrl = (member: TeamMember, monthYear: string) => {
     const stats = getMemberMonthlyStats(member.id, monthYear);
     const [year, month] = monthYear.split("-");
@@ -662,6 +678,95 @@ function TeamContent() {
 
     const phoneClean = member.phone.replace(/[^0-9]/g, "");
     return `https://wa.me/91${phoneClean}?text=${encodeURIComponent(msg)}`;
+  };
+
+  // Capture and Download Monthly Slip as High-Res PNG Image
+  const handleDownloadSlipImage = async (member: TeamMember) => {
+    const element = document.getElementById("printable-attendance-slip");
+    if (!element) return;
+
+    try {
+      setIsGeneratingImage(true);
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+      });
+
+      const image = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      const cleanName = member.name.replace(/\s+/g, "_");
+      link.href = image;
+      link.download = `Sunlife_Attendance_Slip_${cleanName}_${selectedMonthYear}.png`;
+      link.click();
+    } catch (err) {
+      console.error("Error generating attendance image:", err);
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
+  // Share Attendance Slip as Image directly via Web Share API or WhatsApp
+  const handleShareSlipImage = async (member: TeamMember) => {
+    const element = document.getElementById("printable-attendance-slip");
+    if (!element) return;
+
+    try {
+      setIsGeneratingImage(true);
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+      });
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          setIsGeneratingImage(false);
+          return;
+        }
+
+        const cleanName = member.name.replace(/\s+/g, "_");
+        const file = new File(
+          [blob],
+          `Sunlife_Attendance_Slip_${cleanName}_${selectedMonthYear}.png`,
+          { type: "image/png" }
+        );
+
+        // Check if Web Share API with files is supported
+        if (
+          navigator.canShare &&
+          navigator.canShare({ files: [file] })
+        ) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: `Sunlife Attendance Slip - ${member.name}`,
+              text: `Sunlife Solar Monthly Attendance Report for ${member.name}`,
+            });
+            setIsGeneratingImage(false);
+            return;
+          } catch (shareErr) {
+            console.log("Web share cancelled or failed, falling back to download & link:", shareErr);
+          }
+        }
+
+        // Fallback: Download the high-res image and open WhatsApp with the text summary
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `Sunlife_Attendance_Slip_${cleanName}_${selectedMonthYear}.png`;
+        link.click();
+
+        // Also trigger WhatsApp
+        const waUrl = getWhatsAppShareUrl(member, selectedMonthYear);
+        window.open(waUrl, "_blank");
+        setIsGeneratingImage(false);
+      }, "image/png");
+    } catch (err) {
+      console.error("Error sharing attendance image:", err);
+      setIsGeneratingImage(false);
+    }
   };
 
   // Toggle Payment Status
@@ -696,7 +801,6 @@ function TeamContent() {
     const updatedList = [created, ...teamList];
     saveTeamList(updatedList);
 
-    // Add attendance entry for today
     const todayRecords = attendanceHistory[todayISO] || {};
     saveAttendanceHistory({
       ...attendanceHistory,
@@ -712,7 +816,6 @@ function TeamContent() {
       },
     });
 
-    // Add payroll record
     savePayroll({
       ...payrollRecords,
       [created.id]: {
@@ -790,7 +893,6 @@ function TeamContent() {
 
   const activeExportRange = computeExportRange();
 
-  // Days in selected month for matrix header
   const [selYearStr, selMonthStr] = selectedMonthYear.split("-");
   const selYear = parseInt(selYearStr, 10);
   const selMonth = parseInt(selMonthStr, 10);
@@ -1373,7 +1475,7 @@ function TeamContent() {
             </div>
           )}
 
-          {/* VIEW MODE 2: INDIVIDUAL EMPLOYEE MONTHLY REPORT SLIP (PAGE VIEW) */}
+          {/* VIEW MODE 2: INDIVIDUAL EMPLOYEE MONTHLY REPORT SLIP (WITH HOVER TIMESTAMPS & SHARE AS IMAGE) */}
           {monthlyFilterMemberId !== "ALL" && (() => {
             const singleMember = teamList.find((m) => m.id === monthlyFilterMemberId) || teamList[0];
             if (!singleMember) return null;
@@ -1381,8 +1483,51 @@ function TeamContent() {
 
             return (
               <div className="space-y-6">
-                {/* Employee Detailed Slip Card */}
-                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+                {/* Action Buttons Bar for the Slip */}
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                  <button
+                    onClick={() => setMonthlyFilterMemberId("ALL")}
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    ← Back to All Staff Matrix
+                  </button>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Share as Image / WhatsApp Button */}
+                    <button
+                      onClick={() => handleShareSlipImage(singleMember)}
+                      disabled={isGeneratingImage}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                    >
+                      {isGeneratingImage ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Share2 className="w-4 h-4" />
+                      )}
+                      <span>Share Image to WhatsApp</span>
+                    </button>
+
+                    {/* Download Image Button */}
+                    <button
+                      onClick={() => handleDownloadSlipImage(singleMember)}
+                      disabled={isGeneratingImage}
+                      className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                    >
+                      {isGeneratingImage ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <ImageIcon className="w-4 h-4 text-sun-amber" />
+                      )}
+                      <span>Download Image (.png)</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Printable / Capturable Attendance Slip Card */}
+                <div
+                  id="printable-attendance-slip"
+                  className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6"
+                >
                   {/* Slip Header with Sunlife Logo */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
                     <div className="flex items-center gap-4">
@@ -1404,23 +1549,10 @@ function TeamContent() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setMonthlyFilterMemberId("ALL")}
-                        className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
-                      >
-                        ← Back to All Staff Matrix
-                      </button>
-
-                      <a
-                        href={getWhatsAppShareUrl(singleMember, selectedMonthYear)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs"
-                      >
-                        <MessageSquare className="w-4 h-4" />
-                        <span>Send to {singleMember.name.split(" ")[0]} via WhatsApp</span>
-                      </a>
+                    <div className="text-left sm:text-right">
+                      <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-xl font-extrabold text-xs inline-block">
+                        Verified Attendance: {stats.attendancePercentage}%
+                      </span>
                     </div>
                   </div>
 
@@ -1501,18 +1633,18 @@ function TeamContent() {
                     </div>
                   </div>
 
-                  {/* Day-by-Day Calendar Grid */}
+                  {/* Day-by-Day Calendar Grid with Rich Hover Tooltips */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h4 className="font-bold font-heading text-sm text-slate-900 uppercase tracking-wider">
                         Day-by-Day Attendance Log ({monthNameFormatted})
                       </h4>
-                      <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-xl font-extrabold text-xs">
-                        Overall Attendance: {stats.attendancePercentage}%
+                      <span className="text-[11px] text-slate-400 font-medium">
+                        💡 Hover on any day card to inspect In/Out punch time & site
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5">
                       {stats.dayBreakdown.map((item) => {
                         const isPresent = item.status === "Present" || item.status === "On Survey";
                         const isHalf = item.status === "Half Day";
@@ -1523,32 +1655,96 @@ function TeamContent() {
                         return (
                           <div
                             key={item.day}
-                            className={`p-3 rounded-2xl border text-center transition-all ${
+                            className={`group relative p-3 rounded-2xl border text-center transition-all duration-150 cursor-pointer ${
                               isPresent
-                                ? "bg-emerald-50/80 border-emerald-200 text-emerald-900"
+                                ? "bg-emerald-50/80 border-emerald-200 text-emerald-900 hover:bg-emerald-100 hover:shadow-md hover:border-emerald-400"
                                 : isHalf
-                                ? "bg-orange-50/80 border-orange-200 text-orange-900"
+                                ? "bg-orange-50/80 border-orange-200 text-orange-900 hover:bg-orange-100 hover:shadow-md hover:border-orange-400"
                                 : isAbsent
-                                ? "bg-red-50/80 border-red-200 text-red-900 font-bold"
+                                ? "bg-red-50/80 border-red-200 text-red-900 font-bold hover:bg-red-100 hover:shadow-md hover:border-red-400"
                                 : isLeave
-                                ? "bg-purple-50/80 border-purple-200 text-purple-900"
+                                ? "bg-purple-50/80 border-purple-200 text-purple-900 hover:bg-purple-100 hover:shadow-md hover:border-purple-400"
                                 : isSunday
-                                ? "bg-slate-100/80 border-slate-200 text-slate-500"
-                                : "bg-white border-slate-200 text-slate-400"
+                                ? "bg-slate-100/80 border-slate-200 text-slate-500 hover:bg-slate-200"
+                                : "bg-white border-slate-200 text-slate-400 hover:border-slate-300"
                             }`}
                           >
                             <span className="text-xs font-extrabold block">Day {item.day}</span>
                             <span className="text-[10px] font-extrabold uppercase block mt-1">
                               {item.status}
                             </span>
-                            {item.checkIn && item.checkIn !== "--" && (
-                              <span className="text-[10px] text-slate-600 block mt-1 font-semibold">
-                                {item.checkIn}
+                            {item.checkIn && item.checkIn !== "--" ? (
+                              <span className="text-[10px] text-slate-700 block mt-1 font-semibold">
+                                In: {item.checkIn}
                               </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 block mt-1">--</span>
                             )}
+
+                            {/* HOVER TOOLTIP CARD */}
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 bg-slate-900 text-white rounded-2xl p-3 shadow-2xl z-50 text-left pointer-events-none opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                              <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-1.5">
+                                <span className="font-extrabold text-[11px] text-sun-amber">
+                                  Day {item.day} • {item.formattedDate}
+                                </span>
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold ${
+                                    isPresent
+                                      ? "bg-emerald-600 text-white"
+                                      : isHalf
+                                      ? "bg-orange-600 text-white"
+                                      : isAbsent
+                                      ? "bg-red-600 text-white"
+                                      : isLeave
+                                      ? "bg-purple-600 text-white"
+                                      : "bg-slate-700 text-slate-300"
+                                  }`}
+                                >
+                                  {item.status}
+                                </span>
+                              </div>
+
+                              <div className="space-y-1 text-[10px]">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-400">Punch In:</span>
+                                  <span className="font-bold text-emerald-400">
+                                    {item.checkIn || "--"}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-400">Punch Out:</span>
+                                  <span className="font-bold text-amber-400">
+                                    {item.checkOut || "--"}
+                                  </span>
+                                </div>
+
+                                {item.assignedSite && item.assignedSite !== "--" && (
+                                  <div className="pt-1 border-t border-slate-800">
+                                    <span className="text-slate-400 block">Site:</span>
+                                    <span className="font-medium text-slate-200 truncate block">
+                                      {item.assignedSite}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Tooltip Arrow */}
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
+                            </div>
                           </div>
                         );
                       })}
+                    </div>
+                  </div>
+
+                  {/* Slip Footer Branding */}
+                  <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-400 gap-2">
+                    <div>
+                      Official Workforce Attendance Record • {siteConfig.name}
+                    </div>
+                    <div>
+                      Generated on: {new Date().toLocaleString("en-IN")}
                     </div>
                   </div>
                 </div>
@@ -1653,7 +1849,7 @@ function TeamContent() {
                               handleTabChange("monthly");
                             }}
                             title="View Monthly Attendance Slip"
-                            className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 transition-colors"
+                            className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 transition-colors cursor-pointer"
                           >
                             <FileText className="w-3.5 h-3.5" />
                           </button>
