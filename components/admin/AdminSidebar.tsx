@@ -146,21 +146,39 @@ export function AdminSidebar({ mobileOpen, setMobileOpen }: AdminSidebarProps) {
                     {isTeamItem && (
                       <div className="pl-7 pr-2 py-1 space-y-1">
                         <Link
+                          href="/admin/team?tab=attendance"
+                          onClick={() => setMobileOpen(false)}
+                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-slate-500 hover:text-solar-deep hover:bg-emerald-50/60 transition-colors"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                          <span>Daily Attendance</span>
+                        </Link>
+
+                        <Link
+                          href="/admin/team?tab=monthly"
+                          onClick={() => setMobileOpen(false)}
+                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-slate-500 hover:text-solar-deep hover:bg-emerald-50/60 transition-colors"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                          <span>Monthly Matrix</span>
+                        </Link>
+
+                        <Link
+                          href="/admin/team?tab=corrections"
+                          onClick={() => setMobileOpen(false)}
+                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-slate-500 hover:text-solar-deep hover:bg-emerald-50/60 transition-colors"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                          <span>Correction Requests</span>
+                        </Link>
+
+                        <Link
                           href="/admin/team?tab=profiles"
                           onClick={() => setMobileOpen(false)}
                           className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-slate-500 hover:text-solar-deep hover:bg-emerald-50/60 transition-colors"
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
                           <span>Employee Profiles</span>
-                        </Link>
-
-                        <Link
-                          href="/admin/team?tab=attendance"
-                          onClick={() => setMobileOpen(false)}
-                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-slate-500 hover:text-solar-deep hover:bg-emerald-50/60 transition-colors"
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                          <span>Attendance & Duty</span>
                         </Link>
 
                         <Link

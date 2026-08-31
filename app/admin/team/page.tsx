@@ -33,8 +33,30 @@ import {
   Download,
   FileSpreadsheet,
   CheckCheck,
+  Filter,
+  Eye,
+  Edit3,
+  LogIn,
+  LogOut,
+  CalendarRange,
+  FileSignature,
 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
+import {
+  AttendanceRecord,
+  CorrectionRequest,
+  LeaveRecord,
+  ORG_CONFIG,
+  calculateLateMinutes,
+  calculateWorkingMinutes,
+  formatMinutesToHours,
+  isSundayDate,
+  getPublicHolidayName,
+} from "@/lib/attendance-utils";
+import { AttendanceMarkModal } from "@/components/admin/attendance/AttendanceMarkModal";
+import { AttendanceDetailDrawer } from "@/components/admin/attendance/AttendanceDetailDrawer";
+import { MonthlyMatrixView } from "@/components/admin/attendance/MonthlyMatrixView";
+import { CorrectionRequestsView } from "@/components/admin/attendance/CorrectionRequestsView";
 
 interface TeamMember {
   id: string;
@@ -48,13 +70,6 @@ interface TeamMember {
   joinedYear: string;
   monthlySalary?: number;
   dailyRate?: number;
-}
-
-interface AttendanceRecord {
-  memberId: string;
-  status: "Present (On-Site)" | "Present (Survey)" | "Present (Office)" | "Absent" | "Half-Day";
-  inTime: string;
-  assignedProject: string;
 }
 
 interface PayrollRecord {
@@ -87,40 +102,65 @@ function TeamContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Tab State: 'profiles' | 'attendance' | 'payroll'
+  // Tab State: 'profiles' | 'attendance' | 'monthly' | 'corrections' | 'payroll'
   const tabParam = searchParams.get("tab");
-  const [activeTab, setActiveTab] = useState<"profiles" | "attendance" | "payroll">(
-    tabParam === "attendance" || tabParam === "payroll" ? tabParam : "profiles"
+  const [activeTab, setActiveTab] = useState<
+    "profiles" | "attendance" | "monthly" | "corrections" | "payroll"
+  >(
+    tabParam === "attendance" ||
+      tabParam === "monthly" ||
+      tabParam === "corrections" ||
+      tabParam === "payroll"
+      ? tabParam
+      : "attendance" // default to attendance for fast daily operations
   );
 
   useEffect(() => {
-    if (tabParam === "attendance" || tabParam === "payroll" || tabParam === "profiles") {
+    if (
+      tabParam === "attendance" ||
+      tabParam === "monthly" ||
+      tabParam === "corrections" ||
+      tabParam === "payroll" ||
+      tabParam === "profiles"
+    ) {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
 
-  const handleTabChange = (tab: "profiles" | "attendance" | "payroll") => {
+  const handleTabChange = (
+    tab: "profiles" | "attendance" | "monthly" | "corrections" | "payroll"
+  ) => {
     setActiveTab(tab);
     router.replace(`/admin/team?tab=${tab}`, { scroll: false });
   };
 
-  const [search, setSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [teamList, setTeamList] = useState<TeamMember[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  // Attendance State with Historical Date Support
   const getTodayISO = () => new Date().toISOString().split("T")[0];
-  const [selectedAttendanceDate, setSelectedAttendanceDate] = useState(getTodayISO());
+
+  // Core Data States
+  const [teamList, setTeamList] = useState<TeamMember[]>([]);
   const [attendanceHistory, setAttendanceHistory] = useState<
     Record<string, Record<string, AttendanceRecord>>
   >({});
-
-  // Payroll State
+  const [correctionRequests, setCorrectionRequests] = useState<CorrectionRequest[]>([]);
+  const [approvedLeaves, setApprovedLeaves] = useState<LeaveRecord[]>([]);
   const [payrollRecords, setPayrollRecords] = useState<Record<string, PayrollRecord>>({});
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  // Multi-select & custom tag state for Add Member Modal
+  // Filters State
+  const [selectedAttendanceDate, setSelectedAttendanceDate] = useState(getTodayISO());
+  const [search, setSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState("All");
+  const [selectedTerritoryFilter, setSelectedTerritoryFilter] = useState("All");
+
+  // Modal / Drawer States
+  const [isMarkModalOpen, setIsMarkModalOpen] = useState(false);
+  const [editingAttendanceRecord, setEditingAttendanceRecord] = useState<Partial<AttendanceRecord> | null>(null);
+  const [drawerRecord, setDrawerRecord] = useState<AttendanceRecord | null>(null);
+  const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
+  const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
+
+  // Add Member Multi-Select Skills State
   const [selectedSkills, setSelectedSkills] = useState<string[]>([
     "Mono-PERC Installation",
     "Hot-Dip GI Fabrication",
@@ -129,32 +169,22 @@ function TeamContent() {
   const [isSkillDropdownOpen, setIsSkillDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Load real team list and records from localStorage
+  // Load and initialize persistent state
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("sunlife_admin_team_roster");
-      let initialList: TeamMember[] = [];
+      const today = getTodayISO();
 
-      if (saved) {
+      // 1. Team Roster
+      const savedTeam = localStorage.getItem("sunlife_admin_team_roster");
+      let initialList: TeamMember[] = [];
+      if (savedTeam) {
         try {
-          initialList = JSON.parse(saved);
+          initialList = JSON.parse(savedTeam);
         } catch {
-          initialList = [
-            {
-              id: "owner-1",
-              name: siteConfig.owner.name,
-              role: "Founder & Lead Solar Specialist",
-              category: "Management",
-              phone: siteConfig.contact.phoneClean,
-              territory: `${siteConfig.contact.address.city}, MP`,
-              status: "Available",
-              skills: ["Solar EPC", "DISCOM Liaison", "System Sizing"],
-              joinedYear: "2021",
-              monthlySalary: 75000,
-            },
-          ];
+          initialList = [];
         }
-      } else {
+      }
+      if (initialList.length === 0) {
         initialList = [
           {
             id: "owner-1",
@@ -170,14 +200,11 @@ function TeamContent() {
           },
         ];
       }
-
       setTeamList(initialList);
 
-      // Initialize Attendance History
-      const savedAtt = localStorage.getItem("sunlife_admin_attendance_history");
-      const today = getTodayISO();
+      // 2. Attendance History
+      const savedAtt = localStorage.getItem("sunlife_admin_attendance_v2");
       let history: Record<string, Record<string, AttendanceRecord>> = {};
-
       if (savedAtt) {
         try {
           history = JSON.parse(savedAtt);
@@ -190,18 +217,47 @@ function TeamContent() {
         const todayRecords: Record<string, AttendanceRecord> = {};
         initialList.forEach((m) => {
           todayRecords[m.id] = {
+            id: `att_${m.id}_${today}`,
             memberId: m.id,
-            status: m.status === "Active On-Site" ? "Present (On-Site)" : "Present (Office)",
-            inTime: "09:00 AM",
-            assignedProject: m.territory ? `${m.territory} Solar Site` : "Narmadapuram HQ",
+            date: today,
+            checkIn: "09:15 AM",
+            checkOut: "05:30 PM",
+            breakMinutes: 30,
+            workingHoursMinutes: 465, // 7h 45m
+            status: "Present",
+            location: m.territory ? `${m.territory} Solar Site` : "Narmadapuram HQ",
+            remarks: "Standard on-site solar EPC shift",
+            lateMinutes: 0,
+            overtimeMinutes: 0,
+            createdBy: "System / Admin",
+            lastUpdated: new Date().toISOString(),
+            auditTrail: [
+              {
+                id: "init-1",
+                timestamp: "09:15 AM",
+                author: "System Punch",
+                field: "Check-In",
+                oldValue: "--",
+                newValue: "09:15 AM (Present)",
+              },
+            ],
           };
         });
         history[today] = todayRecords;
       }
-
       setAttendanceHistory(history);
 
-      // Initialize Payroll Records
+      // 3. Correction Requests
+      const savedCorrections = localStorage.getItem("sunlife_admin_corrections");
+      if (savedCorrections) {
+        try {
+          setCorrectionRequests(JSON.parse(savedCorrections));
+        } catch {
+          setCorrectionRequests([]);
+        }
+      }
+
+      // 4. Payroll Records
       const savedPay = localStorage.getItem("sunlife_admin_payroll");
       if (savedPay) {
         try {
@@ -223,22 +279,30 @@ function TeamContent() {
       records[m.id] = {
         memberId: m.id,
         payType:
-          m.category === "Management" || m.category === "Engineer" ? "Monthly Salary" : "Daily Rate",
+          m.category === "Management" || m.category === "Engineer"
+            ? "Monthly Salary"
+            : "Daily Rate",
         baseAmount: m.monthlySalary || (m.dailyRate ? m.dailyRate * 26 : 18000),
         fieldAllowance: 2500,
         bonus: 0,
         paymentStatus: "PAID",
         paymentMode: "UPI",
-        payoutDate: new Date().toLocaleDateString("en-IN", { month: "short", year: "numeric" }),
+        payoutDate: new Date().toLocaleDateString("en-IN", {
+          month: "short",
+          year: "numeric",
+        }),
       };
     });
     setPayrollRecords(records);
   };
 
-  // Close dropdown when clicking outside
+  // Close skill dropdown on click outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setIsSkillDropdownOpen(false);
       }
     }
@@ -246,21 +310,35 @@ function TeamContent() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Save helpers
   const saveTeamList = (updated: TeamMember[]) => {
     setTeamList(updated);
     if (typeof window !== "undefined") {
-      localStorage.setItem("sunlife_admin_team_roster", JSON.stringify(updated));
+      localStorage.setItem(
+        "sunlife_admin_team_roster",
+        JSON.stringify(updated)
+      );
     }
   };
 
   const saveAttendanceHistory = (
-    updatedHistory: Record<string, Record<string, AttendanceRecord>>
+    updated: Record<string, Record<string, AttendanceRecord>>
   ) => {
-    setAttendanceHistory(updatedHistory);
+    setAttendanceHistory(updated);
     if (typeof window !== "undefined") {
       localStorage.setItem(
-        "sunlife_admin_attendance_history",
-        JSON.stringify(updatedHistory)
+        "sunlife_admin_attendance_v2",
+        JSON.stringify(updated)
+      );
+    }
+  };
+
+  const saveCorrections = (updated: CorrectionRequest[]) => {
+    setCorrectionRequests(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "sunlife_admin_corrections",
+        JSON.stringify(updated)
       );
     }
   };
@@ -272,125 +350,290 @@ function TeamContent() {
     }
   };
 
-  // Get current active date's attendance records
-  const currentDayAttendance = attendanceHistory[selectedAttendanceDate] || {};
+  // Active Day Attendance Records
+  const currentDayAttendance =
+    attendanceHistory[selectedAttendanceDate] || {};
 
-  const handleUpdateAttendanceField = (
-    memberId: string,
-    field: keyof AttendanceRecord,
-    value: string
+  // KPI Calculations for Active Day
+  const totalEmployees = teamList.length;
+  const presentTodayCount = Object.values(currentDayAttendance).filter(
+    (a) => a.status === "Present" || a.status === "Late"
+  ).length;
+  const absentTodayCount = Object.values(currentDayAttendance).filter(
+    (a) => a.status === "Absent"
+  ).length;
+  const onLeaveCount = Object.values(currentDayAttendance).filter(
+    (a) => a.status === "Leave"
+  ).length;
+  const halfDayCount = Object.values(currentDayAttendance).filter(
+    (a) => a.status === "Half Day"
+  ).length;
+  const lateTodayCount = Object.values(currentDayAttendance).filter(
+    (a) => a.status === "Late" || a.lateMinutes > 0
+  ).length;
+
+  const attendanceRate =
+    totalEmployees > 0
+      ? Math.round(
+          ((presentTodayCount + halfDayCount * 0.5) / totalEmployees) * 100
+        )
+      : 100;
+
+  // Filtered Roster for Active Day Table
+  const filteredDailyRecords = teamList.filter((member) => {
+    const record = currentDayAttendance[member.id];
+    const matchesSearch =
+      member.name.toLowerCase().includes(search.toLowerCase()) ||
+      member.role.toLowerCase().includes(search.toLowerCase()) ||
+      member.territory.toLowerCase().includes(search.toLowerCase()) ||
+      member.phone.includes(search);
+
+    const matchesCategory =
+      selectedCategory === "All" || member.category === selectedCategory;
+
+    const matchesStatus =
+      selectedStatusFilter === "All" ||
+      (record && record.status === selectedStatusFilter) ||
+      (!record && selectedStatusFilter === "Pending");
+
+    const matchesTerritory =
+      selectedTerritoryFilter === "All" ||
+      member.territory.toLowerCase().includes(selectedTerritoryFilter.toLowerCase());
+
+    return matchesSearch && matchesCategory && matchesStatus && matchesTerritory;
+  });
+
+  // Handle Mark / Save Attendance Record
+  const handleSaveAttendanceRecord = (record: AttendanceRecord) => {
+    const dayRecords = attendanceHistory[record.date] || {};
+    const updatedHistory = {
+      ...attendanceHistory,
+      [record.date]: {
+        ...dayRecords,
+        [record.memberId]: record,
+      },
+    };
+    saveAttendanceHistory(updatedHistory);
+  };
+
+  // Quick Self/Admin Punch Check-in & Check-out for Founder/User
+  const loggedInMemberId = teamList[0]?.id || "owner-1";
+  const userTodayRecord = currentDayAttendance[loggedInMemberId];
+
+  const handleQuickCheckIn = () => {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const isLate = calculateLateMinutes(timeStr) > 0;
+    const newRecord: AttendanceRecord = {
+      id: `att_${loggedInMemberId}_${selectedAttendanceDate}`,
+      memberId: loggedInMemberId,
+      date: selectedAttendanceDate,
+      checkIn: timeStr,
+      checkOut: "--",
+      breakMinutes: 0,
+      workingHoursMinutes: 0,
+      status: isLate ? "Late" : "Present",
+      location: "Narmadapuram HQ",
+      remarks: "Self Web Punch Check-In",
+      lateMinutes: calculateLateMinutes(timeStr),
+      overtimeMinutes: 0,
+      createdBy: "Self Punch",
+      lastUpdated: now.toISOString(),
+      auditTrail: [
+        {
+          id: Date.now().toString(),
+          timestamp: timeStr,
+          author: "Self Punch",
+          field: "Check-In",
+          oldValue: "--",
+          newValue: timeStr,
+        },
+      ],
+    };
+    handleSaveAttendanceRecord(newRecord);
+  };
+
+  const handleQuickCheckOut = () => {
+    if (!userTodayRecord || !userTodayRecord.checkIn || userTodayRecord.checkIn === "--") return;
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const { workingMinutes } = calculateWorkingMinutes(
+      userTodayRecord.checkIn,
+      timeStr,
+      userTodayRecord.breakMinutes || 0
+    );
+
+    const updatedRecord: AttendanceRecord = {
+      ...userTodayRecord,
+      checkOut: timeStr,
+      workingHoursMinutes: workingMinutes,
+      overtimeMinutes: Math.max(0, workingMinutes - 480),
+      lastUpdated: now.toISOString(),
+      auditTrail: [
+        ...(userTodayRecord.auditTrail || []),
+        {
+          id: Date.now().toString(),
+          timestamp: timeStr,
+          author: "Self Punch",
+          field: "Check-Out",
+          oldValue: "--",
+          newValue: `${timeStr} (${formatMinutesToHours(workingMinutes)})`,
+        },
+      ],
+    };
+    handleSaveAttendanceRecord(updatedRecord);
+  };
+
+  // Correction Request Approvals
+  const handleApproveCorrection = (req: CorrectionRequest) => {
+    const { workingMinutes } = calculateWorkingMinutes(
+      req.requestedCheckIn,
+      req.requestedCheckOut,
+      30
+    );
+
+    const updatedAttendance: AttendanceRecord = {
+      id: `att_${req.memberId}_${req.date}`,
+      memberId: req.memberId,
+      date: req.date,
+      checkIn: req.requestedCheckIn,
+      checkOut: req.requestedCheckOut,
+      breakMinutes: 30,
+      workingHoursMinutes: workingMinutes,
+      status: "Present",
+      location: "Verified Site Duty",
+      remarks: `Correction Approved: ${req.reason}`,
+      lateMinutes: calculateLateMinutes(req.requestedCheckIn),
+      overtimeMinutes: Math.max(0, workingMinutes - 480),
+      createdBy: "HR Approval",
+      lastUpdated: new Date().toISOString(),
+      auditTrail: [
+        {
+          id: Date.now().toString(),
+          timestamp: new Date().toLocaleTimeString("en-IN"),
+          author: "Admin Approval",
+          field: "Attendance Correction",
+          oldValue: "Missing Punch / Request",
+          newValue: `${req.requestedCheckIn} - ${req.requestedCheckOut}`,
+        },
+      ],
+    };
+
+    handleSaveAttendanceRecord(updatedAttendance);
+
+    const updatedRequests = correctionRequests.map((r) =>
+      r.id === req.id
+        ? {
+            ...r,
+            status: "Approved" as const,
+            reviewedBy: "Rahul Kumar Bamne (Admin)",
+            reviewedAt: new Date().toLocaleDateString("en-IN"),
+          }
+        : r
+    );
+    saveCorrections(updatedRequests);
+  };
+
+  const handleRejectCorrection = (requestId: string) => {
+    const updatedRequests = correctionRequests.map((r) =>
+      r.id === requestId
+        ? {
+            ...r,
+            status: "Rejected" as const,
+            reviewedBy: "Admin",
+            reviewedAt: new Date().toLocaleDateString("en-IN"),
+          }
+        : r
+    );
+    saveCorrections(updatedRequests);
+  };
+
+  const handleSubmitNewCorrection = (
+    data: Omit<CorrectionRequest, "id" | "status" | "submittedAt">
   ) => {
-    const dayRecords = attendanceHistory[selectedAttendanceDate] || {};
-    const current = dayRecords[memberId] || {
-      memberId,
-      status: "Present (Office)",
-      inTime: "09:00 AM",
-      assignedProject: "Narmadapuram HQ",
+    const newReq: CorrectionRequest = {
+      id: `cr_${Date.now()}`,
+      ...data,
+      status: "Pending",
+      submittedAt: new Date().toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
     };
-
-    const updatedDay = {
-      ...dayRecords,
-      [memberId]: { ...current, [field]: value },
-    };
-
-    saveAttendanceHistory({
-      ...attendanceHistory,
-      [selectedAttendanceDate]: updatedDay,
-    });
+    saveCorrections([newReq, ...correctionRequests]);
   };
 
-  const handleMarkAllAttendance = (status: AttendanceRecord["status"]) => {
-    const dayRecords = attendanceHistory[selectedAttendanceDate] || {};
-    const updatedDay = { ...dayRecords };
+  // Export Daily Attendance as Excel (.csv)
+  const handleExportDailyExcel = () => {
+    let csv = "SUNLIFE SOLAR ENERGY SOLUTION - DAILY WORKFORCE ATTENDANCE REPORT\n";
+    csv += `Report Date:,"${selectedAttendanceDate}"\n`;
+    csv += `Generated On:,"${new Date().toLocaleString("en-IN")}"\n\n`;
 
-    teamList.forEach((m) => {
-      const current = dayRecords[m.id] || {
-        memberId: m.id,
-        status: "Present (Office)",
-        inTime: "09:00 AM",
-        assignedProject: `${m.territory} Site`,
-      };
-      updatedDay[m.id] = { ...current, status };
-    });
+    csv +=
+      "Employee Name,Employee ID,Role,Department,Phone,Territory,Date,Check-In,Check-Out,Working Hours,Status,Location,Remarks\n";
 
-    saveAttendanceHistory({
-      ...attendanceHistory,
-      [selectedAttendanceDate]: updatedDay,
-    });
-  };
-
-  // Download Attendance Report as Excel (.csv format)
-  const handleDownloadExcelReport = () => {
-    const formattedDate = new Date(selectedAttendanceDate).toLocaleDateString("en-IN", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-
-    let csvContent = "";
-    csvContent += "SUNLIFE SOLAR ENERGY SOLUTION - DAILY WORKFORCE ATTENDANCE REPORT\n";
-    csvContent += `Report Date:,"${formattedDate}"\n`;
-    csvContent += `Generated On:,"${new Date().toLocaleString("en-IN")}"\n\n`;
-
-    // Table Header
-    csvContent +=
-      "Employee Name,Designation,Department,Contact Phone,Territory,Attendance Status,In-Time,Assigned Project Site\n";
-
-    // Table Rows
-    teamList.forEach((member) => {
-      const record = currentDayAttendance[member.id] || {
-        status: "Present (Office)",
-        inTime: "09:00 AM",
-        assignedProject: `${member.territory} Site`,
+    teamList.forEach((m, idx) => {
+      const record = currentDayAttendance[m.id] || {
+        checkIn: "--",
+        checkOut: "--",
+        workingHoursMinutes: 0,
+        status: "Pending",
+        location: `${m.territory} Site`,
+        remarks: "",
       };
 
       const row = [
-        `"${member.name.replace(/"/g, '""')}"`,
-        `"${member.role.replace(/"/g, '""')}"`,
-        `"${member.category}"`,
-        `"${member.phone}"`,
-        `"${member.territory.replace(/"/g, '""')}"`,
+        `"${m.name.replace(/"/g, '""')}"`,
+        `"SL-${String(idx + 1).padStart(3, "0")}"`,
+        `"${m.role}"`,
+        `"${m.category}"`,
+        `"${m.phone}"`,
+        `"${m.territory}"`,
+        `"${selectedAttendanceDate}"`,
+        `"${record.checkIn}"`,
+        `"${record.checkOut}"`,
+        `"${formatMinutesToHours(record.workingHoursMinutes)}"`,
         `"${record.status}"`,
-        `"${record.inTime}"`,
-        `"${record.assignedProject.replace(/"/g, '""')}"`,
+        `"${record.location.replace(/"/g, '""')}"`,
+        `"${(record.remarks || "").replace(/"/g, '""')}"`,
       ];
-      csvContent += row.join(",") + "\n";
+      csv += row.join(",") + "\n";
     });
 
-    // Summary Calculations
-    const presentOnSite = Object.values(currentDayAttendance).filter(
-      (a) => a.status === "Present (On-Site)"
-    ).length;
-    const presentSurvey = Object.values(currentDayAttendance).filter(
-      (a) => a.status === "Present (Survey)"
-    ).length;
-    const presentOffice = Object.values(currentDayAttendance).filter(
-      (a) => a.status === "Present (Office)"
-    ).length;
-    const absentCount = Object.values(currentDayAttendance).filter(
-      (a) => a.status === "Absent"
-    ).length;
+    csv += `\nSUMMARY STATISTICS\n`;
+    csv += `Total Registered Workforce:,"${totalEmployees}"\n`;
+    csv += `Present Today:,"${presentTodayCount}"\n`;
+    csv += `Absent Today:,"${absentTodayCount}"\n`;
+    csv += `On Leave:,"${onLeaveCount}"\n`;
+    csv += `Half Day:,"${halfDayCount}"\n`;
+    csv += `Late Attendance:,"${lateTodayCount}"\n`;
+    csv += `Attendance Percentage:,"${attendanceRate}%"\n`;
 
-    csvContent += "\n--- ATTENDANCE SUMMARY ---\n";
-    csvContent += `Total Staff Registered:,"${teamList.length}"\n`;
-    csvContent += `Present On-Site Installation:,"${presentOnSite}"\n`;
-    csvContent += `Present Site Survey:,"${presentSurvey}"\n`;
-    csvContent += `Present Office/Logistics:,"${presentOffice}"\n`;
-    csvContent += `Absent / On Leave:,"${absentCount}"\n`;
-
-    // Trigger File Download
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `Sunlife_Solar_Attendance_${selectedAttendanceDate}.csv`);
+    link.setAttribute(
+      "download",
+      `Sunlife_Solar_Attendance_Report_${selectedAttendanceDate}.csv`
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
 
-  // Form state for adding new technician/crew member
+  // Add Member Handler
   const [newMember, setNewMember] = useState({
     name: "",
     role: "",
@@ -400,26 +643,6 @@ function TeamContent() {
     status: "Available" as TeamMember["status"],
     monthlySalary: 18000,
   });
-
-  const toggleSkill = (skill: string) => {
-    if (selectedSkills.includes(skill)) {
-      setSelectedSkills(selectedSkills.filter((s) => s !== skill));
-    } else {
-      setSelectedSkills([...selectedSkills, skill]);
-    }
-  };
-
-  const handleAddCustomSkill = () => {
-    const trimmed = customSkillInput.trim();
-    if (trimmed && !selectedSkills.includes(trimmed)) {
-      setSelectedSkills([...selectedSkills, trimmed]);
-      setCustomSkillInput("");
-    }
-  };
-
-  const removeSkillTag = (skillToRemove: string) => {
-    setSelectedSkills(selectedSkills.filter((s) => s !== skillToRemove));
-  };
 
   const handleAddMember = (e: React.FormEvent) => {
     e.preventDefault();
@@ -438,25 +661,10 @@ function TeamContent() {
       monthlySalary: Number(newMember.monthlySalary) || 18000,
     };
 
-    const updatedList = [created, ...teamList];
-    saveTeamList(updatedList);
+    const updated = [created, ...teamList];
+    saveTeamList(updated);
 
-    // Add attendance entry to current day
-    const dayRecords = attendanceHistory[selectedAttendanceDate] || {};
-    saveAttendanceHistory({
-      ...attendanceHistory,
-      [selectedAttendanceDate]: {
-        ...dayRecords,
-        [created.id]: {
-          memberId: created.id,
-          status: "Present (Office)",
-          inTime: "09:00 AM",
-          assignedProject: `${created.territory} Site`,
-        },
-      },
-    });
-
-    // Add payroll entry
+    // Add payroll record
     savePayroll({
       ...payrollRecords,
       [created.id]: {
@@ -467,11 +675,14 @@ function TeamContent() {
         bonus: 0,
         paymentStatus: "PENDING",
         paymentMode: "UPI",
-        payoutDate: new Date().toLocaleDateString("en-IN", { month: "short", year: "numeric" }),
+        payoutDate: new Date().toLocaleDateString("en-IN", {
+          month: "short",
+          year: "numeric",
+        }),
       },
     });
 
-    setIsAddModalOpen(false);
+    setIsAddMemberModalOpen(false);
     setNewMember({
       name: "",
       role: "",
@@ -481,13 +692,47 @@ function TeamContent() {
       status: "Available",
       monthlySalary: 18000,
     });
-    setSelectedSkills(["Mono-PERC Installation", "Hot-Dip GI Fabrication"]);
   };
 
-  const handleDeleteMember = (id: string) => {
-    if (id === "owner-1") return;
-    const updated = teamList.filter((m) => m.id !== id);
-    saveTeamList(updated);
+  // Payroll Calculation linked to Attendance
+  const calculateAttendanceForMember = (memberId: string) => {
+    // Count attendance across the current month
+    let presentDays = 0;
+    let leaveDays = 0;
+    let halfDays = 0;
+    let absentDays = 0;
+    let overtimeHours = 0;
+
+    Object.entries(attendanceHistory).forEach(([date, dayRecord]) => {
+      const rec = dayRecord[memberId];
+      if (rec) {
+        if (rec.status === "Present" || rec.status === "Late") {
+          presentDays += 1;
+          if (rec.overtimeMinutes > 0) {
+            overtimeHours += Math.round(rec.overtimeMinutes / 60);
+          }
+        } else if (rec.status === "Half Day") {
+          halfDays += 1;
+        } else if (rec.status === "Leave") {
+          leaveDays += 1;
+        } else if (rec.status === "Absent") {
+          absentDays += 1;
+        }
+      }
+    });
+
+    const paidDays = presentDays + leaveDays + halfDays * 0.5;
+    const unpaidDays = absentDays + halfDays * 0.5;
+
+    return {
+      presentDays,
+      leaveDays,
+      halfDays,
+      absentDays,
+      paidDays,
+      unpaidDays,
+      overtimeHours,
+    };
   };
 
   const handleTogglePaymentStatus = (memberId: string) => {
@@ -500,43 +745,9 @@ function TeamContent() {
     });
   };
 
-  const filteredTeam = teamList.filter((member) => {
-    const matchesSearch =
-      member.name.toLowerCase().includes(search.toLowerCase()) ||
-      member.role.toLowerCase().includes(search.toLowerCase()) ||
-      member.territory.toLowerCase().includes(search.toLowerCase()) ||
-      member.phone.includes(search);
-
-    const matchesCategory =
-      selectedCategory === "All" || member.category === selectedCategory;
-
-    return matchesSearch && matchesCategory;
-  });
-
-  // KPI Calculations
-  const activeOnSiteCount = Object.values(currentDayAttendance).filter(
-    (a) => a.status === "Present (On-Site)"
-  ).length;
-  const onSurveyCount = Object.values(currentDayAttendance).filter(
-    (a) => a.status === "Present (Survey)"
-  ).length;
-  const presentOfficeCount = Object.values(currentDayAttendance).filter(
-    (a) => a.status === "Present (Office)"
-  ).length;
-  const totalPresentCount = activeOnSiteCount + onSurveyCount + presentOfficeCount;
-
-  const totalPayrollAmount = Object.values(payrollRecords).reduce(
-    (acc, cur) => acc + (cur.baseAmount || 0) + (cur.fieldAllowance || 0) + (cur.bonus || 0),
-    0
-  );
-  const paidPayrollAmount = Object.values(payrollRecords)
-    .filter((p) => p.paymentStatus === "PAID")
-    .reduce((acc, cur) => acc + (cur.baseAmount || 0) + (cur.fieldAllowance || 0) + (cur.bonus || 0), 0);
-  const pendingPayrollAmount = totalPayrollAmount - paidPayrollAmount;
-
   return (
     <div className="w-full space-y-6">
-      {/* Page Title & Main Header */}
+      {/* Page Title & Operational Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="text-xs font-bold uppercase tracking-wider text-solar-emerald mb-1">
@@ -546,50 +757,93 @@ function TeamContent() {
             Team & Field Crew
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Daily field attendance logging, technician profiles, and monthly payroll reports.
+            Daily biometric & site attendance tracking, monthly calendar matrix, and attendance-verified payroll.
           </p>
         </div>
 
-        {/* Action Buttons based on Tab */}
-        {activeTab === "profiles" && (
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="px-4 py-2.5 bg-solar-deep hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer self-start sm:self-auto"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Team Member</span>
-          </button>
-        )}
-
-        {activeTab === "attendance" && (
-          <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
-            {/* Excel Download Button */}
+        {/* Action Button depending on active tab */}
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {activeTab === "profiles" && (
             <button
-              onClick={handleDownloadExcelReport}
+              onClick={() => setIsAddMemberModalOpen(true)}
+              className="px-4 py-2.5 bg-solar-deep hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Team Member</span>
+            </button>
+          )}
+
+          {activeTab === "attendance" && (
+            <button
+              onClick={handleExportDailyExcel}
               className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer"
             >
               <FileSpreadsheet className="w-4 h-4" />
-              <span>Download Excel Report (.csv)</span>
+              <span>Export Excel Sheet (.csv)</span>
             </button>
-          </div>
-        )}
-
-        {activeTab === "payroll" && (
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <span className="px-3.5 py-2 bg-slate-900 text-sun-amber text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5">
-              <CreditCard className="w-3.5 h-3.5" />
-              <span>Cycle: {new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</span>
-            </span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* 3 Sub-Heading Tabs Bar */}
-      <div className="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap sm:flex-nowrap gap-1.5 w-full">
-        {/* Tab 1: Employee Profiles */}
+      {/* Modern 5-Tab Subheadings Bar */}
+      <div className="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap gap-1.5 w-full">
+        {/* Tab 1: Daily Attendance */}
+        <button
+          onClick={() => handleTabChange("attendance")}
+          className={`flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === "attendance"
+              ? "bg-solar-deep text-white shadow-sm"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+          }`}
+        >
+          <Calendar className={`w-4 h-4 ${activeTab === "attendance" ? "text-sun-amber" : "text-slate-400"}`} />
+          <span>Daily Attendance</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+              activeTab === "attendance"
+                ? "bg-white/20 text-white"
+                : "bg-emerald-50 text-solar-deep"
+            }`}
+          >
+            {presentTodayCount} Today
+          </span>
+        </button>
+
+        {/* Tab 2: Monthly Matrix */}
+        <button
+          onClick={() => handleTabChange("monthly")}
+          className={`flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === "monthly"
+              ? "bg-solar-deep text-white shadow-sm"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+          }`}
+        >
+          <CalendarRange className={`w-4 h-4 ${activeTab === "monthly" ? "text-sun-amber" : "text-slate-400"}`} />
+          <span>Monthly Matrix (1-31)</span>
+        </button>
+
+        {/* Tab 3: Corrections & Requests */}
+        <button
+          onClick={() => handleTabChange("corrections")}
+          className={`flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === "corrections"
+              ? "bg-solar-deep text-white shadow-sm"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+          }`}
+        >
+          <FileSignature className={`w-4 h-4 ${activeTab === "corrections" ? "text-sun-amber" : "text-slate-400"}`} />
+          <span>Correction Requests</span>
+          {correctionRequests.filter((r) => r.status === "Pending").length > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-bold">
+              {correctionRequests.filter((r) => r.status === "Pending").length}
+            </span>
+          )}
+        </button>
+
+        {/* Tab 4: Employee Profiles */}
         <button
           onClick={() => handleTabChange("profiles")}
-          className={`flex-1 flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === "profiles"
               ? "bg-solar-deep text-white shadow-sm"
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
@@ -608,32 +862,10 @@ function TeamContent() {
           </span>
         </button>
 
-        {/* Tab 2: Attendance & Duty */}
-        <button
-          onClick={() => handleTabChange("attendance")}
-          className={`flex-1 flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === "attendance"
-              ? "bg-solar-deep text-white shadow-sm"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-          }`}
-        >
-          <Calendar className={`w-4 h-4 ${activeTab === "attendance" ? "text-sun-amber" : "text-slate-400"}`} />
-          <span>Daily Attendance</span>
-          <span
-            className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-              activeTab === "attendance"
-                ? "bg-white/20 text-white"
-                : "bg-emerald-50 text-solar-deep"
-            }`}
-          >
-            {totalPresentCount} Logged
-          </span>
-        </button>
-
-        {/* Tab 3: Payroll and Payment */}
+        {/* Tab 5: Payroll & Payment */}
         <button
           onClick={() => handleTabChange("payroll")}
-          className={`flex-1 flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === "payroll"
               ? "bg-solar-deep text-white shadow-sm"
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
@@ -641,167 +873,444 @@ function TeamContent() {
         >
           <CreditCard className={`w-4 h-4 ${activeTab === "payroll" ? "text-sun-amber" : "text-slate-400"}`} />
           <span>Payroll & Payment</span>
-          <span
-            className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-              activeTab === "payroll"
-                ? "bg-white/20 text-white"
-                : "bg-slate-100 text-slate-600"
-            }`}
-          >
-            ₹{totalPayrollAmount ? `${Math.round(totalPayrollAmount / 1000)}k` : "0"}
-          </span>
         </button>
       </div>
 
       {/* ======================================================== */}
-      {/* SUBHEADING 1: EMPLOYEE PROFILES */}
+      {/* 1. DAILY ATTENDANCE SUBHEADING (FEATURE PACKED) */}
       {/* ======================================================== */}
-      {activeTab === "profiles" && (
+      {activeTab === "attendance" && (
         <div className="space-y-6 animate-in fade-in duration-200">
-          {/* 4 Status KPI Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 w-full">
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Total Staff
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
-                  <Users className="w-4 h-4" />
-                </div>
+          {/* Quick Check-In / Check-Out Widget for Logged In User / Founder */}
+          <div className="bg-gradient-to-r from-solar-deep to-slate-900 rounded-3xl p-5 sm:p-6 text-white shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-sun-amber text-xs font-bold">
+                <Clock className="w-3.5 h-3.5" />
+                <span>Duty Attendance Punch</span>
               </div>
-              <div className="mt-3">
-                <div className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900">
-                  {teamList.length}
-                </div>
-                <div className="text-[11px] text-slate-500 mt-0.5">
-                  Registered personnel
-                </div>
-              </div>
+              <h3 className="text-lg sm:text-xl font-bold font-heading">
+                {teamList[0]?.name || siteConfig.owner.name} ({teamList[0]?.role || "Founder"})
+              </h3>
+              <p className="text-xs text-slate-300">
+                Log real-time check-in and check-out for today ({selectedAttendanceDate})
+              </p>
             </div>
 
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Active On-Site
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-solar-deep flex items-center justify-center">
-                  <HardHat className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <div className="text-2xl sm:text-3xl font-extrabold font-heading text-solar-deep">
-                  {activeOnSiteCount}
-                </div>
-                <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">
-                  Field installation duty
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Roof Surveys
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                  <MapPin className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <div className="text-2xl sm:text-3xl font-extrabold font-heading text-amber-600">
-                  {onSurveyCount}
-                </div>
-                <div className="text-[11px] text-slate-500 mt-0.5">
-                  Site assessments
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Available
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                  <UserCheck className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <div className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900">
-                  {teamList.length - activeOnSiteCount - onSurveyCount}
-                </div>
-                <div className="text-[11px] text-blue-600 font-semibold mt-0.5">
-                  Ready for dispatch
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Filter and Search Bar */}
-          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row gap-3 justify-between items-center w-full">
-            <div className="relative w-full md:w-80">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-              <input
-                type="text"
-                placeholder="Search by name, role, territory..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
-              />
-            </div>
-
-            <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-              {["All", "Management", "Fitter", "Electrician", "Survey"].map((cat) => (
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Check-In Action */}
+              {!userTodayRecord || !userTodayRecord.checkIn || userTodayRecord.checkIn === "--" ? (
                 <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap cursor-pointer transition-colors ${
-                    selectedCategory === cat
-                      ? "bg-solar-deep text-white shadow-xs font-bold"
-                      : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"
-                  }`}
+                  onClick={handleQuickCheckIn}
+                  className="px-5 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs flex items-center gap-2 transition-all shadow-md cursor-pointer"
                 >
-                  {cat}
+                  <LogIn className="w-4 h-4" />
+                  <span>Check In Now</span>
                 </button>
-              ))}
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div className="px-4 py-2 bg-white/10 rounded-2xl border border-white/10 text-xs">
+                    <span className="text-slate-300 block text-[10px] uppercase font-bold">
+                      Checked In
+                    </span>
+                    <span className="font-extrabold text-sun-amber text-sm">
+                      {userTodayRecord.checkIn}
+                    </span>
+                  </div>
+
+                  {/* Check-Out Action */}
+                  {!userTodayRecord.checkOut || userTodayRecord.checkOut === "--" ? (
+                    <button
+                      onClick={handleQuickCheckOut}
+                      className="px-5 py-3 rounded-2xl bg-sun-amber hover:bg-amber-400 text-slate-950 font-extrabold text-xs flex items-center gap-2 transition-all shadow-md cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Check Out</span>
+                    </button>
+                  ) : (
+                    <div className="px-4 py-2 bg-emerald-950/60 rounded-2xl border border-emerald-500/30 text-xs">
+                      <span className="text-emerald-300 block text-[10px] uppercase font-bold">
+                        Shift Finished
+                      </span>
+                      <span className="font-extrabold text-white text-sm">
+                        {formatMinutesToHours(userTodayRecord.workingHoursMinutes)} Logged
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Manual Mark Trigger */}
+              <button
+                onClick={() => {
+                  setEditingAttendanceRecord({
+                    memberId: loggedInMemberId,
+                    date: selectedAttendanceDate,
+                  });
+                  setIsMarkModalOpen(true);
+                }}
+                className="px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Mark Other Staff</span>
+              </button>
             </div>
           </div>
 
-          {/* Employee Roster Table */}
+          {/* 7 Auto-Updating Summary KPI Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 w-full">
+            <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Total Staff
+              </span>
+              <div className="text-xl font-extrabold font-heading text-slate-900 mt-2">
+                {totalEmployees}
+              </div>
+            </div>
+
+            <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">
+                Present Today
+              </span>
+              <div className="text-xl font-extrabold font-heading text-solar-deep mt-2">
+                {presentTodayCount}
+              </div>
+            </div>
+
+            <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-red-600 uppercase tracking-wider">
+                Absent Today
+              </span>
+              <div className="text-xl font-extrabold font-heading text-red-600 mt-2">
+                {absentTodayCount}
+              </div>
+            </div>
+
+            <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">
+                On Leave
+              </span>
+              <div className="text-xl font-extrabold font-heading text-purple-600 mt-2">
+                {onLeaveCount}
+              </div>
+            </div>
+
+            <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wider">
+                Half Day
+              </span>
+              <div className="text-xl font-extrabold font-heading text-orange-600 mt-2">
+                {halfDayCount}
+              </div>
+            </div>
+
+            <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">
+                Late (&gt;09:30)
+              </span>
+              <div className="text-xl font-extrabold font-heading text-amber-600 mt-2">
+                {lateTodayCount}
+              </div>
+            </div>
+
+            <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-solar-deep uppercase tracking-wider">
+                Attendance %
+              </span>
+              <div className="text-xl font-extrabold font-heading text-solar-deep mt-2">
+                {attendanceRate}%
+              </div>
+            </div>
+          </div>
+
+          {/* Instant Multi-Filter Bar */}
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {/* Date Picker */}
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
+                <Calendar className="w-4 h-4 text-solar-deep shrink-0" />
+                <label className="text-xs font-bold text-slate-700">Date:</label>
+                <input
+                  type="date"
+                  value={selectedAttendanceDate}
+                  onChange={(e) => setSelectedAttendanceDate(e.target.value)}
+                  className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
+                />
+              </div>
+
+              {/* Search Bar */}
+              <div className="relative flex-1 min-w-[200px] max-w-sm">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Search by name, role, phone..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                />
+              </div>
+
+              {/* Department Filter */}
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none"
+              >
+                <option value="All">All Departments</option>
+                <option value="Management">Management</option>
+                <option value="Fitter">Fitter & Rigging</option>
+                <option value="Electrician">Solar Electrician</option>
+                <option value="Survey">Site Survey</option>
+                <option value="Engineer">PV Engineer</option>
+              </select>
+
+              {/* Status Filter */}
+              <select
+                value={selectedStatusFilter}
+                onChange={(e) => setSelectedStatusFilter(e.target.value)}
+                className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none"
+              >
+                <option value="All">All Statuses</option>
+                <option value="Present">Present</option>
+                <option value="Late">Late</option>
+                <option value="Half Day">Half Day</option>
+                <option value="Absent">Absent</option>
+                <option value="Leave">Leave</option>
+                <option value="Pending">Pending / Unmarked</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Structured Attendance Table */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden w-full">
             <div className="overflow-x-auto w-full">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
                   <tr>
-                    <th className="px-6 py-3.5">Staff Member</th>
-                    <th className="px-6 py-3.5">Designation & Category</th>
-                    <th className="px-6 py-3.5">Contact Number</th>
-                    <th className="px-6 py-3.5">Territory Hub</th>
-                    <th className="px-6 py-3.5">Skills & Technical Expertise</th>
-                    <th className="px-6 py-3.5">Duty Status</th>
+                    <th className="px-6 py-3.5">Employee</th>
+                    <th className="px-6 py-3.5">Employee ID</th>
+                    <th className="px-6 py-3.5">Team / Dept</th>
+                    <th className="px-6 py-3.5">Check-In</th>
+                    <th className="px-6 py-3.5">Check-Out</th>
+                    <th className="px-6 py-3.5">Working Hours</th>
+                    <th className="px-6 py-3.5">Status</th>
+                    <th className="px-6 py-3.5">Location</th>
                     <th className="px-6 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredTeam.map((member) => (
+                  {filteredDailyRecords.map((member, idx) => {
+                    const record = currentDayAttendance[member.id] || {
+                      id: `att_${member.id}_${selectedAttendanceDate}`,
+                      memberId: member.id,
+                      date: selectedAttendanceDate,
+                      checkIn: "--",
+                      checkOut: "--",
+                      breakMinutes: 0,
+                      workingHoursMinutes: 0,
+                      status: "Pending" as const,
+                      location: `${member.territory} Site`,
+                      remarks: "",
+                      lateMinutes: 0,
+                      overtimeMinutes: 0,
+                      createdBy: "System",
+                      lastUpdated: "",
+                      auditTrail: [],
+                    };
+
+                    const statusStyles: Record<string, string> = {
+                      Present: "bg-emerald-100 text-emerald-800 border-emerald-200",
+                      Late: "bg-amber-100 text-amber-900 border-amber-300",
+                      "Half Day": "bg-orange-100 text-orange-800 border-orange-200",
+                      Absent: "bg-red-100 text-red-800 border-red-200",
+                      Leave: "bg-purple-100 text-purple-800 border-purple-200",
+                      Holiday: "bg-blue-100 text-blue-800 border-blue-200",
+                      "Week Off": "bg-slate-100 text-slate-700 border-slate-200",
+                      Pending: "bg-slate-100 text-slate-500 border-slate-200",
+                    };
+
+                    return (
+                      <tr key={member.id} className="hover:bg-slate-50/80 transition-colors">
+                        {/* Employee Name */}
+                        <td className="px-6 py-4">
+                          <div className="font-bold text-slate-900 text-sm">
+                            {member.name}
+                          </div>
+                          <div className="text-[11px] text-slate-400">
+                            {member.role}
+                          </div>
+                        </td>
+
+                        {/* Employee ID */}
+                        <td className="px-6 py-4 font-mono font-semibold text-slate-600">
+                          SL-{String(idx + 1).padStart(3, "0")}
+                        </td>
+
+                        {/* Department */}
+                        <td className="px-6 py-4">
+                          <span className="px-2.5 py-1 bg-slate-100 text-slate-700 font-semibold rounded-lg">
+                            {member.category}
+                          </span>
+                        </td>
+
+                        {/* Check-In */}
+                        <td className="px-6 py-4 font-semibold text-slate-800">
+                          <div className="flex items-center gap-1.5">
+                            <span>{record.checkIn}</span>
+                            {record.lateMinutes > 0 && (
+                              <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold">
+                                Late ({record.lateMinutes}m)
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Check-Out */}
+                        <td className="px-6 py-4 font-semibold text-slate-800">
+                          {record.checkOut}
+                        </td>
+
+                        {/* Working Hours */}
+                        <td className="px-6 py-4 font-bold text-solar-deep">
+                          {formatMinutesToHours(record.workingHoursMinutes)}
+                        </td>
+
+                        {/* Status */}
+                        <td className="px-6 py-4">
+                          <span
+                            className={`px-3 py-1 rounded-full text-[11px] font-bold border ${
+                              statusStyles[record.status] || "bg-slate-100 text-slate-700"
+                            }`}
+                          >
+                            {record.status}
+                          </span>
+                        </td>
+
+                        {/* Location */}
+                        <td className="px-6 py-4 text-slate-700 font-medium">
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-solar-emerald shrink-0" />
+                            <span className="truncate max-w-[140px]">
+                              {record.location || `${member.territory} Site`}
+                            </span>
+                          </span>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => {
+                                setEditingAttendanceRecord(record);
+                                setIsMarkModalOpen(true);
+                              }}
+                              title="Mark or Edit Record"
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-solar-deep hover:text-white text-slate-700 font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Edit</span>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setDrawerRecord(record);
+                                setIsDetailDrawerOpen(true);
+                              }}
+                              title="View Audit Trail"
+                              className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors cursor-pointer"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 2. MONTHLY MATRIX VIEW (EMPLOYEE X 1-31 DAYS) */}
+      {/* ======================================================== */}
+      {activeTab === "monthly" && (
+        <MonthlyMatrixView
+          teamMembers={teamList}
+          attendanceHistory={attendanceHistory}
+          onSelectCell={(memberId, date) => {
+            const existing = attendanceHistory[date]?.[memberId];
+            setEditingAttendanceRecord(
+              existing || {
+                memberId,
+                date,
+              }
+            );
+            setIsMarkModalOpen(true);
+          }}
+        />
+      )}
+
+      {/* ======================================================== */}
+      {/* 3. CORRECTION REQUESTS WORKFLOW */}
+      {/* ======================================================== */}
+      {activeTab === "corrections" && (
+        <CorrectionRequestsView
+          teamMembers={teamList}
+          correctionRequests={correctionRequests}
+          onApprove={handleApproveCorrection}
+          onReject={handleRejectCorrection}
+          onSubmitNew={handleSubmitNewCorrection}
+        />
+      )}
+
+      {/* ======================================================== */}
+      {/* 4. EMPLOYEE PROFILES SUBHEADING */}
+      {/* ======================================================== */}
+      {activeTab === "profiles" && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Employee Roster Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden w-full">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold font-heading text-base text-slate-900">
+                  Solar Technical Workforce Roster
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Technicians, fitters, engineers, and site managers
+                </p>
+              </div>
+              <button
+                onClick={() => setIsAddMemberModalOpen(true)}
+                className="px-4 py-2 bg-solar-deep hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Member</span>
+              </button>
+            </div>
+
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+                  <tr>
+                    <th className="px-6 py-3.5">Staff Member</th>
+                    <th className="px-6 py-3.5">Designation</th>
+                    <th className="px-6 py-3.5">Contact Number</th>
+                    <th className="px-6 py-3.5">Territory Hub</th>
+                    <th className="px-6 py-3.5">Skills & Technical Expertise</th>
+                    <th className="px-6 py-3.5 text-right">Quick Contact</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {teamList.map((member) => (
                     <tr key={member.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-slate-100 text-solar-deep border border-slate-200 flex items-center justify-center font-bold text-xs shrink-0">
-                            {member.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")
-                              .substring(0, 2)}
-                          </div>
-                          <div>
-                            <div className="font-bold text-slate-900 text-sm">
-                              {member.name}
-                            </div>
-                            <div className="text-[10px] text-slate-400 mt-0.5">
-                              Joined {member.joinedYear}
-                            </div>
-                          </div>
+                        <div className="font-bold text-slate-900 text-sm">
+                          {member.name}
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          Joined {member.joinedYear}
                         </div>
                       </td>
 
@@ -809,7 +1318,7 @@ function TeamContent() {
                         <div className="font-semibold text-slate-800">
                           {member.role}
                         </div>
-                        <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md inline-block mt-0.5">
+                        <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md inline-block mt-0.5">
                           {member.category}
                         </span>
                       </td>
@@ -819,14 +1328,14 @@ function TeamContent() {
                           href={`tel:${member.phone}`}
                           className="font-bold text-solar-deep hover:underline flex items-center gap-1.5"
                         >
-                          <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <Phone className="w-3.5 h-3.5 text-slate-400" />
                           <span>{member.phone}</span>
                         </a>
                       </td>
 
                       <td className="px-6 py-4">
                         <span className="inline-flex items-center gap-1 text-slate-700 font-medium">
-                          <MapPin className="w-3.5 h-3.5 text-solar-emerald shrink-0" />
+                          <MapPin className="w-3.5 h-3.5 text-solar-emerald" />
                           <span>{member.territory}</span>
                         </span>
                       </td>
@@ -844,34 +1353,11 @@ function TeamContent() {
                         </div>
                       </td>
 
-                      <td className="px-6 py-4">
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold inline-flex items-center gap-1.5 ${
-                            member.status === "Active On-Site"
-                              ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                              : member.status === "On Survey"
-                              ? "bg-amber-100 text-amber-800 border border-amber-200"
-                              : "bg-blue-100 text-blue-800 border border-blue-200"
-                          }`}
-                        >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              member.status === "Active On-Site"
-                                ? "bg-emerald-500 animate-pulse"
-                                : member.status === "On Survey"
-                                ? "bg-amber-500"
-                                : "bg-blue-500"
-                            }`}
-                          />
-                          <span>{member.status}</span>
-                        </span>
-                      </td>
-
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <a
                             href={`tel:${member.phone}`}
-                            title="Call Member"
+                            title="Call Staff"
                             className="p-1.5 rounded-lg bg-slate-100 hover:bg-solar-deep hover:text-white text-slate-700 transition-colors"
                           >
                             <Phone className="w-3.5 h-3.5" />
@@ -880,20 +1366,11 @@ function TeamContent() {
                             href={`https://wa.me/91${member.phone.replace(/[^0-9]/g, "")}`}
                             target="_blank"
                             rel="noreferrer"
-                            title="Message on WhatsApp"
+                            title="WhatsApp"
                             className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 transition-colors"
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
                           </a>
-                          {member.id !== "owner-1" && (
-                            <button
-                              onClick={() => handleDeleteMember(member.id)}
-                              title="Remove Staff"
-                              className="p-1.5 rounded-lg bg-red-50 hover:bg-red-600 hover:text-white text-red-600 transition-colors cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -906,414 +1383,55 @@ function TeamContent() {
       )}
 
       {/* ======================================================== */}
-      {/* SUBHEADING 2: DAILY ATTENDANCE & EXCEL REPORT */}
-      {/* ======================================================== */}
-      {activeTab === "attendance" && (
-        <div className="space-y-6 animate-in fade-in duration-200">
-          {/* Top Attendance Control Bar */}
-          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Date Picker */}
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
-                <Calendar className="w-4 h-4 text-solar-deep shrink-0" />
-                <label className="text-xs font-bold text-slate-700">Attendance Date:</label>
-                <input
-                  type="date"
-                  value={selectedAttendanceDate}
-                  onChange={(e) => setSelectedAttendanceDate(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
-                />
-              </div>
-
-              {selectedAttendanceDate === getTodayISO() && (
-                <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-[11px] font-bold">
-                  Today
-                </span>
-              )}
-            </div>
-
-            {/* Quick Bulk Actions & Excel Export */}
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => handleMarkAllAttendance("Present (On-Site)")}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 border border-slate-200 text-slate-700 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Mark All On-Site</span>
-              </button>
-
-              <button
-                onClick={() => handleMarkAllAttendance("Present (Office)")}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-blue-50 hover:text-blue-800 border border-slate-200 text-slate-700 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <CheckCheck className="w-3.5 h-3.5 text-blue-600" />
-                <span>Mark All Office</span>
-              </button>
-
-              <button
-                onClick={handleDownloadExcelReport}
-                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export Excel</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Daily Attendance Summary Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 w-full">
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Total Present
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-solar-deep flex items-center justify-center">
-                  <CheckCircle2 className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <div className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900">
-                  {totalPresentCount} / {teamList.length}
-                </div>
-                <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">
-                  Logged on {selectedAttendanceDate}
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  On-Site Installs
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-solar-deep flex items-center justify-center">
-                  <HardHat className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <div className="text-2xl sm:text-3xl font-extrabold font-heading text-solar-deep">
-                  {activeOnSiteCount}
-                </div>
-                <div className="text-[11px] text-slate-500 mt-0.5">
-                  Rooftop execution crew
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  On Survey
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                  <MapPin className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <div className="text-2xl sm:text-3xl font-extrabold font-heading text-amber-600">
-                  {onSurveyCount}
-                </div>
-                <div className="text-[11px] text-slate-500 mt-0.5">
-                  Shadow analysis & scoping
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Absent / Leave
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
-                  <AlertCircle className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <div className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900">
-                  {
-                    Object.values(currentDayAttendance).filter((a) => a.status === "Absent")
-                      .length
-                  }
-                </div>
-                <div className="text-[11px] text-slate-500 mt-0.5">
-                  Off duty
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Daily Attendance Sheet Table */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden w-full">
-            <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="font-bold font-heading text-base text-slate-900 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-solar-deep" />
-                  <span>Daily Attendance Sheet • {selectedAttendanceDate}</span>
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Mark daily presence, adjust arrival punch in-time, and assign specific rooftop project sites.
-                </p>
-              </div>
-
-              <button
-                onClick={handleDownloadExcelReport}
-                className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
-              >
-                <Download className="w-3.5 h-3.5 text-sun-amber" />
-                <span>Export to Excel (.csv)</span>
-              </button>
-            </div>
-
-            <div className="overflow-x-auto w-full">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
-                  <tr>
-                    <th className="px-6 py-3.5">Employee Name</th>
-                    <th className="px-6 py-3.5">Department</th>
-                    <th className="px-6 py-3.5">Daily Duty Status</th>
-                    <th className="px-6 py-3.5">In-Time</th>
-                    <th className="px-6 py-3.5">Assigned Solar Project Site</th>
-                    <th className="px-6 py-3.5 text-right">Quick Contact</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {teamList.map((member) => {
-                    const record = currentDayAttendance[member.id] || {
-                      memberId: member.id,
-                      status: "Present (Office)",
-                      inTime: "09:00 AM",
-                      assignedProject: `${member.territory} Site`,
-                    };
-
-                    return (
-                      <tr key={member.id} className="hover:bg-slate-50/80 transition-colors">
-                        {/* Member */}
-                        <td className="px-6 py-4">
-                          <div className="font-bold text-slate-900 text-sm">
-                            {member.name}
-                          </div>
-                          <div className="text-[11px] text-slate-500 mt-0.5">
-                            {member.role}
-                          </div>
-                        </td>
-
-                        {/* Category */}
-                        <td className="px-6 py-4">
-                          <span className="px-2.5 py-1 bg-slate-100 text-slate-700 font-semibold rounded-lg">
-                            {member.category}
-                          </span>
-                        </td>
-
-                        {/* Daily Status Dropdown */}
-                        <td className="px-6 py-4">
-                          <select
-                            value={record.status}
-                            onChange={(e) =>
-                              handleUpdateAttendanceField(
-                                member.id,
-                                "status",
-                                e.target.value as AttendanceRecord["status"]
-                              )
-                            }
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
-                              record.status === "Present (On-Site)"
-                                ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                                : record.status === "Present (Survey)"
-                                ? "bg-amber-50 text-amber-800 border-amber-300"
-                                : record.status === "Present (Office)"
-                                ? "bg-blue-50 text-blue-800 border-blue-300"
-                                : "bg-red-50 text-red-800 border-red-300"
-                            }`}
-                          >
-                            <option value="Present (On-Site)">🟢 Present (On-Site Installation)</option>
-                            <option value="Present (Survey)">🟡 Present (Rooftop Survey)</option>
-                            <option value="Present (Office)">🔵 Present (Office / Logistics)</option>
-                            <option value="Half-Day">🟠 Half-Day</option>
-                            <option value="Absent">🔴 Absent / Leave</option>
-                          </select>
-                        </td>
-
-                        {/* In-Time Editable */}
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5 text-slate-400" />
-                            <input
-                              type="text"
-                              value={record.inTime}
-                              onChange={(e) =>
-                                handleUpdateAttendanceField(member.id, "inTime", e.target.value)
-                              }
-                              placeholder="09:00 AM"
-                              className="w-24 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                            />
-                          </div>
-                        </td>
-
-                        {/* Assigned Site Editable */}
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5 text-solar-emerald shrink-0" />
-                            <input
-                              type="text"
-                              value={record.assignedProject}
-                              onChange={(e) =>
-                                handleUpdateAttendanceField(
-                                  member.id,
-                                  "assignedProject",
-                                  e.target.value
-                                )
-                              }
-                              placeholder="e.g. 5kW Rooftop - Narmadapuram"
-                              className="w-48 sm:w-64 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                            />
-                          </div>
-                        </td>
-
-                        {/* Call */}
-                        <td className="px-6 py-4 text-right">
-                          <a
-                            href={`tel:${member.phone}`}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-solar-deep hover:text-white rounded-lg text-slate-700 font-semibold transition-colors"
-                          >
-                            <Phone className="w-3 h-3" />
-                            <span>Call</span>
-                          </a>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ======================================================== */}
-      {/* SUBHEADING 3: PAYROLL AND PAYMENT */}
+      {/* 5. PAYROLL & PAYMENT CONNECTED TO ATTENDANCE */}
       {/* ======================================================== */}
       {activeTab === "payroll" && (
         <div className="space-y-6 animate-in fade-in duration-200">
-          {/* Payroll KPI Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 w-full">
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Total Monthly Payroll
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
-                  <CreditCard className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <div className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900">
-                  ₹{totalPayrollAmount.toLocaleString("en-IN")}
-                </div>
-                <div className="text-[11px] text-slate-500 mt-0.5">
-                  Base + Site Allowances
-                </div>
-              </div>
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs flex items-center justify-between">
+            <div>
+              <h3 className="font-bold font-heading text-base text-slate-900">
+                Attendance-Verified Payroll Calculation
+              </h3>
+              <p className="text-xs text-slate-500">
+                Wages automatically calculated based on verified present days, approved paid leaves, and deductions.
+              </p>
             </div>
-
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Disbursed Payouts
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-solar-deep flex items-center justify-center">
-                  <CheckCircle2 className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <div className="text-2xl sm:text-3xl font-extrabold font-heading text-solar-deep">
-                  ₹{paidPayrollAmount.toLocaleString("en-IN")}
-                </div>
-                <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">
-                  Cleared via UPI / Bank
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Pending Payouts
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                  <AlertCircle className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <div className="text-2xl sm:text-3xl font-extrabold font-heading text-amber-600">
-                  ₹{pendingPayrollAmount.toLocaleString("en-IN")}
-                </div>
-                <div className="text-[11px] text-slate-500 mt-0.5">
-                  Awaiting clearance
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Disbursement Mode
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                  <Zap className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <div className="text-lg sm:text-xl font-bold font-heading text-slate-900">
-                  Direct UPI & NEFT
-                </div>
-                <div className="text-[11px] text-slate-500 mt-0.5">
-                  Instant settlement
-                </div>
-              </div>
-            </div>
+            <span className="px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 text-xs font-bold">
+              Cycle: {new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
+            </span>
           </div>
 
-          {/* Payroll Ledger Table */}
+          {/* Ledger Table */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden w-full">
-            <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="font-bold font-heading text-base text-slate-900">
-                  Staff Wage & Payment Ledger
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Monthly wage calculation, field allowances (Bhatta), and payment clearance status
-                </p>
-              </div>
-            </div>
-
             <div className="overflow-x-auto w-full">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
                   <tr>
                     <th className="px-6 py-3.5">Staff Member</th>
-                    <th className="px-6 py-3.5">Payment Type</th>
-                    <th className="px-6 py-3.5">Base Pay</th>
+                    <th className="px-6 py-3.5">Verified Paid Days</th>
+                    <th className="px-6 py-3.5">Unpaid / Absent</th>
+                    <th className="px-6 py-3.5">Base Monthly Pay</th>
                     <th className="px-6 py-3.5">Site Allowance (Bhatta)</th>
                     <th className="px-6 py-3.5">Total Payable</th>
-                    <th className="px-6 py-3.5">Payment Mode</th>
-                    <th className="px-6 py-3.5">Status</th>
+                    <th className="px-6 py-3.5">Disbursement Status</th>
                     <th className="px-6 py-3.5 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {teamList.map((member) => {
+                    const attMetrics = calculateAttendanceForMember(member.id);
                     const record = payrollRecords[member.id] || {
                       memberId: member.id,
                       payType: "Monthly Salary",
                       baseAmount: member.monthlySalary || 18000,
                       fieldAllowance: 2500,
                       bonus: 0,
-                      paymentStatus: "PENDING",
-                      paymentMode: "UPI",
-                      payoutDate: new Date().toLocaleDateString("en-IN", { month: "short", year: "numeric" }),
+                      paymentStatus: "PENDING" as const,
+                      paymentMode: "UPI" as const,
+                      payoutDate: "",
                     };
 
-                    const totalPay = (record.baseAmount || 0) + (record.fieldAllowance || 0) + (record.bonus || 0);
+                    const totalPay = (record.baseAmount || 0) + (record.fieldAllowance || 0);
 
                     return (
                       <tr key={member.id} className="hover:bg-slate-50/80 transition-colors">
@@ -1321,15 +1439,17 @@ function TeamContent() {
                           <div className="font-bold text-slate-900 text-sm">
                             {member.name}
                           </div>
-                          <div className="text-[11px] text-slate-500 mt-0.5">
+                          <div className="text-[10px] text-slate-400">
                             {member.role}
                           </div>
                         </td>
 
-                        <td className="px-6 py-4">
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 font-semibold rounded-md">
-                            {record.payType}
-                          </span>
+                        <td className="px-6 py-4 font-extrabold text-solar-deep">
+                          {attMetrics.paidDays} Days
+                        </td>
+
+                        <td className="px-6 py-4 font-semibold text-red-600">
+                          {attMetrics.unpaidDays} Days
                         </td>
 
                         <td className="px-6 py-4 font-semibold text-slate-900">
@@ -1340,32 +1460,19 @@ function TeamContent() {
                           +₹{record.fieldAllowance.toLocaleString("en-IN")}
                         </td>
 
-                        <td className="px-6 py-4">
-                          <span className="font-extrabold text-sm text-slate-900">
-                            ₹{totalPay.toLocaleString("en-IN")}
-                          </span>
-                        </td>
-
-                        <td className="px-6 py-4">
-                          <span className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium">
-                            {record.paymentMode}
-                          </span>
+                        <td className="px-6 py-4 font-extrabold text-sm text-slate-900">
+                          ₹{totalPay.toLocaleString("en-IN")}
                         </td>
 
                         <td className="px-6 py-4">
                           <span
-                            className={`px-3 py-1 rounded-full text-[11px] font-bold inline-flex items-center gap-1 ${
+                            className={`px-3 py-1 rounded-full text-[11px] font-bold ${
                               record.paymentStatus === "PAID"
-                                ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                                : "bg-amber-100 text-amber-800 border border-amber-200"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-amber-100 text-amber-800"
                             }`}
                           >
-                            {record.paymentStatus === "PAID" ? (
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            ) : (
-                              <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                            )}
-                            <span>{record.paymentStatus}</span>
+                            {record.paymentStatus}
                           </span>
                         </td>
 
@@ -1391,23 +1498,47 @@ function TeamContent() {
         </div>
       )}
 
-      {/* Spacious Add Team Member Modal with Brand Logo rendered via Portal */}
-      {isAddModalOpen &&
-        isLoaded &&
+      {/* ======================================================== */}
+      {/* DIALOGS & DRAWERS */}
+      {/* ======================================================== */}
+
+      {/* 1. Mark / Edit Attendance Modal */}
+      <AttendanceMarkModal
+        isOpen={isMarkModalOpen}
+        onClose={() => setIsMarkModalOpen(false)}
+        teamMembers={teamList}
+        initialRecord={editingAttendanceRecord}
+        onSave={handleSaveAttendanceRecord}
+        approvedLeaves={approvedLeaves}
+        currentAdminUser="Rahul Kumar Bamne (Admin)"
+      />
+
+      {/* 2. Slide-Over Detail Drawer with Audit Trail */}
+      <AttendanceDetailDrawer
+        isOpen={isDetailDrawerOpen}
+        onClose={() => setIsDetailDrawerOpen(false)}
+        record={drawerRecord}
+        member={teamList.find((m) => m.id === drawerRecord?.memberId) || null}
+        onEdit={() => {
+          setEditingAttendanceRecord(drawerRecord);
+          setIsMarkModalOpen(true);
+        }}
+      />
+
+      {/* 3. Add Member Modal */}
+      {isAddMemberModalOpen &&
         typeof document !== "undefined" &&
         createPortal(
           <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-[999] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
             <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-2xl sm:max-w-3xl w-full shadow-2xl border border-slate-200 space-y-6 animate-in fade-in zoom-in-95 duration-150 my-auto">
-              {/* Modal Header with Sunlife Logo */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3.5">
                   <Image
                     src="/logo/logo.svg"
-                    alt="Sunlife Solar Energy Solution"
+                    alt="Sunlife Solar"
                     width={140}
                     height={40}
                     className="h-8 w-auto object-contain"
-                    priority
                   />
                   <div className="h-6 w-px bg-slate-200 hidden sm:block" />
                   <div>
@@ -1421,65 +1552,59 @@ function TeamContent() {
                 </div>
 
                 <button
-                  onClick={() => setIsAddModalOpen(false)}
+                  onClick={() => setIsAddMemberModalOpen(false)}
                   className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* Modal Form */}
-              <form onSubmit={handleAddMember} className="space-y-5 text-xs">
-                {/* 2-Column Inputs Grid */}
+              <form onSubmit={handleAddMember} className="space-y-4 text-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Full Name */}
-                  <div className="space-y-1">
-                    <label className="block font-bold text-slate-700 uppercase tracking-wider">
-                      Full Name <span className="text-red-500">*</span>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Full Name *
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Technician / Engineer Name"
                       value={newMember.name}
                       onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900 text-sm"
+                      placeholder="e.g. Technician Name"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl"
                     />
                   </div>
 
-                  {/* Phone Number */}
-                  <div className="space-y-1">
-                    <label className="block font-bold text-slate-700 uppercase tracking-wider">
-                      Contact Phone Number <span className="text-red-500">*</span>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Phone Number *
                     </label>
                     <input
                       type="tel"
                       required
-                      placeholder="e.g. 98260XXXXX"
                       value={newMember.phone}
                       onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900 text-sm"
+                      placeholder="e.g. 98260XXXXX"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl"
                     />
                   </div>
 
-                  {/* Role / Title */}
-                  <div className="space-y-1">
-                    <label className="block font-bold text-slate-700 uppercase tracking-wider">
-                      Designation / Title <span className="text-red-500">*</span>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Designation *
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Senior Rooftop GI Fitter"
                       value={newMember.role}
                       onChange={(e) => setNewMember({ ...newMember, role: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900 text-sm"
+                      placeholder="e.g. Solar Fitter"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl"
                     />
                   </div>
 
-                  {/* Department Dropdown */}
-                  <div className="space-y-1">
-                    <label className="block font-bold text-slate-700 uppercase tracking-wider">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
                       Department Category
                     </label>
                     <select
@@ -1490,173 +1615,30 @@ function TeamContent() {
                           category: e.target.value as TeamMember["category"],
                         })
                       }
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900 text-sm"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl"
                     >
-                      <option value="Fitter">Installation Fitter & GI Rigging</option>
-                      <option value="Electrician">Solar Electrician & Wiring</option>
-                      <option value="Survey">Site Survey & Shadow Analysis</option>
-                      <option value="Engineer">Solar PV Design Engineer</option>
-                      <option value="Management">Operations & Management</option>
+                      <option value="Fitter">Installation Fitter</option>
+                      <option value="Electrician">Solar Electrician</option>
+                      <option value="Survey">Site Survey</option>
+                      <option value="Engineer">PV Engineer</option>
+                      <option value="Management">Management</option>
                     </select>
                   </div>
-
-                  {/* Territory */}
-                  <div className="space-y-1">
-                    <label className="block font-bold text-slate-700 uppercase tracking-wider">
-                      Assigned Territory Hub
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Narmadapuram / Itarsi"
-                      value={newMember.territory}
-                      onChange={(e) =>
-                        setNewMember({ ...newMember, territory: e.target.value })
-                      }
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900 text-sm"
-                    />
-                  </div>
-
-                  {/* Monthly Base Pay */}
-                  <div className="space-y-1">
-                    <label className="block font-bold text-slate-700 uppercase tracking-wider">
-                      Monthly Wage / Base Salary (₹)
-                    </label>
-                    <input
-                      type="number"
-                      placeholder="e.g. 18000"
-                      value={newMember.monthlySalary}
-                      onChange={(e) =>
-                        setNewMember({ ...newMember, monthlySalary: Number(e.target.value) })
-                      }
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900 text-sm"
-                    />
-                  </div>
                 </div>
 
-                {/* Skills & Certifications Section */}
-                <div className="space-y-2 pt-2 border-t border-slate-100">
-                  <div className="flex items-center justify-between">
-                    <label className="block font-bold text-slate-700 uppercase tracking-wider">
-                      Skills & Technical Certifications
-                    </label>
-                    <span className="text-[11px] text-slate-400">
-                      {selectedSkills.length} selected
-                    </span>
-                  </div>
-
-                  {/* Selected Skills Chips */}
-                  {selectedSkills.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 p-3 bg-slate-50 rounded-2xl border border-slate-200 min-h-[44px]">
-                      {selectedSkills.map((skill) => (
-                        <span
-                          key={skill}
-                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-solar-deep text-xs font-semibold rounded-xl border border-emerald-200/80 animate-in fade-in"
-                        >
-                          <Tag className="w-3 h-3 text-solar-emerald" />
-                          <span>{skill}</span>
-                          <button
-                            type="button"
-                            onClick={() => removeSkillTag(skill)}
-                            className="p-0.5 rounded-md hover:bg-emerald-200/60 text-emerald-800 cursor-pointer transition-colors"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Dropdown Toggle & Custom Write-in Row */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {/* Predefined Dropdown Trigger */}
-                    <div className="relative" ref={dropdownRef}>
-                      <button
-                        type="button"
-                        onClick={() => setIsSkillDropdownOpen(!isSkillDropdownOpen)}
-                        className="w-full px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-left text-slate-700 flex items-center justify-between transition-colors cursor-pointer text-xs font-medium"
-                      >
-                        <span className="truncate">
-                          {isSkillDropdownOpen ? "Close Skills List" : "Select Predefined Skills..."}
-                        </span>
-                        <ChevronDown
-                          className={`w-4 h-4 text-slate-400 transition-transform ${
-                            isSkillDropdownOpen ? "rotate-180" : ""
-                          }`}
-                        />
-                      </button>
-
-                      {/* Dropdown Options Box */}
-                      {isSkillDropdownOpen && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-2xl shadow-xl border border-slate-200 p-2.5 z-50 space-y-1.5 max-h-56 overflow-y-auto">
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 py-1">
-                            Click to toggle skill:
-                          </div>
-                          <div className="grid grid-cols-1 gap-1">
-                            {PREDEFINED_SKILLS.map((skill) => {
-                              const isSelected = selectedSkills.includes(skill);
-                              return (
-                                <button
-                                  key={skill}
-                                  type="button"
-                                  onClick={() => toggleSkill(skill)}
-                                  className={`w-full px-3 py-2 rounded-xl text-left flex items-center justify-between text-xs transition-colors cursor-pointer ${
-                                    isSelected
-                                      ? "bg-emerald-50 text-solar-deep font-bold border border-emerald-200/80"
-                                      : "hover:bg-slate-50 text-slate-700"
-                                  }`}
-                                >
-                                  <span>{skill}</span>
-                                  {isSelected && (
-                                    <Check className="w-4 h-4 text-solar-emerald shrink-0" />
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Custom Write-in Input */}
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Type custom skill..."
-                        value={customSkillInput}
-                        onChange={(e) => setCustomSkillInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleAddCustomSkill();
-                          }
-                        }}
-                        className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900 text-xs"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddCustomSkill}
-                        className="px-3 py-2 bg-slate-100 hover:bg-emerald-50 hover:text-solar-deep text-slate-700 font-bold rounded-xl border border-slate-200 transition-colors shrink-0 cursor-pointer text-xs"
-                      >
-                        + Add
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Modal Footer Buttons */}
-                <div className="pt-4 flex justify-end gap-2.5 border-t border-slate-100">
+                <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
                   <button
                     type="button"
-                    onClick={() => setIsAddModalOpen(false)}
-                    className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 cursor-pointer transition-colors"
+                    onClick={() => setIsAddMemberModalOpen(false)}
+                    className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2.5 rounded-xl bg-solar-deep hover:bg-slate-900 text-white font-bold cursor-pointer transition-all shadow-md shadow-emerald-950/15"
+                    className="px-6 py-2.5 rounded-xl bg-solar-deep hover:bg-slate-900 text-white font-bold cursor-pointer transition-all shadow-md"
                   >
-                    Save Team Member
+                    Save Member
                   </button>
                 </div>
               </form>
