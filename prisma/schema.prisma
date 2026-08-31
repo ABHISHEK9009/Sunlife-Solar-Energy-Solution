@@ -1,0 +1,93 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["sunlife"]
+}
+
+model Lead {
+  id                 String   @id @default(cuid())
+  name               String
+  phone              String
+  email              String?
+  city               String?  @default("Narmadapuram")
+  propertyType       String?  @default("Residential")
+  monthlyBill        String?
+  interestedSolution String?
+  rooftopArea        String?
+  message            String?
+  source             String?  @default("Website Quote Form")
+  status             String   @default("NEW") // NEW, CONTACTED, SITE_SURVEY_SCHEDULED, QUOTED, WON, LOST
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@schema("sunlife")
+}
+
+model ContactInquiry {
+  id          String   @id @default(cuid())
+  fullName    String
+  phone       String
+  email       String?
+  city        String?
+  monthlyBill String?
+  requirement String?
+  message     String?
+  createdAt   DateTime @default(now())
+
+  @@schema("sunlife")
+}
+
+model CalculatorEstimate {
+  id                  String   @id @default(cuid())
+  monthlyBill         Float
+  propertyType        String
+  systemSizeKw        Float
+  annualGenerationKwh Float
+  annualSavingsInr    Float
+  paybackYears        Float
+  co2OffsetTons       Float
+  name                String?
+  phone               String?
+  city                String?
+  createdAt           DateTime @default(now())
+
+  @@schema("sunlife")
+}
+
+model Project {
+  id            String   @id @default(cuid())
+  title         String
+  slug          String   @unique
+  category      String   // Residential, Commercial, Industrial, Rooftop
+  location      String
+  capacityKw    Float
+  description   String
+  imageUrl      String
+  isFeatured    Boolean  @default(false)
+  completedDate String?
+  createdAt     DateTime @default(now())
+
+  @@schema("sunlife")
+}
+
+model BlogPost {
+  id              String   @id @default(cuid())
+  title           String
+  slug            String   @unique
+  excerpt         String
+  content         String
+  coverImage      String?
+  author          String   @default("Rahul Kumar Bamne")
+  readTimeMinutes Int      @default(5)
+  category        String   @default("Solar Guide")
+  isPublished     Boolean  @default(true)
+  publishedAt     DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@schema("sunlife")
+}
