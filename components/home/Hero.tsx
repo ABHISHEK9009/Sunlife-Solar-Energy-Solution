@@ -57,51 +57,54 @@ export function Hero() {
           </motion.p>
 
           {/* CTA Action Buttons - Compact, Sleek & Mobile-Proportional */}
+          {/* CTA Action Buttons - Clean 2-Column Grid */}
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.25, ease: "easeOut" }}
-            className="pt-2 flex flex-wrap items-center gap-2.5 sm:gap-4"
+            className="pt-2 grid grid-cols-2 gap-2 sm:gap-3 max-w-sm sm:max-w-md"
           >
             <motion.button
-              whileHover={{ scale: 1.03 }}
+              whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setModalOpen(true)}
-              className="inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3.5 bg-gradient-to-r from-sun-amber to-amber-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs sm:text-sm md:text-base rounded-full shadow-md shadow-amber-500/25 transition-all group cursor-pointer"
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 sm:px-5 sm:py-3 bg-gradient-to-r from-sun-amber to-amber-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs sm:text-sm rounded-full shadow-md shadow-amber-500/25 transition-all text-center cursor-pointer"
             >
-              <span>Get Free Quote</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              <span className="truncate">Get Quote</span>
+              <ArrowRight className="w-3.5 h-3.5 shrink-0" />
             </motion.button>
 
             <motion.a
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               href={`tel:${siteConfig.contact.phoneClean}`}
-              className="inline-flex items-center justify-center gap-2 px-3.5 sm:px-5 py-2.5 sm:py-3.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold text-xs sm:text-sm md:text-base rounded-full backdrop-blur-md transition-all"
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 sm:px-5 sm:py-3 bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold text-xs sm:text-sm rounded-full backdrop-blur-md transition-all text-center"
             >
-              <Phone className="w-3.5 h-3.5 text-sun-amber" />
-              <span>Call {siteConfig.contact.phoneDisplay}</span>
+              <Phone className="w-3.5 h-3.5 text-sun-amber shrink-0" />
+              <span className="truncate">Call Now</span>
             </motion.a>
           </motion.div>
 
-          {/* Clean Micro Trust Indicators (No truncated boxes, clean checkmarks) */}
+          {/* Clean Structured Grid for Trust Indicators */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.35 }}
-            className="pt-4 sm:pt-6 space-y-2 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:gap-6 text-xs sm:text-sm text-slate-200/90"
+            className="pt-4 sm:pt-6 border-t border-white/15 max-w-3xl"
           >
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>PM Surya Ghar Subsidy Assistance</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-sun-amber shrink-0" />
-              <span>DISCOM Net Metering Support</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-yellow-300 shrink-0" />
-              <span>25-Year Linear Power Warranty</span>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-xs text-slate-200 backdrop-blur-sm">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="truncate">PM Surya Ghar Subsidy</span>
+              </div>
+              <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-xs text-slate-200 backdrop-blur-sm">
+                <CheckCircle2 className="w-3.5 h-3.5 text-sun-amber shrink-0" />
+                <span className="truncate">DISCOM Net Metering</span>
+              </div>
+              <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-xs text-slate-200 backdrop-blur-sm">
+                <CheckCircle2 className="w-3.5 h-3.5 text-yellow-300 shrink-0" />
+                <span className="truncate">25-Year Panel Warranty</span>
+              </div>
             </div>
           </motion.div>
         </div>
