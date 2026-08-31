@@ -100,6 +100,8 @@ export const viewport: Viewport = {
   maximumScale: 5,
 };
 
+import { SiteShell } from "@/components/layout/SiteShell";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -110,13 +112,9 @@ export default function RootLayout({
       <head>
         <LocalBusinessJsonLd />
       </head>
-      <body className="min-h-screen flex flex-col antialiased bg-white text-slate-900 pb-14 sm:pb-0">
+      <body className="min-h-screen flex flex-col antialiased bg-white text-slate-900">
         <SmoothScroll>
-          <Navbar />
-          <main className="flex-grow">{children}</main>
-          <Footer />
-          <WhatsAppFloating />
-          <StickyMobileBar />
+          <SiteShell>{children}</SiteShell>
         </SmoothScroll>
       </body>
     </html>

@@ -162,12 +162,6 @@ export function Footer() {
           </div>
           <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
             <span>Clean Energy • Engineering Excellence • Local Trust</span>
-            <Link
-              href="/admin/login"
-              className="text-slate-400 hover:text-sun-amber transition-colors underline-offset-4 hover:underline"
-            >
-              Admin Portal
-            </Link>
           </div>
         </div>
       </div>

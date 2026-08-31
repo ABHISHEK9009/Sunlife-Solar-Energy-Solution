@@ -20,7 +20,7 @@ export default function AdminLoginPage() {
     if (typeof window !== "undefined") {
       const auth = localStorage.getItem("sunlife_admin_auth");
       if (auth === "true") {
-        router.push("/admin/leads");
+        router.push("/admin/dashboard");
       }
     }
   }, [router]);
@@ -49,7 +49,7 @@ export default function AdminLoginPage() {
         localStorage.setItem("sunlife_admin_user", username.trim());
       }
       setTimeout(() => {
-        router.push("/admin/leads");
+        router.push("/admin/dashboard");
       }, 400);
     } else {
       setError("Invalid admin credentials. Please check username & password.");
