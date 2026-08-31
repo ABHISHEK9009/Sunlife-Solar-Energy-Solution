@@ -30,6 +30,9 @@ import {
   FileText,
   ArrowUpRight,
   TrendingUp,
+  Download,
+  FileSpreadsheet,
+  CheckCheck,
 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 
@@ -107,14 +110,15 @@ function TeamContent() {
   const [teamList, setTeamList] = useState<TeamMember[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Attendance State
-  const [attendanceRecords, setAttendanceRecords] = useState<Record<string, AttendanceRecord>>({});
-  const [currentDateString, setCurrentDateString] = useState("");
+  // Attendance State with Historical Date Support
+  const getTodayISO = () => new Date().toISOString().split("T")[0];
+  const [selectedAttendanceDate, setSelectedAttendanceDate] = useState(getTodayISO());
+  const [attendanceHistory, setAttendanceHistory] = useState<
+    Record<string, Record<string, AttendanceRecord>>
+  >({});
 
   // Payroll State
   const [payrollRecords, setPayrollRecords] = useState<Record<string, PayrollRecord>>({});
-  const [isPayModalOpen, setIsPayModalOpen] = useState(false);
-  const [selectedPayMember, setSelectedPayMember] = useState<TeamMember | null>(null);
 
   // Multi-select & custom tag state for Add Member Modal
   const [selectedSkills, setSelectedSkills] = useState<string[]>([
@@ -128,16 +132,6 @@ function TeamContent() {
   // Load real team list and records from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const now = new Date();
-      setCurrentDateString(
-        now.toLocaleDateString("en-IN", {
-          weekday: "short",
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-        })
-      );
-
       const saved = localStorage.getItem("sunlife_admin_team_roster");
       let initialList: TeamMember[] = [];
 
@@ -179,17 +173,33 @@ function TeamContent() {
 
       setTeamList(initialList);
 
-      // Initialize Attendance Records
-      const savedAtt = localStorage.getItem("sunlife_admin_attendance");
+      // Initialize Attendance History
+      const savedAtt = localStorage.getItem("sunlife_admin_attendance_history");
+      const today = getTodayISO();
+      let history: Record<string, Record<string, AttendanceRecord>> = {};
+
       if (savedAtt) {
         try {
-          setAttendanceRecords(JSON.parse(savedAtt));
+          history = JSON.parse(savedAtt);
         } catch {
-          initializeDefaultAttendance(initialList);
+          history = {};
         }
-      } else {
-        initializeDefaultAttendance(initialList);
       }
+
+      if (!history[today]) {
+        const todayRecords: Record<string, AttendanceRecord> = {};
+        initialList.forEach((m) => {
+          todayRecords[m.id] = {
+            memberId: m.id,
+            status: m.status === "Active On-Site" ? "Present (On-Site)" : "Present (Office)",
+            inTime: "09:00 AM",
+            assignedProject: m.territory ? `${m.territory} Solar Site` : "Narmadapuram HQ",
+          };
+        });
+        history[today] = todayRecords;
+      }
+
+      setAttendanceHistory(history);
 
       // Initialize Payroll Records
       const savedPay = localStorage.getItem("sunlife_admin_payroll");
@@ -207,25 +217,13 @@ function TeamContent() {
     }
   }, []);
 
-  const initializeDefaultAttendance = (members: TeamMember[]) => {
-    const records: Record<string, AttendanceRecord> = {};
-    members.forEach((m) => {
-      records[m.id] = {
-        memberId: m.id,
-        status: m.status === "Active On-Site" ? "Present (On-Site)" : "Present (Office)",
-        inTime: "09:00 AM",
-        assignedProject: m.territory ? `${m.territory} Site` : "Narmadapuram HQ",
-      };
-    });
-    setAttendanceRecords(records);
-  };
-
   const initializeDefaultPayroll = (members: TeamMember[]) => {
     const records: Record<string, PayrollRecord> = {};
     members.forEach((m) => {
       records[m.id] = {
         memberId: m.id,
-        payType: m.category === "Management" || m.category === "Engineer" ? "Monthly Salary" : "Daily Rate",
+        payType:
+          m.category === "Management" || m.category === "Engineer" ? "Monthly Salary" : "Daily Rate",
         baseAmount: m.monthlySalary || (m.dailyRate ? m.dailyRate * 26 : 18000),
         fieldAllowance: 2500,
         bonus: 0,
@@ -255,10 +253,15 @@ function TeamContent() {
     }
   };
 
-  const saveAttendance = (updated: Record<string, AttendanceRecord>) => {
-    setAttendanceRecords(updated);
+  const saveAttendanceHistory = (
+    updatedHistory: Record<string, Record<string, AttendanceRecord>>
+  ) => {
+    setAttendanceHistory(updatedHistory);
     if (typeof window !== "undefined") {
-      localStorage.setItem("sunlife_admin_attendance", JSON.stringify(updated));
+      localStorage.setItem(
+        "sunlife_admin_attendance_history",
+        JSON.stringify(updatedHistory)
+      );
     }
   };
 
@@ -267,6 +270,124 @@ function TeamContent() {
     if (typeof window !== "undefined") {
       localStorage.setItem("sunlife_admin_payroll", JSON.stringify(updated));
     }
+  };
+
+  // Get current active date's attendance records
+  const currentDayAttendance = attendanceHistory[selectedAttendanceDate] || {};
+
+  const handleUpdateAttendanceField = (
+    memberId: string,
+    field: keyof AttendanceRecord,
+    value: string
+  ) => {
+    const dayRecords = attendanceHistory[selectedAttendanceDate] || {};
+    const current = dayRecords[memberId] || {
+      memberId,
+      status: "Present (Office)",
+      inTime: "09:00 AM",
+      assignedProject: "Narmadapuram HQ",
+    };
+
+    const updatedDay = {
+      ...dayRecords,
+      [memberId]: { ...current, [field]: value },
+    };
+
+    saveAttendanceHistory({
+      ...attendanceHistory,
+      [selectedAttendanceDate]: updatedDay,
+    });
+  };
+
+  const handleMarkAllAttendance = (status: AttendanceRecord["status"]) => {
+    const dayRecords = attendanceHistory[selectedAttendanceDate] || {};
+    const updatedDay = { ...dayRecords };
+
+    teamList.forEach((m) => {
+      const current = dayRecords[m.id] || {
+        memberId: m.id,
+        status: "Present (Office)",
+        inTime: "09:00 AM",
+        assignedProject: `${m.territory} Site`,
+      };
+      updatedDay[m.id] = { ...current, status };
+    });
+
+    saveAttendanceHistory({
+      ...attendanceHistory,
+      [selectedAttendanceDate]: updatedDay,
+    });
+  };
+
+  // Download Attendance Report as Excel (.csv format)
+  const handleDownloadExcelReport = () => {
+    const formattedDate = new Date(selectedAttendanceDate).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+
+    let csvContent = "";
+    csvContent += "SUNLIFE SOLAR ENERGY SOLUTION - DAILY WORKFORCE ATTENDANCE REPORT\n";
+    csvContent += `Report Date:,"${formattedDate}"\n`;
+    csvContent += `Generated On:,"${new Date().toLocaleString("en-IN")}"\n\n`;
+
+    // Table Header
+    csvContent +=
+      "Employee Name,Designation,Department,Contact Phone,Territory,Attendance Status,In-Time,Assigned Project Site\n";
+
+    // Table Rows
+    teamList.forEach((member) => {
+      const record = currentDayAttendance[member.id] || {
+        status: "Present (Office)",
+        inTime: "09:00 AM",
+        assignedProject: `${member.territory} Site`,
+      };
+
+      const row = [
+        `"${member.name.replace(/"/g, '""')}"`,
+        `"${member.role.replace(/"/g, '""')}"`,
+        `"${member.category}"`,
+        `"${member.phone}"`,
+        `"${member.territory.replace(/"/g, '""')}"`,
+        `"${record.status}"`,
+        `"${record.inTime}"`,
+        `"${record.assignedProject.replace(/"/g, '""')}"`,
+      ];
+      csvContent += row.join(",") + "\n";
+    });
+
+    // Summary Calculations
+    const presentOnSite = Object.values(currentDayAttendance).filter(
+      (a) => a.status === "Present (On-Site)"
+    ).length;
+    const presentSurvey = Object.values(currentDayAttendance).filter(
+      (a) => a.status === "Present (Survey)"
+    ).length;
+    const presentOffice = Object.values(currentDayAttendance).filter(
+      (a) => a.status === "Present (Office)"
+    ).length;
+    const absentCount = Object.values(currentDayAttendance).filter(
+      (a) => a.status === "Absent"
+    ).length;
+
+    csvContent += "\n--- ATTENDANCE SUMMARY ---\n";
+    csvContent += `Total Staff Registered:,"${teamList.length}"\n`;
+    csvContent += `Present On-Site Installation:,"${presentOnSite}"\n`;
+    csvContent += `Present Site Survey:,"${presentSurvey}"\n`;
+    csvContent += `Present Office/Logistics:,"${presentOffice}"\n`;
+    csvContent += `Absent / On Leave:,"${absentCount}"\n`;
+
+    // Trigger File Download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Sunlife_Solar_Attendance_${selectedAttendanceDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   // Form state for adding new technician/crew member
@@ -320,14 +441,18 @@ function TeamContent() {
     const updatedList = [created, ...teamList];
     saveTeamList(updatedList);
 
-    // Add attendance entry
-    saveAttendance({
-      ...attendanceRecords,
-      [created.id]: {
-        memberId: created.id,
-        status: "Present (Office)",
-        inTime: "09:00 AM",
-        assignedProject: `${created.territory} Site`,
+    // Add attendance entry to current day
+    const dayRecords = attendanceHistory[selectedAttendanceDate] || {};
+    saveAttendanceHistory({
+      ...attendanceHistory,
+      [selectedAttendanceDate]: {
+        ...dayRecords,
+        [created.id]: {
+          memberId: created.id,
+          status: "Present (Office)",
+          inTime: "09:00 AM",
+          assignedProject: `${created.territory} Site`,
+        },
       },
     });
 
@@ -365,22 +490,6 @@ function TeamContent() {
     saveTeamList(updated);
   };
 
-  const handleUpdateAttendanceStatus = (
-    memberId: string,
-    status: AttendanceRecord["status"]
-  ) => {
-    const current = attendanceRecords[memberId] || {
-      memberId,
-      status: "Present (Office)",
-      inTime: "09:00 AM",
-      assignedProject: "Narmadapuram HQ",
-    };
-    saveAttendance({
-      ...attendanceRecords,
-      [memberId]: { ...current, status },
-    });
-  };
-
   const handleTogglePaymentStatus = (memberId: string) => {
     const current = payrollRecords[memberId];
     if (!current) return;
@@ -405,9 +514,16 @@ function TeamContent() {
   });
 
   // KPI Calculations
-  const activeOnSiteCount = teamList.filter((m) => m.status === "Active On-Site").length;
-  const onSurveyCount = teamList.filter((m) => m.status === "On Survey").length;
-  const availableCount = teamList.filter((m) => m.status === "Available").length;
+  const activeOnSiteCount = Object.values(currentDayAttendance).filter(
+    (a) => a.status === "Present (On-Site)"
+  ).length;
+  const onSurveyCount = Object.values(currentDayAttendance).filter(
+    (a) => a.status === "Present (Survey)"
+  ).length;
+  const presentOfficeCount = Object.values(currentDayAttendance).filter(
+    (a) => a.status === "Present (Office)"
+  ).length;
+  const totalPresentCount = activeOnSiteCount + onSurveyCount + presentOfficeCount;
 
   const totalPayrollAmount = Object.values(payrollRecords).reduce(
     (acc, cur) => acc + (cur.baseAmount || 0) + (cur.fieldAllowance || 0) + (cur.bonus || 0),
@@ -430,11 +546,11 @@ function TeamContent() {
             Team & Field Crew
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Manage technician profiles, daily field attendance logs, and monthly payroll disbursements.
+            Daily field attendance logging, technician profiles, and monthly payroll reports.
           </p>
         </div>
 
-        {/* Action Button based on Tab */}
+        {/* Action Buttons based on Tab */}
         {activeTab === "profiles" && (
           <button
             onClick={() => setIsAddModalOpen(true)}
@@ -446,11 +562,15 @@ function TeamContent() {
         )}
 
         {activeTab === "attendance" && (
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <span className="px-3.5 py-2 bg-emerald-50 text-solar-deep border border-emerald-200/80 text-xs font-bold rounded-xl flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-solar-emerald" />
-              <span>Today: {currentDateString}</span>
-            </span>
+          <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
+            {/* Excel Download Button */}
+            <button
+              onClick={handleDownloadExcelReport}
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>Download Excel Report (.csv)</span>
+            </button>
           </div>
         )}
 
@@ -498,7 +618,7 @@ function TeamContent() {
           }`}
         >
           <Calendar className={`w-4 h-4 ${activeTab === "attendance" ? "text-sun-amber" : "text-slate-400"}`} />
-          <span>Attendance & Duty</span>
+          <span>Daily Attendance</span>
           <span
             className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
               activeTab === "attendance"
@@ -506,7 +626,7 @@ function TeamContent() {
                 : "bg-emerald-50 text-solar-deep"
             }`}
           >
-            {activeOnSiteCount + onSurveyCount} On Duty
+            {totalPresentCount} Logged
           </span>
         </button>
 
@@ -608,7 +728,7 @@ function TeamContent() {
               </div>
               <div className="mt-3">
                 <div className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900">
-                  {availableCount}
+                  {teamList.length - activeOnSiteCount - onSurveyCount}
                 </div>
                 <div className="text-[11px] text-blue-600 font-semibold mt-0.5">
                   Ready for dispatch
@@ -786,27 +906,77 @@ function TeamContent() {
       )}
 
       {/* ======================================================== */}
-      {/* SUBHEADING 2: ATTENDANCE AND DUTY */}
+      {/* SUBHEADING 2: DAILY ATTENDANCE & EXCEL REPORT */}
       {/* ======================================================== */}
       {activeTab === "attendance" && (
         <div className="space-y-6 animate-in fade-in duration-200">
-          {/* Attendance KPI Cards */}
+          {/* Top Attendance Control Bar */}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Date Picker */}
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
+                <Calendar className="w-4 h-4 text-solar-deep shrink-0" />
+                <label className="text-xs font-bold text-slate-700">Attendance Date:</label>
+                <input
+                  type="date"
+                  value={selectedAttendanceDate}
+                  onChange={(e) => setSelectedAttendanceDate(e.target.value)}
+                  className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
+                />
+              </div>
+
+              {selectedAttendanceDate === getTodayISO() && (
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                  Today
+                </span>
+              )}
+            </div>
+
+            {/* Quick Bulk Actions & Excel Export */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => handleMarkAllAttendance("Present (On-Site)")}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 border border-slate-200 text-slate-700 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Mark All On-Site</span>
+              </button>
+
+              <button
+                onClick={() => handleMarkAllAttendance("Present (Office)")}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-blue-50 hover:text-blue-800 border border-slate-200 text-slate-700 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <CheckCheck className="w-3.5 h-3.5 text-blue-600" />
+                <span>Mark All Office</span>
+              </button>
+
+              <button
+                onClick={handleDownloadExcelReport}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export Excel</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Daily Attendance Summary Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 w-full">
             <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Total Staff Today
+                  Total Present
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
-                  <Users className="w-4 h-4" />
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-solar-deep flex items-center justify-center">
+                  <CheckCircle2 className="w-4 h-4" />
                 </div>
               </div>
               <div className="mt-3">
                 <div className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900">
-                  {teamList.length}
+                  {totalPresentCount} / {teamList.length}
                 </div>
-                <div className="text-[11px] text-slate-500 mt-0.5">
-                  Scheduled personnel
+                <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">
+                  Logged on {selectedAttendanceDate}
                 </div>
               </div>
             </div>
@@ -814,7 +984,7 @@ function TeamContent() {
             <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  On-Site Installation
+                  On-Site Installs
                 </span>
                 <div className="w-8 h-8 rounded-xl bg-emerald-50 text-solar-deep flex items-center justify-center">
                   <HardHat className="w-4 h-4" />
@@ -822,14 +992,10 @@ function TeamContent() {
               </div>
               <div className="mt-3">
                 <div className="text-2xl sm:text-3xl font-extrabold font-heading text-solar-deep">
-                  {
-                    Object.values(attendanceRecords).filter(
-                      (a) => a.status === "Present (On-Site)"
-                    ).length
-                  }
+                  {activeOnSiteCount}
                 </div>
-                <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">
-                  Rooftop execution
+                <div className="text-[11px] text-slate-500 mt-0.5">
+                  Rooftop execution crew
                 </div>
               </div>
             </div>
@@ -837,7 +1003,7 @@ function TeamContent() {
             <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Site Surveys
+                  On Survey
                 </span>
                 <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
                   <MapPin className="w-4 h-4" />
@@ -845,14 +1011,10 @@ function TeamContent() {
               </div>
               <div className="mt-3">
                 <div className="text-2xl sm:text-3xl font-extrabold font-heading text-amber-600">
-                  {
-                    Object.values(attendanceRecords).filter(
-                      (a) => a.status === "Present (Survey)"
-                    ).length
-                  }
+                  {onSurveyCount}
                 </div>
                 <div className="text-[11px] text-slate-500 mt-0.5">
-                  Roof assessments
+                  Shadow analysis & scoping
                 </div>
               </div>
             </div>
@@ -860,55 +1022,63 @@ function TeamContent() {
             <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Attendance Rate
+                  Absent / Leave
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-                  <TrendingUp className="w-4 h-4" />
+                <div className="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
+                  <AlertCircle className="w-4 h-4" />
                 </div>
               </div>
               <div className="mt-3">
                 <div className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900">
-                  100%
+                  {
+                    Object.values(currentDayAttendance).filter((a) => a.status === "Absent")
+                      .length
+                  }
                 </div>
-                <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">
-                  All active team members logged
+                <div className="text-[11px] text-slate-500 mt-0.5">
+                  Off duty
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Attendance Management Table */}
+          {/* Daily Attendance Sheet Table */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden w-full">
             <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="font-bold font-heading text-base text-slate-900">
-                  Daily Field Attendance & Site Allocation
+                <h3 className="font-bold font-heading text-base text-slate-900 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-solar-deep" />
+                  <span>Daily Attendance Sheet • {selectedAttendanceDate}</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Punch-in status, site allocation, and active duty tracker
+                  Mark daily presence, adjust arrival punch in-time, and assign specific rooftop project sites.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400">Status changes save automatically</span>
-              </div>
+              <button
+                onClick={handleDownloadExcelReport}
+                className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+              >
+                <Download className="w-3.5 h-3.5 text-sun-amber" />
+                <span>Export to Excel (.csv)</span>
+              </button>
             </div>
 
             <div className="overflow-x-auto w-full">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
                   <tr>
-                    <th className="px-6 py-3.5">Employee / Member</th>
+                    <th className="px-6 py-3.5">Employee Name</th>
                     <th className="px-6 py-3.5">Department</th>
+                    <th className="px-6 py-3.5">Daily Duty Status</th>
                     <th className="px-6 py-3.5">In-Time</th>
-                    <th className="px-6 py-3.5">Assigned Solar Project / Site</th>
-                    <th className="px-6 py-3.5">Today&apos;s Duty Status</th>
+                    <th className="px-6 py-3.5">Assigned Solar Project Site</th>
                     <th className="px-6 py-3.5 text-right">Quick Contact</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {teamList.map((member) => {
-                    const record = attendanceRecords[member.id] || {
+                    const record = currentDayAttendance[member.id] || {
                       memberId: member.id,
                       status: "Present (Office)",
                       inTime: "09:00 AM",
@@ -917,6 +1087,7 @@ function TeamContent() {
 
                     return (
                       <tr key={member.id} className="hover:bg-slate-50/80 transition-colors">
+                        {/* Member */}
                         <td className="px-6 py-4">
                           <div className="font-bold text-slate-900 text-sm">
                             {member.name}
@@ -926,32 +1097,21 @@ function TeamContent() {
                           </div>
                         </td>
 
+                        {/* Category */}
                         <td className="px-6 py-4">
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 font-medium rounded-md">
+                          <span className="px-2.5 py-1 bg-slate-100 text-slate-700 font-semibold rounded-lg">
                             {member.category}
                           </span>
                         </td>
 
-                        <td className="px-6 py-4 text-slate-700 font-medium">
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{record.inTime}</span>
-                          </div>
-                        </td>
-
-                        <td className="px-6 py-4">
-                          <span className="font-semibold text-slate-800 flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5 text-solar-emerald" />
-                            <span>{record.assignedProject}</span>
-                          </span>
-                        </td>
-
+                        {/* Daily Status Dropdown */}
                         <td className="px-6 py-4">
                           <select
                             value={record.status}
                             onChange={(e) =>
-                              handleUpdateAttendanceStatus(
+                              handleUpdateAttendanceField(
                                 member.id,
+                                "status",
                                 e.target.value as AttendanceRecord["status"]
                               )
                             }
@@ -969,10 +1129,47 @@ function TeamContent() {
                             <option value="Present (Survey)">🟡 Present (Rooftop Survey)</option>
                             <option value="Present (Office)">🔵 Present (Office / Logistics)</option>
                             <option value="Half-Day">🟠 Half-Day</option>
-                            <option value="Absent">🔴 Absent / On Leave</option>
+                            <option value="Absent">🔴 Absent / Leave</option>
                           </select>
                         </td>
 
+                        {/* In-Time Editable */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5 text-slate-400" />
+                            <input
+                              type="text"
+                              value={record.inTime}
+                              onChange={(e) =>
+                                handleUpdateAttendanceField(member.id, "inTime", e.target.value)
+                              }
+                              placeholder="09:00 AM"
+                              className="w-24 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            />
+                          </div>
+                        </td>
+
+                        {/* Assigned Site Editable */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-solar-emerald shrink-0" />
+                            <input
+                              type="text"
+                              value={record.assignedProject}
+                              onChange={(e) =>
+                                handleUpdateAttendanceField(
+                                  member.id,
+                                  "assignedProject",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="e.g. 5kW Rooftop - Narmadapuram"
+                              className="w-48 sm:w-64 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            />
+                          </div>
+                        </td>
+
+                        {/* Call */}
                         <td className="px-6 py-4 text-right">
                           <a
                             href={`tel:${member.phone}`}
