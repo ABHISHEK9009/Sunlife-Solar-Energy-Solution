@@ -73,7 +73,7 @@ export default function AdminLeadsPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={fetchLeads}
               disabled={loading}
@@ -86,6 +86,18 @@ export default function AdminLeadsPage() {
             <span className="px-3 py-1.5 bg-emerald-100 text-solar-deep text-xs font-bold rounded-xl">
               Total Leads: {leads.length}
             </span>
+
+            <a
+              href="/admin/login"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  localStorage.removeItem("sunlife_admin_auth");
+                }
+              }}
+              className="px-3.5 py-2 bg-slate-900 hover:bg-red-600 text-white text-xs font-bold rounded-xl transition-colors"
+            >
+              Log Out
+            </a>
           </div>
         </div>
 
