@@ -8,7 +8,7 @@ import {
   LayoutDashboard,
   Users,
   Calculator,
-  Server,
+  UserCheck,
   ExternalLink,
   LogOut,
   X,
@@ -52,9 +52,9 @@ export function AdminSidebar({ mobileOpen, setMobileOpen }: AdminSidebarProps) {
       icon: Calculator,
     },
     {
-      name: "System & Health",
-      href: "/admin/system",
-      icon: Server,
+      name: "Team & Field Crew",
+      href: "/admin/team",
+      icon: UserCheck,
     },
   ];
 

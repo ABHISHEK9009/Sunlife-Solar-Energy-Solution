@@ -48,7 +48,7 @@ export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) 
     if (pathname === "/admin/dashboard" || pathname === "/admin") return "Overview";
     if (pathname === "/admin/leads") return "Customer Leads";
     if (pathname === "/admin/estimates") return "Calculator Logs";
-    if (pathname === "/admin/system") return "System & Health";
+    if (pathname === "/admin/team") return "Team & Field Crew";
     return "Admin";
   };
 
