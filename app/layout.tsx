@@ -47,6 +47,11 @@ export const metadata: Metadata = {
   authors: [{ name: "Rahul Kumar Bamne", url: siteConfig.url }],
   creator: siteConfig.name,
   publisher: siteConfig.name,
+  icons: {
+    icon: "/logo/icon.png",
+    shortcut: "/favicon.ico",
+    apple: "/logo/icon-192.png",
+  },
   robots: {
     index: true,
     follow: true,

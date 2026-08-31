@@ -110,18 +110,27 @@ export default function AboutPage() {
 
               {/* Founder Section */}
               <div className="p-6 sm:p-8 rounded-2xl bg-solar-light/60 border border-emerald-200/70 mt-8 space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-solar-deep text-white flex items-center justify-center font-bold">
-                    <UserCheck className="w-6 h-6 text-sun-amber" />
-                  </div>
-                  <div>
-                    <h4 className="text-lg font-bold font-heading text-slate-900">
-                      {siteConfig.owner.name}
-                    </h4>
-                    <div className="text-xs text-solar-emerald font-semibold">
-                      Founder & Owner • Sunlife Solar Energy Solution
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-emerald-200/60">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-solar-deep text-white flex items-center justify-center font-bold">
+                      <UserCheck className="w-6 h-6 text-sun-amber" />
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-bold font-heading text-slate-900">
+                        {siteConfig.owner.name}
+                      </h4>
+                      <div className="text-xs text-solar-emerald font-semibold">
+                        Founder & Owner • Sunlife Solar Energy Solution
+                      </div>
                     </div>
                   </div>
+                  <Image
+                    src="/logo/logo.png"
+                    alt="Sunlife Solar Energy Solution"
+                    width={180}
+                    height={55}
+                    className="h-9 w-auto object-contain"
+                  />
                 </div>
 
                 <blockquote className="text-sm text-slate-700 italic leading-relaxed border-l-2 border-solar-deep pl-4">

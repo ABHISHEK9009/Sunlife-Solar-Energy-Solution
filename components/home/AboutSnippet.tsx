@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Phone, CheckCircle2, ShieldCheck, MapPin, Calendar, ArrowRight, UserCheck } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
@@ -66,18 +67,27 @@ export function AboutSnippet() {
               <div className="absolute top-0 right-0 w-40 h-40 bg-sun-amber/10 rounded-full blur-2xl pointer-events-none" />
 
               <div className="space-y-6 relative">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 text-sun-amber flex items-center justify-center font-heading font-extrabold text-xl">
-                    <UserCheck className="w-7 h-7" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold font-heading text-white">
-                      {siteConfig.owner.name}
-                    </h3>
-                    <div className="text-xs text-emerald-200 font-medium mt-0.5">
-                      {siteConfig.owner.role} • Sunlife Solar Energy Solution
+                <div className="flex items-center justify-between gap-4 pb-2 border-b border-white/15">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 text-sun-amber flex items-center justify-center font-heading font-extrabold text-xl">
+                      <UserCheck className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold font-heading text-white">
+                        {siteConfig.owner.name}
+                      </h3>
+                      <div className="text-xs text-emerald-200 font-medium mt-0.5">
+                        {siteConfig.owner.role} • Sunlife Solar
+                      </div>
                     </div>
                   </div>
+                  <Image
+                    src="/logo/logo.png"
+                    alt="Sunlife Solar Energy Solution Logo"
+                    width={150}
+                    height={45}
+                    className="h-8 w-auto object-contain"
+                  />
                 </div>
 
                 {/* Quote Message */}

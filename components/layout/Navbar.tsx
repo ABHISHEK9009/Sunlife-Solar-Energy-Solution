@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Sun,
@@ -53,17 +54,14 @@ export function Navbar() {
         <div className="max-w-[1650px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 flex items-center justify-between">
           {/* Left Brand Logo */}
           <Link href="/" className="flex items-center gap-3 group shrink-0">
-            <div className="w-10 h-10 rounded-xl bg-solar-deep border border-emerald-500/30 text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-              <Sun className="w-5 h-5 text-sun-amber" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-heading font-extrabold text-lg sm:text-xl tracking-tight text-white leading-none drop-shadow-sm">
-                SUNLIFE
-              </span>
-              <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-emerald-300 uppercase mt-0.5 drop-shadow-sm">
-                Solar Energy Solution
-              </span>
-            </div>
+            <Image
+              src="/logo/logo.png"
+              alt="Sunlife Solar Energy Solution Logo"
+              width={240}
+              height={80}
+              className="h-11 sm:h-14 w-auto object-contain drop-shadow-lg group-hover:scale-105 transition-transform"
+              priority
+            />
           </Link>
 
           {/* Right Floating Nav Pill (Matching Reference Design) */}

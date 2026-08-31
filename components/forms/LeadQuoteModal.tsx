@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import { X, CheckCircle2, Phone, Sun, ArrowRight, ShieldCheck, Loader2 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 
@@ -79,15 +80,19 @@ export function LeadQuoteModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden border border-emerald-100 max-h-[90vh] flex flex-col">
         {/* Header banner */}
-        <div className="bg-gradient-to-r from-solar-dark to-solar-deep text-white px-6 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-sun-amber">
-              <Sun className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-heading font-bold text-lg leading-tight">{title}</h3>
-              <p className="text-xs text-emerald-200/90 mt-0.5">
-                Narmadapuram & Central MP • Free Site Assessment
+        <div className="bg-gradient-to-r from-solar-dark to-solar-deep text-white px-6 py-4 flex items-center justify-between border-b border-emerald-800/40">
+          <div className="flex items-center gap-3">
+            <Image
+              src="/logo/logo.png"
+              alt="Sunlife Solar Energy Solution Logo"
+              width={160}
+              height={45}
+              className="h-8 w-auto object-contain drop-shadow"
+            />
+            <div className="hidden sm:block border-l border-white/20 pl-3">
+              <h3 className="font-heading font-bold text-sm leading-tight">{title}</h3>
+              <p className="text-[11px] text-emerald-200/90">
+                Narmadapuram & MP • Free Site Assessment
               </p>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Sun, Phone, MapPin, Mail, Shield, CheckCircle2, ArrowRight } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 
@@ -10,19 +11,15 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8 pb-12 border-b border-emerald-900/60">
           {/* Column 1: About */}
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-solar-deep text-white flex items-center justify-center border border-emerald-700/50">
-                <Sun className="w-6 h-6 text-sun-amber" />
-              </div>
-              <div>
-                <span className="font-heading font-extrabold text-xl tracking-tight text-white block">
-                  SUNLIFE
-                </span>
-                <span className="text-[10px] tracking-wider text-emerald-300 uppercase font-semibold">
-                  Solar Energy Solution
-                </span>
-              </div>
-            </div>
+            <Link href="/" className="inline-block">
+              <Image
+                src="/logo/logo.png"
+                alt="Sunlife Solar Energy Solution Logo"
+                width={240}
+                height={80}
+                className="h-12 w-auto object-contain drop-shadow-xl hover:opacity-95 transition-opacity"
+              />
+            </Link>
 
             <p className="text-slate-300/90 text-sm leading-relaxed">
               Trusted rooftop solar installation partner for homes, businesses, and industrial facilities in Narmadapuram and across Madhya Pradesh.
