@@ -84,9 +84,9 @@ export function AboutSnippet() {
                   <Image
                     src="/logo/logo.png"
                     alt="Sunlife Solar Energy Solution Logo"
-                    width={150}
-                    height={45}
-                    className="h-8 w-auto object-contain"
+                    width={220}
+                    height={80}
+                    className="h-10 sm:h-12 w-auto object-contain"
                   />
                 </div>
 

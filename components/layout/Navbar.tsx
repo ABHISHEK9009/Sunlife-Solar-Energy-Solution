@@ -47,19 +47,19 @@ export function Navbar() {
       <header
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           isScrolled
-            ? "py-3 bg-slate-950/85 backdrop-blur-xl border-b border-white/10 shadow-lg"
-            : "py-5 bg-transparent"
+            ? "py-2.5 bg-slate-950/90 backdrop-blur-xl border-b border-white/10 shadow-lg"
+            : "py-3 sm:py-4 bg-transparent"
         }`}
       >
-        <div className="fluid-container flex items-center justify-between">
-          {/* Left Brand Logo */}
-          <Link href="/" className="flex items-center gap-3 group shrink-0">
+        <div className="fluid-container flex items-center justify-between gap-4">
+          {/* Left Brand Logo - Prominent & Bold */}
+          <Link href="/" className="flex items-center group shrink-0 py-1">
             <Image
               src="/logo/logo.png"
               alt="Sunlife Solar Energy Solution Logo"
-              width={240}
-              height={80}
-              className="h-11 sm:h-14 w-auto object-contain drop-shadow-lg group-hover:scale-105 transition-transform"
+              width={380}
+              height={160}
+              className="h-14 sm:h-18 md:h-20 lg:h-22 xl:h-24 w-auto object-contain drop-shadow-2xl group-hover:scale-105 transition-all duration-300"
               priority
             />
           </Link>

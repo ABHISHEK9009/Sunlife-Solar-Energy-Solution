@@ -15,9 +15,9 @@ export function Footer() {
               <Image
                 src="/logo/logo.png"
                 alt="Sunlife Solar Energy Solution Logo"
-                width={240}
-                height={80}
-                className="h-12 w-auto object-contain drop-shadow-xl hover:opacity-95 transition-opacity"
+                width={360}
+                height={150}
+                className="h-16 sm:h-20 w-auto object-contain drop-shadow-xl hover:opacity-95 transition-opacity"
               />
             </Link>
 
