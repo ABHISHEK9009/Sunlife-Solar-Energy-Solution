@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function SolarCalculatorPage() {
   return (
     <div className="bg-slate-50 min-h-screen pt-28 sm:pt-32 pb-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+      <div className="max-w-[1650px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 space-y-12">
         {/* Title */}
         <div className="text-center max-w-3xl mx-auto">
           <span className="text-xs font-bold text-solar-emerald uppercase tracking-wider bg-emerald-100/80 px-3.5 py-1.5 rounded-full inline-block mb-3">

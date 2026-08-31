@@ -50,7 +50,7 @@ export function Navbar() {
             : "py-5 bg-transparent"
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+        <div className="max-w-[1650px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 flex items-center justify-between">
           {/* Left Brand Logo */}
           <Link href="/" className="flex items-center gap-3 group shrink-0">
             <div className="w-10 h-10 rounded-xl bg-solar-deep border border-emerald-500/30 text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">

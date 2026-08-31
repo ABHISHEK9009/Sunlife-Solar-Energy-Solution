@@ -41,7 +41,7 @@ export function SolarCalculator({ standalone = false }: { standalone?: boolean }
   };
 
   return (
-    <div className={`w-full ${standalone ? "max-w-5xl mx-auto" : ""}`}>
+    <div className={`w-full ${standalone ? "max-w-[1650px] mx-auto" : "max-w-[1650px] mx-auto"}`}>
       <div className="bg-white rounded-3xl shadow-xl border border-emerald-950/10 overflow-hidden">
         {/* Top Header */}
         <div className="bg-gradient-to-r from-solar-dark via-solar-deep to-solar-emerald px-6 sm:px-10 py-7 text-white">

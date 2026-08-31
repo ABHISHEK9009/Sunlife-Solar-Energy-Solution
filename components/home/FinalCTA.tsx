@@ -16,7 +16,7 @@ export function FinalCTA() {
       <div className="absolute top-0 left-1/4 w-80 h-80 bg-sun-amber/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 right-10 w-96 h-96 bg-solar-emerald/20 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
+      <div className="relative max-w-[1650px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 text-center space-y-6">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/15 text-sun-amber text-xs font-bold uppercase tracking-wider">
           <Sun className="w-4 h-4" /> Start Saving Today
         </div>

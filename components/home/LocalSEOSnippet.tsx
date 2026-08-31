@@ -15,8 +15,8 @@ export function LocalSEOSnippet() {
 
   return (
     <section className="py-16 sm:py-20 bg-slate-900 text-white border-y border-emerald-950">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+      <div className="max-w-[1650px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-center">
           {/* Left Description (7 cols) */}
           <div className="lg:col-span-7 space-y-5">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-solar-deep text-emerald-200 text-xs font-semibold">

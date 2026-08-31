@@ -57,13 +57,13 @@ export function SolarSolutionsGrid() {
 
   return (
     <section className="py-16 sm:py-24 bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1650px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
         {/* Section Heading */}
         <div className="text-center max-w-3xl mx-auto mb-14">
           <span className="text-xs font-bold text-solar-emerald uppercase tracking-wider bg-solar-light px-3.5 py-1.5 rounded-full inline-block mb-3">
             Tailored Engineering
           </span>
-          <h2 className="text-3xl sm:text-4xl font-extrabold font-heading text-slate-950 tracking-tight">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold font-heading text-slate-950 tracking-tight">
             Solar Solutions Designed Around Your Energy Needs
           </h2>
           <p className="text-slate-600 text-sm sm:text-base mt-3 leading-relaxed">
@@ -71,8 +71,8 @@ export function SolarSolutionsGrid() {
           </p>
         </div>
 
-        {/* 4 Premium Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* 4 Premium Cards Grid (Responsive across widescreen) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           {solutions.map((item, idx) => {
             const Icon = item.icon;
             return (
