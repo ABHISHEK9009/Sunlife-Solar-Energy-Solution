@@ -36,16 +36,16 @@ export default function HomePage() {
       <WhySolar />
 
       {/* 6. Solar Savings & Sizing Calculator Section */}
-      <section className="fluid-py bg-gradient-to-b from-slate-50 to-emerald-50/40 border-b border-emerald-950/10" id="calculator">
-        <div className="fluid-container">
-          <div className="text-center max-w-3xl mx-auto mb-10">
-            <span className="text-xs font-bold text-solar-emerald uppercase tracking-wider bg-solar-light px-3.5 py-1.5 rounded-full inline-block mb-3">
+      <section className="section-py bg-gradient-to-b from-slate-50 to-emerald-50/40 border-b border-emerald-950/10" id="calculator">
+        <div className="site-container">
+          <div className="text-center max-w-3xl mx-auto mb-6 sm:mb-10">
+            <span className="text-xs font-bold text-solar-emerald uppercase tracking-wider bg-solar-light px-3.5 py-1.5 rounded-full inline-block mb-2 sm:mb-3">
               Instant Estimation
             </span>
-            <h2 className="fluid-h2 font-extrabold font-heading text-slate-950">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold font-heading text-slate-950 leading-tight">
               Calculate Your Solar Potential & Payback
             </h2>
-            <p className="fluid-p text-slate-600 mt-2">
+            <p className="text-xs sm:text-sm md:text-base text-slate-600 mt-2 leading-relaxed">
               Adjust your monthly electricity bill to see your required system capacity and indicative 25-year financial savings.
             </p>
           </div>
