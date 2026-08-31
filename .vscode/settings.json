@@ -2,5 +2,12 @@
   "css.lint.unknownAtRules": "ignore",
   "scss.lint.unknownAtRules": "ignore",
   "less.lint.unknownAtRules": "ignore",
-  "typescript.tsdk": "node_modules/typescript/lib"
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "python.analysis.diagnosticMode": "openFilesOnly",
+  "python.analysis.ignore": [
+    "**/__pyrefly_virtual__/**",
+    "**/.tempmediaStorage/**",
+    "**/scratch/**"
+  ],
+  "python.linting.enabled": false
 }
