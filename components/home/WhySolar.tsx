@@ -20,32 +20,32 @@ export function WhySolar() {
     {
       icon: Coins,
       title: "Immediate Savings",
-      desc: "Slash your monthly electricity bill by up to 80%–90% from the first billing cycle.",
+      desc: "Slash your monthly electricity bill by up to 80%–90% from the very first billing cycle after net meter synchronization.",
     },
     {
       icon: ShieldAlert,
       title: "Tariff Protection",
-      desc: "Lock in electricity costs for 25 years against rising DISCOM power tariffs.",
+      desc: "Lock in your electricity costs for the next 25 years and hedge against future DISCOM rate hikes.",
     },
     {
       icon: Home,
       title: "Property Value",
-      desc: "Rooftop solar increases property market valuation and buyer appeal.",
+      desc: "Rooftop solar increases property market valuation and appeals strongly to modern buyers.",
     },
     {
       icon: Award,
       title: "PM Surya Ghar",
-      desc: "Direct bank transfer subsidies up to ₹78,000 for eligible homes.",
+      desc: "Direct bank transfer subsidies up to ₹78,000 for eligible residential rooftops in Central MP.",
     },
     {
       icon: Clock,
       title: "25-Yr Performance",
-      desc: "Tier-1 Mono-PERC panels retain high power output over decades.",
+      desc: "Tier-1 Mono-PERC modules retain high conversion output over decades with linear warranty.",
     },
     {
       icon: Leaf,
       title: "Clean & Green",
-      desc: "Offset ~6 tonnes of carbon dioxide emissions every single year.",
+      desc: "Offset ~6 tonnes of carbon dioxide emissions every single year with a standard 5 kW system.",
     },
   ];
 
@@ -82,16 +82,16 @@ export function WhySolar() {
                 viewport={{ once: true, margin: "-30px" }}
                 transition={{ duration: 0.4, delay: idx * 0.05 }}
                 whileHover={{ y: -4 }}
-                className="p-3.5 sm:p-5 md:p-6 rounded-2xl sm:rounded-3xl bg-white border border-slate-200/80 hover:border-emerald-500/40 shadow-sm hover:shadow-lg transition-all duration-300 group flex flex-col justify-between"
+                className="p-3.5 sm:p-5 md:p-6 lg:p-7 rounded-2xl sm:rounded-3xl bg-white border border-slate-200/80 hover:border-emerald-500/40 shadow-sm hover:shadow-lg transition-all duration-300 group flex flex-col justify-between"
               >
-                <div className="space-y-2 sm:space-y-3">
-                  <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl bg-solar-light text-solar-deep flex items-center justify-center group-hover:bg-solar-deep group-hover:text-sun-amber transition-colors duration-300 shadow-sm">
-                    <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                <div className="space-y-2 sm:space-y-3 lg:space-y-4">
+                  <div className="w-8 h-8 sm:w-11 sm:h-11 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl bg-solar-light text-solar-deep flex items-center justify-center group-hover:bg-solar-deep group-hover:text-sun-amber transition-colors duration-300 shadow-sm">
+                    <Icon className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6" />
                   </div>
-                  <h3 className="font-heading font-bold text-xs sm:text-sm md:text-base text-slate-900 leading-tight">
+                  <h3 className="font-heading font-bold text-xs sm:text-base lg:text-lg text-slate-900 leading-snug">
                     {b.title}
                   </h3>
-                  <p className="text-slate-600 text-[11px] sm:text-xs leading-relaxed line-clamp-3 sm:line-clamp-none">
+                  <p className="text-slate-600 text-[11px] sm:text-xs lg:text-sm leading-relaxed line-clamp-3 sm:line-clamp-none">
                     {b.desc}
                   </p>
                 </div>

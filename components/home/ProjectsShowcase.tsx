@@ -13,40 +13,40 @@ export function ProjectsShowcase() {
 
   const projects = [
     {
-      title: "5 kW Residential Rooftop Plant",
+      title: "5 kW Residential Rooftop Solar Plant",
       location: "Malakhedi, Narmadapuram",
       category: "Residential",
       capacity: "5 kW Grid-Tied",
       modules: "Mono-PERC 545W",
       image: "/images/residential-solar.jpg",
-      result: "Saves ~₹4,500 monthly",
+      result: "Generates ~20-22 units daily • Saves ~₹4,500 monthly",
     },
     {
-      title: "25 kW Commercial Installation",
-      location: "Itarsi Market, MP",
+      title: "25 kW Commercial Rooftop Installation",
+      location: "Itarsi Main Market, MP",
       category: "Commercial",
       capacity: "25 kW On-Grid",
       modules: "Monocrystalline",
       image: "/images/commercial-solar.jpg",
-      result: "~38% power cost cut",
+      result: "Powering 3-floor retail complex • ~38% power cost cut",
     },
     {
-      title: "75 kW Industrial Factory Shed",
-      location: "Central MP Area",
+      title: "75 kW Industrial Factory Shed Plant",
+      location: "Industrial Area, Central MP",
       category: "Industrial",
       capacity: "75 kW High-Voltage",
       modules: "Bifacial Mono",
       image: "/images/industrial-solar.jpg",
-      result: "Heavy continuous machinery",
+      result: "Heavy continuous machinery • High tax depreciation ROI",
     },
     {
-      title: "3 kW PM Surya Ghar Setup",
+      title: "3 kW PM Surya Ghar Rooftop Setup",
       location: "Civil Lines, Narmadapuram",
       category: "Residential",
       capacity: "3 kW Standard",
       modules: "DCR Compliant",
       image: "/images/hero-solar.jpg",
-      result: "₹78,000 Direct Subsidy",
+      result: "Zero electricity bills • Received ₹78,000 Direct Subsidy",
     },
   ];
 
@@ -126,7 +126,7 @@ export function ProjectsShowcase() {
                   </div>
 
                   <div className="p-3 sm:p-5 space-y-2 sm:space-y-3">
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 sm:space-y-1">
                       <div className="flex items-center gap-1 text-[10px] sm:text-xs text-slate-500 font-medium">
                         <MapPin className="w-3 h-3 text-solar-emerald shrink-0" />
                         <span className="truncate">{item.location}</span>
@@ -141,7 +141,7 @@ export function ProjectsShowcase() {
                         <Zap className="w-3 h-3 text-sun-amber shrink-0" />
                         <span className="truncate">{item.capacity}</span>
                       </div>
-                      <p className="text-emerald-700 bg-emerald-50 p-1.5 sm:p-2 rounded-lg font-medium leading-relaxed truncate">
+                      <p className="text-emerald-700 bg-emerald-50 p-1.5 sm:p-2 rounded-lg font-medium leading-relaxed line-clamp-2 sm:line-clamp-none">
                         {item.result}
                       </p>
                     </div>
@@ -163,7 +163,8 @@ export function ProjectsShowcase() {
             href="/projects"
             className="inline-flex items-center gap-2 px-6 py-3 sm:px-8 sm:py-3.5 bg-slate-900 hover:bg-solar-deep text-white font-bold text-xs sm:text-sm rounded-full transition-all group shadow-md"
           >
-            <span>View Full Portfolio & Specs</span>
+            <span className="sm:hidden">View Portfolio</span>
+            <span className="hidden sm:inline">View Full Portfolio & Specifications</span>
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </Link>
         </motion.div>

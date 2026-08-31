@@ -18,9 +18,9 @@ export function SolarSolutionsGrid() {
       icon: Home,
       image: "/images/residential-solar.jpg",
       tagline: "Cut up to 90% from Home Power Bills",
-      desc: "Custom on-grid and hybrid rooftop solar for independent houses and villas.",
+      desc: "Custom on-grid and hybrid rooftop solar solutions designed for independent houses, duplexes, and villas in Narmadapuram.",
       badge: "PM Surya Ghar",
-      features: ["1 kW to 10 kW Systems", "Subsidy up to ₹78,000", "25-Yr Panel Warranty"],
+      features: ["1 kW to 10 kW Custom Systems", "Subsidy up to ₹78,000 Support", "25-Year Panel Warranty"],
     },
     {
       title: "Commercial Solar",
@@ -28,9 +28,9 @@ export function SolarSolutionsGrid() {
       icon: Building2,
       image: "/images/commercial-solar.jpg",
       tagline: "Reduce High Commercial Electricity Tariffs",
-      desc: "High-yield solar systems for offices, hospitals, schools & showrooms in MP.",
+      desc: "High-yield solar systems for commercial complexes, offices, hospitals, private schools, colleges, and retail showrooms.",
       badge: "High ROI & Tax Deprec.",
-      features: ["10 kW to 100 kW+ Plants", "Tax Depreciation", "Smart Monitoring App"],
+      features: ["10 kW to 100 kW+ Plants", "Accelerated Depreciation", "Smart Monitoring App"],
     },
     {
       title: "Industrial Solar",
@@ -38,9 +38,9 @@ export function SolarSolutionsGrid() {
       icon: Factory,
       image: "/images/industrial-solar.jpg",
       tagline: "Heavy Power Solutions for Production Units",
-      desc: "Robust rooftop and shed-mounted solar installations for factories & warehouses.",
+      desc: "Robust rooftop and shed-mounted solar installations for factories, processing plants, cold storages, and warehouses.",
       badge: "Heavy Continuous Loads",
-      features: ["50 kW to 500 kW+ EPC", "HV Net Metering", "Heavy GI Structures"],
+      features: ["50 kW to 500 kW+ Engineering", "High Voltage Net Metering", "Heavy-Duty GI Structures"],
     },
     {
       title: "Rooftop Solar EPC",
@@ -48,9 +48,9 @@ export function SolarSolutionsGrid() {
       icon: Sun,
       image: "/images/hero-solar.jpg",
       tagline: "Gazebo, Elevated & Standard Structure EPC",
-      desc: "Customized terrace elevations to preserve 100% usable rooftop recreation space.",
+      desc: "End-to-end engineering, procurement, and construction with customized terrace elevations to preserve 100% usable rooftop space.",
       badge: "Full Usability",
-      features: ["Elevated Frames", "Mono-PERC Modules", "DISCOM Meter Liaison"],
+      features: ["High-Rise Elevated Frames", "Mono-PERC Modules", "MP DISCOM Meter Liaison"],
     },
   ];
 
@@ -81,7 +81,7 @@ export function SolarSolutionsGrid() {
           </p>
         </motion.div>
 
-        {/* Responsive 2-Column Mobile Grid, 4-Column Desktop Grid */}
+        {/* Responsive Grid: 2 cols on mobile, 4 cols on desktop */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-6">
           {solutions.map((item, idx) => {
             const Icon = item.icon;
@@ -122,6 +122,9 @@ export function SolarSolutionsGrid() {
                         <h3 className="font-heading font-bold text-xs sm:text-base md:text-lg text-white leading-tight truncate">
                           {item.title}
                         </h3>
+                        <p className="text-[11px] text-emerald-300 font-medium truncate hidden sm:block">
+                          {item.tagline}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -132,7 +135,7 @@ export function SolarSolutionsGrid() {
                       {item.desc}
                     </p>
 
-                    {/* Feature Bullets */}
+                    {/* Feature Bullets (Visible on desktop & tablet) */}
                     <div className="space-y-1 pt-1.5 border-t border-slate-100 hidden sm:block">
                       {item.features.map((feat, fidx) => (
                         <div key={fidx} className="flex items-center gap-1.5 text-xs text-slate-700 font-medium">
@@ -150,7 +153,8 @@ export function SolarSolutionsGrid() {
                     href={`/${item.slug}`}
                     className="text-[11px] sm:text-xs font-bold text-solar-deep hover:text-solar-dark inline-flex items-center gap-0.5 group/link truncate"
                   >
-                    <span>Specs</span>
+                    <span className="sm:hidden">Specs</span>
+                    <span className="hidden sm:inline">Explore Specs</span>
                     <ArrowRight className="w-3 h-3 group-hover/link:translate-x-0.5 transition-transform" />
                   </Link>
 
@@ -158,7 +162,8 @@ export function SolarSolutionsGrid() {
                     onClick={() => handleOpenQuote(item.title)}
                     className="px-2.5 py-1 sm:px-3.5 sm:py-1.5 bg-slate-900 hover:bg-solar-deep text-white text-[10px] sm:text-xs font-bold rounded-full transition-colors cursor-pointer shrink-0"
                   >
-                    Quote
+                    <span className="sm:hidden">Quote</span>
+                    <span className="hidden sm:inline">Get Quote</span>
                   </button>
                 </div>
               </motion.div>
