@@ -44,29 +44,25 @@ export function SolarCalculator({ standalone = false }: { standalone?: boolean }
     <div className="w-full mx-auto">
       <div className="bg-white rounded-2xl sm:rounded-3xl shadow-xl border border-slate-200/80 overflow-hidden">
         {/* Top Header */}
-        {standalone ? (
-          <div className="bg-gradient-to-r from-solar-dark via-solar-deep to-emerald-950 px-5 sm:px-10 py-6 sm:py-8 text-white">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-sun-amber text-xs font-semibold uppercase tracking-wider mb-2">
-              <Zap className="w-3.5 h-3.5" /> Interactive Calculator
+        <div className="bg-gradient-to-r from-solar-dark via-solar-deep to-emerald-950 px-5 sm:px-10 py-5 sm:py-7 text-white">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-sun-amber text-xs font-semibold uppercase tracking-wider mb-1.5 sm:mb-2">
+                <Zap className="w-3.5 h-3.5" /> Interactive Calculator
+              </div>
+              <h3 className="text-xl sm:text-2xl lg:text-3xl font-extrabold font-heading tracking-tight">
+                Solar Savings & System Sizing Calculator
+              </h3>
+              <p className="text-emerald-100/85 text-xs sm:text-sm mt-1">
+                Estimate your system capacity (kW), annual generation, and electricity bill savings in Central MP.
+              </p>
             </div>
-            <h3 className="text-xl sm:text-3xl font-extrabold font-heading tracking-tight">
-              Solar Savings & System Sizing Calculator
-            </h3>
-            <p className="text-emerald-100/85 text-xs sm:text-sm mt-1">
-              Estimate your system capacity (kW), annual generation, and electricity bill savings in Central MP.
-            </p>
-          </div>
-        ) : (
-          <div className="bg-gradient-to-r from-solar-dark via-solar-deep to-emerald-900 px-4 sm:px-8 py-3.5 sm:py-4 text-white flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs sm:text-sm font-bold font-heading">
-              <Zap className="w-4 h-4 text-sun-amber" />
-              <span>Solar Sizing & Savings Calculator</span>
+            <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/10 border border-white/10 text-xs shrink-0">
+              <Sun className="w-5 h-5 text-sun-amber" />
+              <span>Calibrated for MP Solar Irradiance</span>
             </div>
-            <span className="text-[10px] sm:text-xs text-emerald-200 bg-white/10 px-2.5 py-1 rounded-full font-medium hidden xs:inline-block">
-              MP Solar Irradiance
-            </span>
           </div>
-        )}
+        </div>
 
         {/* Body Grid */}
         <div className="p-4 sm:p-7 lg:p-10 grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
