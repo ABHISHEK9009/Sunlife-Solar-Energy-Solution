@@ -39,6 +39,8 @@ import {
   Share2,
   Printer,
   FileText,
+  TrendingUp,
+  BarChart3,
 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 
@@ -89,19 +91,26 @@ function TeamContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Tab State: 'attendance' | 'profiles' | 'payroll'
+  // Tab State: 'attendance' | 'monthly' | 'profiles' | 'payroll'
   const tabParam = searchParams.get("tab");
-  const [activeTab, setActiveTab] = useState<"attendance" | "profiles" | "payroll">(
-    tabParam === "profiles" || tabParam === "payroll" ? tabParam : "attendance"
+  const [activeTab, setActiveTab] = useState<"attendance" | "monthly" | "profiles" | "payroll">(
+    tabParam === "monthly" || tabParam === "profiles" || tabParam === "payroll"
+      ? tabParam
+      : "attendance"
   );
 
   useEffect(() => {
-    if (tabParam === "profiles" || tabParam === "payroll" || tabParam === "attendance") {
+    if (
+      tabParam === "attendance" ||
+      tabParam === "monthly" ||
+      tabParam === "profiles" ||
+      tabParam === "payroll"
+    ) {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
 
-  const handleTabChange = (tab: "attendance" | "profiles" | "payroll") => {
+  const handleTabChange = (tab: "attendance" | "monthly" | "profiles" | "payroll") => {
     setActiveTab(tab);
     router.replace(`/admin/team?tab=${tab}`, { scroll: false });
   };
@@ -139,13 +148,12 @@ function TeamContent() {
   );
   const [customEndDate, setCustomEndDate] = useState(todayISO);
 
-  // Monthly Preview & Employee Sharing Modal State
-  const [isMonthlyPreviewOpen, setIsMonthlyPreviewOpen] = useState(false);
-  const [previewMember, setPreviewMember] = useState<TeamMember | null>(null);
+  // Monthly Page State (Month & Selected Member Filter)
   const [selectedMonthYear, setSelectedMonthYear] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
+  const [monthlyFilterMemberId, setMonthlyFilterMemberId] = useState<string>("ALL");
 
   // Add Member Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -277,7 +285,7 @@ function TeamContent() {
     setPayrollRecords(records);
   };
 
-  // Save Helpers (Preserves all historical dates permanently)
+  // Save Helpers
   const saveTeamList = (updated: TeamMember[]) => {
     setTeamList(updated);
     if (typeof window !== "undefined") {
@@ -326,12 +334,6 @@ function TeamContent() {
     setIsUpdateModalOpen(true);
   };
 
-  // Open Monthly Attendance Preview / Slip Modal
-  const handleOpenMonthlyPreview = (member?: TeamMember) => {
-    setPreviewMember(member || teamList[0] || null);
-    setIsMonthlyPreviewOpen(true);
-  };
-
   // Trigger Punch In (Captures exact current real-time clock)
   const handleTriggerPunchIn = () => {
     const timeNow = new Date().toLocaleTimeString("en-IN", {
@@ -353,7 +355,7 @@ function TeamContent() {
     setModalFormCheckOut(timeNow);
   };
 
-  // Save Attendance from Modal Card (Date-Wise Persistent under today's date)
+  // Save Attendance from Modal Card
   const handleSaveModalAttendance = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedMemberForUpdate) return;
@@ -565,7 +567,6 @@ function TeamContent() {
     let absent = 0;
     let leave = 0;
 
-    // Get days in month
     const [yearStr, monthStr] = monthYear.split("-");
     const year = parseInt(yearStr, 10);
     const month = parseInt(monthStr, 10);
@@ -601,7 +602,6 @@ function TeamContent() {
           assignedSite: rec.assignedSite || "",
         });
       } else {
-        // Unlogged day
         const dayOfWeek = new Date(year, month - 1, d).getDay();
         const isSunday = dayOfWeek === 0;
         dayBreakdown.push({
@@ -790,13 +790,23 @@ function TeamContent() {
 
   const activeExportRange = computeExportRange();
 
+  // Days in selected month for matrix header
+  const [selYearStr, selMonthStr] = selectedMonthYear.split("-");
+  const selYear = parseInt(selYearStr, 10);
+  const selMonth = parseInt(selMonthStr, 10);
+  const totalDaysInSelectedMonth = new Date(selYear, selMonth, 0).getDate();
+  const monthNameFormatted = new Date(selYear, selMonth - 1, 1).toLocaleString("en-IN", {
+    month: "long",
+    year: "numeric",
+  });
+
   return (
     <div className="w-full space-y-6">
       {/* Page Title & Main Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="text-xs font-bold uppercase tracking-wider text-solar-emerald mb-1">
-            Workforce & Attendance Manager
+            Workforce & Attendance Management
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900 tracking-tight">
             Team & Field Crew
@@ -817,24 +827,14 @@ function TeamContent() {
             <span>Open Mobile Punch App ↗</span>
           </Link>
 
-          {activeTab === "attendance" && (
-            <>
-              <button
-                onClick={() => handleOpenMonthlyPreview(teamList[0])}
-                className="px-3.5 py-2.5 bg-solar-deep hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-              >
-                <FileText className="w-4 h-4 text-sun-amber" />
-                <span>Monthly Preview & Share</span>
-              </button>
-
-              <button
-                onClick={() => setIsExportModalOpen(true)}
-                className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-              >
-                <Download className="w-4 h-4" />
-                <span>Download Report (.csv)</span>
-              </button>
-            </>
+          {(activeTab === "attendance" || activeTab === "monthly") && (
+            <button
+              onClick={() => setIsExportModalOpen(true)}
+              className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export Reports (.csv)</span>
+            </button>
           )}
 
           {activeTab === "profiles" && (
@@ -849,19 +849,19 @@ function TeamContent() {
         </div>
       </div>
 
-      {/* 3 Simple Subheading Tabs */}
+      {/* 4 Clean Subheading Tabs */}
       <div className="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap sm:flex-nowrap gap-1.5 w-full">
         {/* Tab 1: Daily Attendance */}
         <button
           onClick={() => handleTabChange("attendance")}
-          className={`flex-1 flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === "attendance"
               ? "bg-solar-deep text-white shadow-sm"
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
           }`}
         >
           <Calendar className={`w-4 h-4 ${activeTab === "attendance" ? "text-sun-amber" : "text-slate-400"}`} />
-          <span>Today&apos;s Attendance</span>
+          <span>Daily Attendance</span>
           <span
             className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
               activeTab === "attendance"
@@ -869,14 +869,27 @@ function TeamContent() {
                 : "bg-emerald-50 text-solar-deep"
             }`}
           >
-            {presentCount} Present
+            {presentCount}
           </span>
         </button>
 
-        {/* Tab 2: Employee Profiles */}
+        {/* Tab 2: Monthly Attendance & Reports (FULL PAGE VIEW) */}
+        <button
+          onClick={() => handleTabChange("monthly")}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === "monthly"
+              ? "bg-solar-deep text-white shadow-sm"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+          }`}
+        >
+          <BarChart3 className={`w-4 h-4 ${activeTab === "monthly" ? "text-sun-amber" : "text-slate-400"}`} />
+          <span>Monthly Reports & Slips</span>
+        </button>
+
+        {/* Tab 3: Employee Profiles */}
         <button
           onClick={() => handleTabChange("profiles")}
-          className={`flex-1 flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === "profiles"
               ? "bg-solar-deep text-white shadow-sm"
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
@@ -895,10 +908,10 @@ function TeamContent() {
           </span>
         </button>
 
-        {/* Tab 3: Payroll & Wages */}
+        {/* Tab 4: Payroll & Wages */}
         <button
           onClick={() => handleTabChange("payroll")}
-          className={`flex-1 flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === "payroll"
               ? "bg-solar-deep text-white shadow-sm"
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
@@ -965,7 +978,6 @@ function TeamContent() {
           {/* Auto-Locked Live Date Banner & Search Strip */}
           <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3">
-              {/* Auto-Fetched Today Date Display */}
               <div className="flex items-center gap-2 bg-emerald-50/80 border border-emerald-200/80 px-3.5 py-1.5 rounded-xl text-solar-deep">
                 <Calendar className="w-4 h-4 text-solar-emerald" />
                 <span className="text-xs font-extrabold">
@@ -976,7 +988,6 @@ function TeamContent() {
                 </span>
               </div>
 
-              {/* Search */}
               <div className="relative w-64">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                 <input
@@ -989,7 +1000,6 @@ function TeamContent() {
               </div>
             </div>
 
-            {/* Quick Bulk Actions */}
             <div className="flex items-center gap-2">
               <button
                 onClick={handleMarkAllPresent}
@@ -1000,19 +1010,11 @@ function TeamContent() {
               </button>
 
               <button
-                onClick={() => handleOpenMonthlyPreview(teamList[0])}
+                onClick={() => handleTabChange("monthly")}
                 className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer border border-slate-200"
               >
                 <FileText className="w-3.5 h-3.5 text-solar-emerald" />
-                <span>Monthly Slip</span>
-              </button>
-
-              <button
-                onClick={() => setIsExportModalOpen(true)}
-                className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5 text-sun-amber" />
-                <span>Export Report</span>
+                <span>Monthly Reports ↗</span>
               </button>
             </div>
           </div>
@@ -1029,7 +1031,7 @@ function TeamContent() {
                     <th className="px-6 py-3.5">Check-In Time</th>
                     <th className="px-6 py-3.5">Check-Out Time</th>
                     <th className="px-6 py-3.5">Assigned Solar Site</th>
-                    <th className="px-6 py-3.5 text-right min-w-[240px]">Action</th>
+                    <th className="px-6 py-3.5 text-right min-w-[200px]">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -1052,7 +1054,6 @@ function TeamContent() {
 
                     return (
                       <tr key={member.id} className="hover:bg-slate-50/80 transition-colors">
-                        {/* Member */}
                         <td className="px-6 py-4">
                           <div className="font-bold text-slate-900 text-sm">
                             {member.name}
@@ -1062,14 +1063,12 @@ function TeamContent() {
                           </div>
                         </td>
 
-                        {/* Department */}
                         <td className="px-6 py-4">
                           <span className="px-2.5 py-1 bg-slate-100 text-slate-700 font-semibold rounded-lg">
                             {member.category}
                           </span>
                         </td>
 
-                        {/* Status Badge */}
                         <td className="px-6 py-4">
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-bold border inline-flex items-center gap-1.5 ${
@@ -1093,7 +1092,6 @@ function TeamContent() {
                           </span>
                         </td>
 
-                        {/* Check-In */}
                         <td className="px-6 py-4 font-semibold text-slate-800">
                           {rec.checkIn && rec.checkIn !== "--" ? (
                             <span className="text-emerald-700 font-bold">{rec.checkIn}</span>
@@ -1102,7 +1100,6 @@ function TeamContent() {
                           )}
                         </td>
 
-                        {/* Check-Out */}
                         <td className="px-6 py-4 font-semibold text-slate-800">
                           {rec.checkOut && rec.checkOut !== "--" ? (
                             <span className="text-sun-amber font-bold">{rec.checkOut}</span>
@@ -1111,7 +1108,6 @@ function TeamContent() {
                           )}
                         </td>
 
-                        {/* Assigned Site */}
                         <td className="px-6 py-4 text-slate-700 font-medium">
                           <span className="flex items-center gap-1">
                             <MapPin className="w-3.5 h-3.5 text-solar-emerald shrink-0" />
@@ -1119,39 +1115,27 @@ function TeamContent() {
                           </span>
                         </td>
 
-                        {/* Actions */}
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            {/* Punch / Update Attendance Button */}
                             <button
                               onClick={() => handleOpenUpdateModal(member)}
-                              className="px-3 py-1.5 rounded-xl bg-solar-deep hover:bg-slate-900 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                              className="px-3.5 py-1.5 rounded-xl bg-solar-deep hover:bg-slate-900 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
                             >
                               <Edit3 className="w-3.5 h-3.5 text-sun-amber" />
                               <span>Punch</span>
                             </button>
 
-                            {/* Monthly Slip Preview */}
                             <button
-                              onClick={() => handleOpenMonthlyPreview(member)}
+                              onClick={() => {
+                                setMonthlyFilterMemberId(member.id);
+                                handleTabChange("monthly");
+                              }}
                               title={`View Monthly Slip for ${member.name}`}
                               className="p-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-solar-deep transition-colors cursor-pointer border border-emerald-200"
                             >
                               <FileText className="w-3.5 h-3.5 text-solar-emerald" />
                             </button>
 
-                            {/* WhatsApp Share Report */}
-                            <a
-                              href={getWhatsAppShareUrl(member, selectedMonthYear)}
-                              target="_blank"
-                              rel="noreferrer"
-                              title={`Share Monthly Report to ${member.name} on WhatsApp`}
-                              className="p-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 transition-colors"
-                            >
-                              <Share2 className="w-3.5 h-3.5" />
-                            </a>
-
-                            {/* Call Staff */}
                             <a
                               href={`tel:${member.phone}`}
                               title={`Call ${member.name}`}
@@ -1172,7 +1156,410 @@ function TeamContent() {
       )}
 
       {/* ======================================================== */}
-      {/* 2. EMPLOYEE PROFILES */}
+      {/* 2. MONTHLY ATTENDANCE & REPORTS (DEDICATED FULL PAGE VIEW) */}
+      {/* ======================================================== */}
+      {activeTab === "monthly" && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Top Month & Filter Controls Strip */}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Month Selector */}
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl">
+                <Calendar className="w-4 h-4 text-solar-deep" />
+                <label className="text-xs font-bold text-slate-700">Target Month:</label>
+                <input
+                  type="month"
+                  value={selectedMonthYear}
+                  onChange={(e) => setSelectedMonthYear(e.target.value)}
+                  className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
+                />
+              </div>
+
+              {/* Filter Staff Member */}
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl">
+                <Users className="w-4 h-4 text-solar-deep" />
+                <label className="text-xs font-bold text-slate-700">View Staff:</label>
+                <select
+                  value={monthlyFilterMemberId}
+                  onChange={(e) => setMonthlyFilterMemberId(e.target.value)}
+                  className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
+                >
+                  <option value="ALL">👥 All Team Members (Monthly Matrix)</option>
+                  {teamList.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      👤 {m.name} ({m.category})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Quick Action Buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsExportModalOpen(true)}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export Month CSV</span>
+              </button>
+            </div>
+          </div>
+
+          {/* VIEW MODE 1: ALL STAFF MONTHLY MATRIX */}
+          {monthlyFilterMemberId === "ALL" && (
+            <div className="space-y-6">
+              {/* Summary KPIs for the Month */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full">
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Report Period
+                  </span>
+                  <div className="text-xl font-extrabold font-heading text-slate-900 mt-1">
+                    {monthNameFormatted}
+                  </div>
+                  <span className="text-[11px] text-slate-500 mt-0.5 block">
+                    {totalDaysInSelectedMonth} Calendar Days
+                  </span>
+                </div>
+
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                  <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">
+                    Registered Workforce
+                  </span>
+                  <div className="text-xl font-extrabold font-heading text-solar-deep mt-1">
+                    {teamList.length} Active Staff
+                  </div>
+                  <span className="text-[11px] text-slate-500 mt-0.5 block">
+                    EPC Technicians & Engineers
+                  </span>
+                </div>
+
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                  <span className="text-[10px] font-bold text-sun-amber uppercase tracking-wider block">
+                    Payable Wage Calculation
+                  </span>
+                  <div className="text-xl font-extrabold font-heading text-slate-900 mt-1">
+                    Attendance Linked
+                  </div>
+                  <span className="text-[11px] text-emerald-700 font-bold mt-0.5 block">
+                    100% Verified
+                  </span>
+                </div>
+
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                  <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block">
+                    Direct Sharing
+                  </span>
+                  <div className="text-xl font-extrabold font-heading text-purple-700 mt-1">
+                    WhatsApp Enabled
+                  </div>
+                  <span className="text-[11px] text-slate-500 mt-0.5 block">
+                    1-Click Employee Reports
+                  </span>
+                </div>
+              </div>
+
+              {/* All Staff Matrix Table */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden w-full">
+                <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold font-heading text-base text-slate-900">
+                      Workforce Monthly Attendance Matrix — {monthNameFormatted}
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Overview of daily verified presence, leaves, and payable days
+                    </p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto w-full">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+                      <tr>
+                        <th className="px-5 py-3.5 min-w-[180px]">Staff Member</th>
+                        <th className="px-3 py-3.5 text-center">Present</th>
+                        <th className="px-3 py-3.5 text-center">Survey</th>
+                        <th className="px-3 py-3.5 text-center">Half Day</th>
+                        <th className="px-3 py-3.5 text-center">Absent</th>
+                        <th className="px-3 py-3.5 text-center">Leave</th>
+                        <th className="px-4 py-3.5 text-center font-bold text-slate-900">Payable Days</th>
+                        <th className="px-4 py-3.5 text-center font-bold text-emerald-700">Score %</th>
+                        <th className="px-5 py-3.5 text-right min-w-[180px]">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {teamList.map((member) => {
+                        const stats = getMemberMonthlyStats(member.id, selectedMonthYear);
+
+                        return (
+                          <tr key={member.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="px-5 py-4">
+                              <div className="font-bold text-slate-900 text-sm">
+                                {member.name}
+                              </div>
+                              <div className="text-[11px] text-slate-400">
+                                {member.role} ({member.category})
+                              </div>
+                            </td>
+
+                            <td className="px-3 py-4 text-center font-bold text-emerald-700">
+                              <span className="px-2.5 py-1 bg-emerald-50 rounded-lg border border-emerald-200">
+                                {stats.present}
+                              </span>
+                            </td>
+
+                            <td className="px-3 py-4 text-center font-bold text-amber-700">
+                              <span className="px-2.5 py-1 bg-amber-50 rounded-lg border border-amber-200">
+                                {stats.onSurvey}
+                              </span>
+                            </td>
+
+                            <td className="px-3 py-4 text-center font-bold text-orange-700">
+                              <span className="px-2.5 py-1 bg-orange-50 rounded-lg border border-orange-200">
+                                {stats.halfDay}
+                              </span>
+                            </td>
+
+                            <td className="px-3 py-4 text-center font-bold text-red-700">
+                              <span className="px-2.5 py-1 bg-red-50 rounded-lg border border-red-200">
+                                {stats.absent}
+                              </span>
+                            </td>
+
+                            <td className="px-3 py-4 text-center font-bold text-purple-700">
+                              <span className="px-2.5 py-1 bg-purple-50 rounded-lg border border-purple-200">
+                                {stats.leave}
+                              </span>
+                            </td>
+
+                            <td className="px-4 py-4 text-center font-extrabold text-sm text-solar-deep">
+                              {stats.verifiedPayableDays} Days
+                            </td>
+
+                            <td className="px-4 py-4 text-center font-bold text-emerald-600">
+                              {stats.attendancePercentage}%
+                            </td>
+
+                            <td className="px-5 py-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => setMonthlyFilterMemberId(member.id)}
+                                  className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-solar-deep hover:text-white text-slate-800 font-bold text-xs flex items-center gap-1.5 transition-colors border border-slate-200 cursor-pointer"
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  <span>View Slip</span>
+                                </button>
+
+                                <a
+                                  href={getWhatsAppShareUrl(member, selectedMonthYear)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  title={`Share Report to ${member.name} on WhatsApp`}
+                                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
+                                >
+                                  <Share2 className="w-3.5 h-3.5" />
+                                  <span>WhatsApp</span>
+                                </a>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* VIEW MODE 2: INDIVIDUAL EMPLOYEE MONTHLY REPORT SLIP (PAGE VIEW) */}
+          {monthlyFilterMemberId !== "ALL" && (() => {
+            const singleMember = teamList.find((m) => m.id === monthlyFilterMemberId) || teamList[0];
+            if (!singleMember) return null;
+            const stats = getMemberMonthlyStats(singleMember.id, selectedMonthYear);
+
+            return (
+              <div className="space-y-6">
+                {/* Employee Detailed Slip Card */}
+                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+                  {/* Slip Header with Sunlife Logo */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                    <div className="flex items-center gap-4">
+                      <Image
+                        src="/logo/logo.svg"
+                        alt="Sunlife Solar"
+                        width={150}
+                        height={42}
+                        className="h-9 w-auto object-contain"
+                      />
+                      <div className="h-8 w-px bg-slate-200 hidden sm:block" />
+                      <div>
+                        <h3 className="font-bold font-heading text-lg text-slate-900">
+                          Employee Monthly Attendance Slip
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          Sunlife Solar Energy Solution • Period: <span className="font-bold text-slate-900">{monthNameFormatted}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setMonthlyFilterMemberId("ALL")}
+                        className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+                      >
+                        ← Back to All Staff Matrix
+                      </button>
+
+                      <a
+                        href={getWhatsAppShareUrl(singleMember, selectedMonthYear)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        <span>Send to {singleMember.name.split(" ")[0]} via WhatsApp</span>
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Staff Info Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Staff Name</span>
+                      <span className="font-extrabold text-slate-900 text-sm mt-0.5 block">{singleMember.name}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Designation</span>
+                      <span className="font-bold text-slate-800 mt-0.5 block">{singleMember.role}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Department</span>
+                      <span className="font-bold text-slate-800 mt-0.5 block">{singleMember.category}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Contact Phone</span>
+                      <span className="font-bold text-solar-deep mt-0.5 block">{singleMember.phone}</span>
+                    </div>
+                  </div>
+
+                  {/* 6 Monthly Stats KPI Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                    <div className="bg-emerald-50 border border-emerald-200/80 p-3.5 rounded-2xl">
+                      <span className="text-[10px] uppercase font-bold text-emerald-800 block">
+                        Present (Full Day)
+                      </span>
+                      <div className="text-2xl font-extrabold text-emerald-900 mt-1">
+                        {stats.present} <span className="text-xs font-medium">Days</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-amber-50 border border-amber-200/80 p-3.5 rounded-2xl">
+                      <span className="text-[10px] uppercase font-bold text-amber-800 block">
+                        On Site Survey
+                      </span>
+                      <div className="text-2xl font-extrabold text-amber-900 mt-1">
+                        {stats.onSurvey} <span className="text-xs font-medium">Days</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-orange-50 border border-orange-200/80 p-3.5 rounded-2xl">
+                      <span className="text-[10px] uppercase font-bold text-orange-800 block">
+                        Half Days
+                      </span>
+                      <div className="text-2xl font-extrabold text-orange-900 mt-1">
+                        {stats.halfDay} <span className="text-xs font-medium">Days</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-red-50 border border-red-200/80 p-3.5 rounded-2xl">
+                      <span className="text-[10px] uppercase font-bold text-red-800 block">
+                        Absent Days
+                      </span>
+                      <div className="text-2xl font-extrabold text-red-900 mt-1">
+                        {stats.absent} <span className="text-xs font-medium">Days</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-purple-50 border border-purple-200/80 p-3.5 rounded-2xl">
+                      <span className="text-[10px] uppercase font-bold text-purple-800 block">
+                        Approved Leave
+                      </span>
+                      <div className="text-2xl font-extrabold text-purple-900 mt-1">
+                        {stats.leave} <span className="text-xs font-medium">Days</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-900 text-white p-3.5 rounded-2xl">
+                      <span className="text-[10px] uppercase font-bold text-sun-amber block">
+                        Payable Days
+                      </span>
+                      <div className="text-2xl font-extrabold text-white mt-1">
+                        {stats.verifiedPayableDays} <span className="text-xs font-medium">Days</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Day-by-Day Calendar Grid */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold font-heading text-sm text-slate-900 uppercase tracking-wider">
+                        Day-by-Day Attendance Log ({monthNameFormatted})
+                      </h4>
+                      <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-xl font-extrabold text-xs">
+                        Overall Attendance: {stats.attendancePercentage}%
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+                      {stats.dayBreakdown.map((item) => {
+                        const isPresent = item.status === "Present" || item.status === "On Survey";
+                        const isHalf = item.status === "Half Day";
+                        const isAbsent = item.status === "Absent";
+                        const isLeave = item.status === "Leave";
+                        const isSunday = item.status === "Sunday";
+
+                        return (
+                          <div
+                            key={item.day}
+                            className={`p-3 rounded-2xl border text-center transition-all ${
+                              isPresent
+                                ? "bg-emerald-50/80 border-emerald-200 text-emerald-900"
+                                : isHalf
+                                ? "bg-orange-50/80 border-orange-200 text-orange-900"
+                                : isAbsent
+                                ? "bg-red-50/80 border-red-200 text-red-900 font-bold"
+                                : isLeave
+                                ? "bg-purple-50/80 border-purple-200 text-purple-900"
+                                : isSunday
+                                ? "bg-slate-100/80 border-slate-200 text-slate-500"
+                                : "bg-white border-slate-200 text-slate-400"
+                            }`}
+                          >
+                            <span className="text-xs font-extrabold block">Day {item.day}</span>
+                            <span className="text-[10px] font-extrabold uppercase block mt-1">
+                              {item.status}
+                            </span>
+                            {item.checkIn && item.checkIn !== "--" && (
+                              <span className="text-[10px] text-slate-600 block mt-1 font-semibold">
+                                {item.checkIn}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 3. EMPLOYEE PROFILES */}
       {/* ======================================================== */}
       {activeTab === "profiles" && (
         <div className="space-y-6 animate-in fade-in duration-200">
@@ -1261,8 +1648,11 @@ function TeamContent() {
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
-                            onClick={() => handleOpenMonthlyPreview(member)}
-                            title="Monthly Attendance Slip"
+                            onClick={() => {
+                              setMonthlyFilterMemberId(member.id);
+                              handleTabChange("monthly");
+                            }}
+                            title="View Monthly Attendance Slip"
                             className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 transition-colors"
                           >
                             <FileText className="w-3.5 h-3.5" />
@@ -1304,7 +1694,7 @@ function TeamContent() {
       )}
 
       {/* ======================================================== */}
-      {/* 3. PAYROLL & PAYMENT (CONNECTED TO DATE-WISE ATTENDANCE) */}
+      {/* 4. PAYROLL & PAYMENT */}
       {/* ======================================================== */}
       {activeTab === "payroll" && (
         <div className="space-y-6 animate-in fade-in duration-200">
@@ -1411,7 +1801,7 @@ function TeamContent() {
       )}
 
       {/* ======================================================== */}
-      {/* 4. REAL-TIME PUNCH MODAL CARD */}
+      {/* 5. REAL-TIME PUNCH MODAL CARD */}
       {/* ======================================================== */}
       {isUpdateModalOpen &&
         selectedMemberForUpdate &&
@@ -1608,216 +1998,6 @@ function TeamContent() {
         )}
 
       {/* ======================================================== */}
-      {/* 5. MONTH-WISE EMPLOYEE ATTENDANCE PREVIEW & SHARE MODAL */}
-      {/* ======================================================== */}
-      {isMonthlyPreviewOpen &&
-        previewMember &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-[999] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-            <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-3xl w-full shadow-2xl border border-slate-200 space-y-6 animate-in fade-in zoom-in-95 duration-150 my-auto text-xs">
-              {/* Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-                <div className="flex items-center gap-3">
-                  <Image
-                    src="/logo/logo.svg"
-                    alt="Sunlife Solar"
-                    width={130}
-                    height={38}
-                    className="h-7 w-auto object-contain"
-                  />
-                  <div className="h-6 w-px bg-slate-200 hidden sm:block" />
-                  <div>
-                    <h3 className="font-bold font-heading text-lg text-slate-900 leading-tight">
-                      Monthly Attendance Slip & Share
-                    </h3>
-                    <p className="text-slate-500 text-xs">
-                      Employee: <span className="font-bold text-slate-900">{previewMember.name}</span> ({previewMember.role})
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {/* Select Member Dropdown */}
-                  <select
-                    value={previewMember.id}
-                    onChange={(e) => {
-                      const found = teamList.find((m) => m.id === e.target.value);
-                      if (found) setPreviewMember(found);
-                    }}
-                    className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-xs focus:outline-none"
-                  >
-                    {teamList.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name} ({m.category})
-                      </option>
-                    ))}
-                  </select>
-
-                  {/* Select Month */}
-                  <input
-                    type="month"
-                    value={selectedMonthYear}
-                    onChange={(e) => setSelectedMonthYear(e.target.value)}
-                    className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-xs focus:outline-none cursor-pointer"
-                  />
-
-                  <button
-                    onClick={() => setIsMonthlyPreviewOpen(false)}
-                    className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Monthly Stats KPI Strip */}
-              {(() => {
-                const stats = getMemberMonthlyStats(previewMember.id, selectedMonthYear);
-                return (
-                  <div className="space-y-5">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2.5">
-                      <div className="bg-emerald-50 border border-emerald-200/80 p-3 rounded-2xl">
-                        <span className="text-[10px] uppercase font-bold text-emerald-800 block">
-                          Present (Full Day)
-                        </span>
-                        <div className="text-xl font-extrabold text-emerald-900 mt-0.5">
-                          {stats.present} Days
-                        </div>
-                      </div>
-
-                      <div className="bg-amber-50 border border-amber-200/80 p-3 rounded-2xl">
-                        <span className="text-[10px] uppercase font-bold text-amber-800 block">
-                          On Site Survey
-                        </span>
-                        <div className="text-xl font-extrabold text-amber-900 mt-0.5">
-                          {stats.onSurvey} Days
-                        </div>
-                      </div>
-
-                      <div className="bg-orange-50 border border-orange-200/80 p-3 rounded-2xl">
-                        <span className="text-[10px] uppercase font-bold text-orange-800 block">
-                          Half Days
-                        </span>
-                        <div className="text-xl font-extrabold text-orange-900 mt-0.5">
-                          {stats.halfDay} Days
-                        </div>
-                      </div>
-
-                      <div className="bg-red-50 border border-red-200/80 p-3 rounded-2xl">
-                        <span className="text-[10px] uppercase font-bold text-red-800 block">
-                          Absent Days
-                        </span>
-                        <div className="text-xl font-extrabold text-red-900 mt-0.5">
-                          {stats.absent} Days
-                        </div>
-                      </div>
-
-                      <div className="bg-purple-50 border border-purple-200/80 p-3 rounded-2xl">
-                        <span className="text-[10px] uppercase font-bold text-purple-800 block">
-                          Approved Leave
-                        </span>
-                        <div className="text-xl font-extrabold text-purple-900 mt-0.5">
-                          {stats.leave} Days
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-900 text-white p-3 rounded-2xl">
-                        <span className="text-[10px] uppercase font-bold text-sun-amber block">
-                          Payable Days
-                        </span>
-                        <div className="text-xl font-extrabold text-white mt-0.5">
-                          {stats.verifiedPayableDays} Days
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Day-by-Day Matrix Calendar */}
-                    <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
-                          Day-by-Day Attendance Log ({stats.daysInMonth} Days)
-                        </span>
-                        <span className="text-[11px] font-bold text-solar-deep bg-emerald-100/80 px-2.5 py-0.5 rounded-lg">
-                          Attendance Rate: {stats.attendancePercentage}%
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5 max-h-56 overflow-y-auto p-1">
-                        {stats.dayBreakdown.map((item) => {
-                          const isPresent = item.status === "Present" || item.status === "On Survey";
-                          const isHalf = item.status === "Half Day";
-                          const isAbsent = item.status === "Absent";
-                          const isLeave = item.status === "Leave";
-                          const isSunday = item.status === "Sunday";
-
-                          return (
-                            <div
-                              key={item.day}
-                              className={`p-2 rounded-xl border text-center transition-all ${
-                                isPresent
-                                  ? "bg-emerald-50 border-emerald-200 text-emerald-900"
-                                  : isHalf
-                                  ? "bg-orange-50 border-orange-200 text-orange-900"
-                                  : isAbsent
-                                  ? "bg-red-50 border-red-200 text-red-900 font-bold"
-                                  : isLeave
-                                  ? "bg-purple-50 border-purple-200 text-purple-900"
-                                  : isSunday
-                                  ? "bg-slate-100 border-slate-200 text-slate-500"
-                                  : "bg-white border-slate-200 text-slate-400"
-                              }`}
-                            >
-                              <span className="text-[11px] font-bold block">Day {item.day}</span>
-                              <span className="text-[10px] font-extrabold uppercase block mt-0.5">
-                                {item.status}
-                              </span>
-                              {item.checkIn && item.checkIn !== "--" && (
-                                <span className="text-[9px] text-slate-600 block mt-0.5">
-                                  {item.checkIn}
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Share Action Footer */}
-                    <div className="pt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100">
-                      <div className="text-slate-500 text-[11px]">
-                        Phone: <span className="font-bold text-slate-800">{previewMember.phone}</span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setIsMonthlyPreviewOpen(false)}
-                          className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 cursor-pointer"
-                        >
-                          Close
-                        </button>
-
-                        <a
-                          href={getWhatsAppShareUrl(previewMember, selectedMonthYear)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer transition-all shadow-md flex items-center gap-2"
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                          <span>Share Report on WhatsApp</span>
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>,
-          document.body
-        )}
-
-      {/* ======================================================== */}
       {/* 6. CUSTOM ATTENDANCE REPORT EXPORT MODAL */}
       {/* ======================================================== */}
       {isExportModalOpen &&
@@ -1883,7 +2063,7 @@ function TeamContent() {
                 </div>
               </div>
 
-              {/* Custom Date Range Inputs (Shown when Custom is selected) */}
+              {/* Custom Date Range Inputs */}
               {exportPreset === "custom" && (
                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in duration-150">
                   <div>
