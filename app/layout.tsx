@@ -5,6 +5,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { WhatsAppFloating } from "@/components/layout/WhatsAppFloating";
 import { StickyMobileBar } from "@/components/layout/StickyMobileBar";
+import { SmoothScroll } from "@/components/layout/SmoothScroll";
 import { LocalBusinessJsonLd } from "@/components/seo/JsonLd";
 import { siteConfig } from "@/lib/site-config";
 
@@ -110,11 +111,13 @@ export default function RootLayout({
         <LocalBusinessJsonLd />
       </head>
       <body className="min-h-screen flex flex-col antialiased bg-white text-slate-900 pb-14 sm:pb-0">
-        <Navbar />
-        <main className="flex-grow">{children}</main>
-        <Footer />
-        <WhatsAppFloating />
-        <StickyMobileBar />
+        <SmoothScroll>
+          <Navbar />
+          <main className="flex-grow">{children}</main>
+          <Footer />
+          <WhatsAppFloating />
+          <StickyMobileBar />
+        </SmoothScroll>
       </body>
     </html>
   );
