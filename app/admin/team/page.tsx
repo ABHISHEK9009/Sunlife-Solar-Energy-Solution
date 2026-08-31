@@ -716,9 +716,9 @@ function TeamContent() {
             </div>
           </div>
 
-          {/* Clean Read-Only Attendance Table with Three-Dot Actions */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-visible w-full">
-            <div className="overflow-x-auto w-full">
+          {/* Clean Read-Only Attendance Table with Direct Update & Action Menu */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs w-full min-h-[260px]">
+            <div className="overflow-x-auto w-full rounded-2xl">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
                   <tr>
@@ -728,7 +728,7 @@ function TeamContent() {
                     <th className="px-6 py-3.5">Check-In</th>
                     <th className="px-6 py-3.5">Check-Out</th>
                     <th className="px-6 py-3.5">Assigned Solar Site</th>
-                    <th className="px-6 py-3.5 text-right">Action</th>
+                    <th className="px-6 py-3.5 text-right min-w-[160px]">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -812,51 +812,67 @@ function TeamContent() {
                           </span>
                         </td>
 
-                        {/* Three Dot Action Menu */}
-                        <td className="px-6 py-4 text-right relative action-menu-container">
-                          <div className="relative inline-block text-left">
+                        {/* Direct Update Action & Three Dot Menu */}
+                        <td className="px-6 py-4 text-right action-menu-container">
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Direct Update Button */}
                             <button
-                              onClick={() =>
-                                setActiveMenuMemberId(isMenuOpen ? null : member.id)
-                              }
-                              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
-                              title="Actions"
+                              onClick={() => handleOpenUpdateModal(member)}
+                              className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-solar-deep hover:text-white text-solar-deep font-bold text-xs flex items-center gap-1.5 transition-all border border-emerald-200/80 cursor-pointer shadow-2xs"
                             >
-                              <MoreVertical className="w-4 h-4" />
+                              <Edit3 className="w-3.5 h-3.5 text-solar-emerald" />
+                              <span>Update</span>
                             </button>
 
-                            {/* Dropdown Floating Menu */}
-                            {isMenuOpen && (
-                              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 text-left">
-                                <button
-                                  onClick={() => handleOpenUpdateModal(member)}
-                                  className="w-full px-3.5 py-2 text-xs font-bold text-solar-deep hover:bg-emerald-50 flex items-center gap-2 transition-colors cursor-pointer"
-                                >
-                                  <Edit3 className="w-3.5 h-3.5 text-solar-emerald" />
-                                  <span>Update Attendance</span>
-                                </button>
+                            {/* Three-Dot Menu for Quick Call / WhatsApp */}
+                            <div className="relative">
+                              <button
+                                onClick={() =>
+                                  setActiveMenuMemberId(isMenuOpen ? null : member.id)
+                                }
+                                className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors cursor-pointer border ${
+                                  isMenuOpen
+                                    ? "bg-solar-deep text-white border-solar-deep shadow-xs"
+                                    : "bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200/80"
+                                }`}
+                                title="More Options"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
 
-                                <div className="h-px bg-slate-100 my-1" />
+                              {/* Dropdown Floating Box */}
+                              {isMenuOpen && (
+                                <div className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 text-left">
+                                  <button
+                                    onClick={() => handleOpenUpdateModal(member)}
+                                    className="w-full px-3.5 py-2 text-xs font-bold text-solar-deep hover:bg-emerald-50 flex items-center gap-2 transition-colors cursor-pointer"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5 text-solar-emerald" />
+                                    <span>Update Attendance</span>
+                                  </button>
 
-                                <a
-                                  href={`tel:${member.phone}`}
-                                  className="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
-                                >
-                                  <Phone className="w-3.5 h-3.5 text-slate-400" />
-                                  <span>Call {member.name.split(" ")[0]}</span>
-                                </a>
+                                  <div className="h-px bg-slate-100 my-1" />
 
-                                <a
-                                  href={`https://wa.me/91${member.phone.replace(/[^0-9]/g, "")}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="w-full px-3.5 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50/60 flex items-center gap-2 transition-colors"
-                                >
-                                  <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                                  <span>WhatsApp Message</span>
-                                </a>
-                              </div>
-                            )}
+                                  <a
+                                    href={`tel:${member.phone}`}
+                                    className="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                                  >
+                                    <Phone className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>Call {member.name.split(" ")[0]}</span>
+                                  </a>
+
+                                  <a
+                                    href={`https://wa.me/91${member.phone.replace(/[^0-9]/g, "")}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="w-full px-3.5 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50/60 flex items-center gap-2 transition-colors"
+                                  >
+                                    <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span>WhatsApp</span>
+                                  </a>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </td>
                       </tr>
