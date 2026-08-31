@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import {
   Users,
@@ -479,9 +480,12 @@ export default function AdminTeamPage() {
         </div>
       </div>
 
-      {/* Spacious, Beautifully Styled Add Team Member Modal with Brand Logo */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-[100] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+      {/* Full-Screen Portal Modal Overlay - Covers entire screen uniformly */}
+      {isAddModalOpen &&
+        isLoaded &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-[999] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
           <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-2xl sm:max-w-3xl w-full shadow-2xl border border-slate-200 space-y-6 animate-in fade-in zoom-in-95 duration-150 my-auto">
             {/* Modal Header with Sunlife Logo */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
@@ -752,7 +756,8 @@ export default function AdminTeamPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
