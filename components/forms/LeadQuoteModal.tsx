@@ -83,7 +83,7 @@ export function LeadQuoteModal({
         <div className="bg-gradient-to-r from-solar-dark to-solar-deep text-white px-6 py-4 flex items-center justify-between border-b border-emerald-800/40">
           <div className="flex items-center gap-3">
             <Image
-              src="/logo/logo.png"
+              src="/logo/logo.svg"
               alt="Sunlife Solar Energy Solution Logo"
               width={160}
               height={45}

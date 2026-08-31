@@ -48,9 +48,9 @@ export const metadata: Metadata = {
   creator: siteConfig.name,
   publisher: siteConfig.name,
   icons: {
-    icon: "/logo/icon.png",
+    icon: "/logo/icon.svg",
     shortcut: "/favicon.ico",
-    apple: "/logo/icon-192.png",
+    apple: "/logo/icon.png",
   },
   robots: {
     index: true,

@@ -13,7 +13,7 @@ export function Footer() {
           <div className="space-y-4">
             <Link href="/" className="inline-block">
               <Image
-                src="/logo/logo.png"
+                src="/logo/logo.svg"
                 alt="Sunlife Solar Energy Solution Logo"
                 width={360}
                 height={150}

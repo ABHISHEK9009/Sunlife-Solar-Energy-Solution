@@ -52,10 +52,10 @@ export function Navbar() {
         }`}
       >
         <div className="fluid-container flex items-center justify-between gap-4">
-          {/* Left Brand Logo - Prominent & Bold */}
+          {/* Left Brand Logo - Prominent & Bold Vector */}
           <Link href="/" className="flex items-center group shrink-0 py-1">
             <Image
-              src="/logo/logo.png"
+              src="/logo/logo.svg"
               alt="Sunlife Solar Energy Solution Logo"
               width={380}
               height={160}

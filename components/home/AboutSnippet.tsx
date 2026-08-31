@@ -82,7 +82,7 @@ export function AboutSnippet() {
                     </div>
                   </div>
                   <Image
-                    src="/logo/logo.png"
+                    src="/logo/logo.svg"
                     alt="Sunlife Solar Energy Solution Logo"
                     width={220}
                     height={80}

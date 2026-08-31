@@ -125,7 +125,7 @@ export default function AboutPage() {
                     </div>
                   </div>
                   <Image
-                    src="/logo/logo.png"
+                    src="/logo/logo.svg"
                     alt="Sunlife Solar Energy Solution"
                     width={180}
                     height={55}
