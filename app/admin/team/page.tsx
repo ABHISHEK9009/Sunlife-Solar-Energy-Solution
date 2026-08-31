@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Users,
   UserCheck,
@@ -11,13 +11,11 @@ import {
   ShieldCheck,
   Zap,
   Search,
-  Filter,
   CheckCircle2,
-  Clock,
-  Briefcase,
-  X,
   HardHat,
-  Award,
+  X,
+  Trash2,
+  AlertCircle,
 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 
@@ -37,67 +35,60 @@ export default function AdminTeamPage() {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [teamList, setTeamList] = useState<TeamMember[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  // Initial staff roster for Sunlife Solar Energy Solution
-  const [teamList, setTeamList] = useState<TeamMember[]>([
-    {
-      id: "1",
-      name: "Rahul Kumar Bamne",
-      role: "Lead Solar Specialist & Founder",
-      category: "Management",
-      phone: siteConfig.contact.phoneClean,
-      territory: "Narmadapuram & Central MP",
-      status: "Available",
-      skills: ["EPC Engineering", "DISCOM Liaison", "System Sizing"],
-      joinedYear: "2021",
-    },
-    {
-      id: "2",
-      name: "Vikas Sharma",
-      role: "Senior Rooftop Installation Lead",
-      category: "Fitter",
-      phone: "9826012345",
-      territory: "Narmadapuram HQ",
-      status: "Active On-Site",
-      skills: ["Hot-Dip GI Fabrication", "Mono-PERC Mounting", "Safety"],
-      joinedYear: "2022",
-    },
-    {
-      id: "3",
-      name: "Anil Kushwaha",
-      role: "Certified Solar PV Electrician",
-      category: "Electrician",
-      phone: "9425098765",
-      territory: "Itarsi & Malakhedi",
-      status: "Active On-Site",
-      skills: ["Inverter Synchronization", "Earthing & SPD", "Net-Metering"],
-      joinedYear: "2022",
-    },
-    {
-      id: "4",
-      name: "Deepak Mehra",
-      role: "Site Survey & Shadow Analysis Officer",
-      category: "Survey",
-      phone: "9179054321",
-      territory: "Seoni Malwa & Pipariya",
-      status: "On Survey",
-      skills: ["3D Roof Sizing", "Load Profiling", "Customer Liaison"],
-      joinedYear: "2023",
-    },
-    {
-      id: "5",
-      name: "Sanjay Bamne",
-      role: "Operations & Procurement Assistant",
-      category: "Management",
-      phone: "9755011223",
-      territory: "Central MP Division",
-      status: "Available",
-      skills: ["Tier-1 Module Logistics", "Discom Documentation", "Support"],
-      joinedYear: "2023",
-    },
-  ]);
+  // Load real team list from localStorage (Starts strictly with authentic Owner & zero mock records)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("sunlife_admin_team_roster");
+      if (saved) {
+        try {
+          setTeamList(JSON.parse(saved));
+        } catch {
+          // Fallback to real owner
+          setTeamList([
+            {
+              id: "owner-1",
+              name: siteConfig.owner.name,
+              role: "Founder & Lead Solar Specialist",
+              category: "Management",
+              phone: siteConfig.contact.phoneClean,
+              territory: `${siteConfig.contact.address.city}, MP`,
+              status: "Available",
+              skills: ["Solar EPC", "DISCOM Liaison", "System Sizing"],
+              joinedYear: "2021",
+            },
+          ]);
+        }
+      } else {
+        // Initial authentic record: Founder
+        setTeamList([
+          {
+            id: "owner-1",
+            name: siteConfig.owner.name,
+            role: "Founder & Lead Solar Specialist",
+            category: "Management",
+            phone: siteConfig.contact.phoneClean,
+            territory: `${siteConfig.contact.address.city}, MP`,
+            status: "Available",
+            skills: ["Solar EPC", "DISCOM Liaison", "System Sizing"],
+            joinedYear: "2021",
+          },
+        ]);
+      }
+      setIsLoaded(true);
+    }
+  }, []);
 
-  // Form state for adding new team member
+  const saveTeamList = (updated: TeamMember[]) => {
+    setTeamList(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sunlife_admin_team_roster", JSON.stringify(updated));
+    }
+  };
+
+  // Form state for adding new technician/crew member
   const [newMember, setNewMember] = useState({
     name: "",
     role: "",
@@ -105,7 +96,7 @@ export default function AdminTeamPage() {
     phone: "",
     territory: "Narmadapuram",
     status: "Available" as TeamMember["status"],
-    skillInput: "Solar Installation, GI Mounting",
+    skillInput: "",
   });
 
   const handleAddMember = (e: React.FormEvent) => {
@@ -120,11 +111,13 @@ export default function AdminTeamPage() {
       phone: newMember.phone.trim(),
       territory: newMember.territory.trim() || "Narmadapuram",
       status: newMember.status,
-      skills: newMember.skillInput.split(",").map((s) => s.trim()).filter(Boolean),
+      skills: newMember.skillInput
+        ? newMember.skillInput.split(",").map((s) => s.trim()).filter(Boolean)
+        : ["Solar EPC"],
       joinedYear: new Date().getFullYear().toString(),
     };
 
-    setTeamList([created, ...teamList]);
+    saveTeamList([created, ...teamList]);
     setIsAddModalOpen(false);
     setNewMember({
       name: "",
@@ -133,8 +126,14 @@ export default function AdminTeamPage() {
       phone: "",
       territory: "Narmadapuram",
       status: "Available",
-      skillInput: "Solar Installation, GI Mounting",
+      skillInput: "",
     });
+  };
+
+  const handleDeleteMember = (id: string) => {
+    if (id === "owner-1") return; // Keep founder
+    const updated = teamList.filter((m) => m.id !== id);
+    saveTeamList(updated);
   };
 
   const filteredTeam = teamList.filter((member) => {
@@ -155,15 +154,15 @@ export default function AdminTeamPage() {
   const availableCount = teamList.filter((m) => m.status === "Available").length;
 
   return (
-    <div className="space-y-6 sm:space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
+    <div className="w-full space-y-6">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900 tracking-tight">
             Team & Field Crew
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Manage solar technicians, installation fitters, survey engineers, and field crew allocations.
+            Registered technicians, installation fitters, survey engineers, and operational staff.
           </p>
         </div>
 
@@ -177,8 +176,8 @@ export default function AdminTeamPage() {
       </div>
 
       {/* 4 Status KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
-        {/* Card 1: Total Personnel */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 w-full">
+        {/* Card 1: Total Staff */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -188,12 +187,12 @@ export default function AdminTeamPage() {
               <Users className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-4">
+          <div className="mt-3">
             <div className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900">
               {teamList.length}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1">
-              Active registered personnel
+            <div className="text-[11px] text-slate-500 mt-0.5">
+              Registered personnel
             </div>
           </div>
         </div>
@@ -208,12 +207,12 @@ export default function AdminTeamPage() {
               <HardHat className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-4">
+          <div className="mt-3">
             <div className="text-2xl sm:text-3xl font-extrabold font-heading text-solar-deep">
               {activeOnSiteCount}
             </div>
-            <div className="text-[11px] text-emerald-600 font-semibold mt-1">
-              Currently executing installs
+            <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">
+              Field installation duty
             </div>
           </div>
         </div>
@@ -228,12 +227,12 @@ export default function AdminTeamPage() {
               <MapPin className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-4">
+          <div className="mt-3">
             <div className="text-2xl sm:text-3xl font-extrabold font-heading text-amber-600">
               {onSurveyCount}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1">
-              Site assessments in progress
+            <div className="text-[11px] text-slate-500 mt-0.5">
+              Site assessments
             </div>
           </div>
         </div>
@@ -242,17 +241,17 @@ export default function AdminTeamPage() {
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Available Crew
+              Available
             </span>
             <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
               <UserCheck className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-4">
+          <div className="mt-3">
             <div className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900">
               {availableCount}
             </div>
-            <div className="text-[11px] text-blue-600 font-semibold mt-1">
+            <div className="text-[11px] text-blue-600 font-semibold mt-0.5">
               Ready for dispatch
             </div>
           </div>
@@ -260,7 +259,7 @@ export default function AdminTeamPage() {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row gap-3 justify-between items-center">
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row gap-3 justify-between items-center w-full">
         <div className="relative w-full md:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
           <input
@@ -289,9 +288,9 @@ export default function AdminTeamPage() {
         </div>
       </div>
 
-      {/* Team Roster Grid / Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+      {/* Team Table */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden w-full">
+        <div className="overflow-x-auto w-full">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
               <tr>
@@ -299,15 +298,14 @@ export default function AdminTeamPage() {
                 <th className="px-6 py-3.5">Designation & Role</th>
                 <th className="px-6 py-3.5">Contact / Phone</th>
                 <th className="px-6 py-3.5">Assigned Territory</th>
-                <th className="px-6 py-3.5">Key Skills & Certifications</th>
+                <th className="px-6 py-3.5">Skills & Expertise</th>
                 <th className="px-6 py-3.5">Duty Status</th>
-                <th className="px-6 py-3.5 text-right">Quick Actions</th>
+                <th className="px-6 py-3.5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredTeam.map((member) => (
                 <tr key={member.id} className="hover:bg-slate-50/80 transition-colors">
-                  {/* Name + Avatar */}
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-slate-100 text-solar-deep border border-slate-200 flex items-center justify-center font-bold text-xs shrink-0">
@@ -328,7 +326,6 @@ export default function AdminTeamPage() {
                     </div>
                   </td>
 
-                  {/* Designation */}
                   <td className="px-6 py-4">
                     <div className="font-semibold text-slate-800">
                       {member.role}
@@ -338,7 +335,6 @@ export default function AdminTeamPage() {
                     </span>
                   </td>
 
-                  {/* Phone */}
                   <td className="px-6 py-4">
                     <a
                       href={`tel:${member.phone}`}
@@ -349,7 +345,6 @@ export default function AdminTeamPage() {
                     </a>
                   </td>
 
-                  {/* Territory */}
                   <td className="px-6 py-4">
                     <span className="inline-flex items-center gap-1 text-slate-700 font-medium">
                       <MapPin className="w-3.5 h-3.5 text-solar-emerald shrink-0" />
@@ -357,7 +352,6 @@ export default function AdminTeamPage() {
                     </span>
                   </td>
 
-                  {/* Skills */}
                   <td className="px-6 py-4">
                     <div className="flex flex-wrap gap-1 max-w-xs">
                       {member.skills.map((skill, sidx) => (
@@ -371,7 +365,6 @@ export default function AdminTeamPage() {
                     </div>
                   </td>
 
-                  {/* Status */}
                   <td className="px-6 py-4">
                     <span
                       className={`px-2.5 py-1 rounded-full text-[10px] font-bold inline-flex items-center gap-1.5 ${
@@ -395,7 +388,6 @@ export default function AdminTeamPage() {
                     </span>
                   </td>
 
-                  {/* Actions */}
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1.5">
                       <a
@@ -414,6 +406,15 @@ export default function AdminTeamPage() {
                       >
                         <MessageSquare className="w-3.5 h-3.5" />
                       </a>
+                      {member.id !== "owner-1" && (
+                        <button
+                          onClick={() => handleDeleteMember(member.id)}
+                          title="Remove Staff Member"
+                          className="p-1.5 rounded-lg bg-red-50 hover:bg-red-600 hover:text-white text-red-600 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -423,14 +424,14 @@ export default function AdminTeamPage() {
         </div>
       </div>
 
-      {/* Add New Team Member Modal */}
+      {/* Add Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="font-bold font-heading text-lg text-slate-900">
-                  Add New Team Member
+                  Add Team Member
                 </h3>
                 <p className="text-xs text-slate-500">
                   Register a solar installer, electrician, or survey engineer
@@ -452,7 +453,7 @@ export default function AdminTeamPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Ramesh Patel"
+                  placeholder="e.g. Technician Name"
                   value={newMember.name}
                   onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900"
@@ -467,7 +468,7 @@ export default function AdminTeamPage() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Solar Fitter Lead"
+                    placeholder="e.g. Rooftop GI Fitter"
                     value={newMember.role}
                     onChange={(e) => setNewMember({ ...newMember, role: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900"
@@ -505,7 +506,7 @@ export default function AdminTeamPage() {
                   <input
                     type="tel"
                     required
-                    placeholder="e.g. 9826012345"
+                    placeholder="e.g. 98260XXXXX"
                     value={newMember.phone}
                     onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900"
@@ -534,7 +535,7 @@ export default function AdminTeamPage() {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Mono-PERC, Inverter Sync, GI Structures"
+                  placeholder="e.g. Mono-PERC, Net Metering, Earthing"
                   value={newMember.skillInput}
                   onChange={(e) =>
                     setNewMember({ ...newMember, skillInput: e.target.value })

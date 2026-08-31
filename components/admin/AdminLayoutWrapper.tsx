@@ -88,8 +88,8 @@ export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) 
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        {/* Page Content - Full Width Fluid Canvas */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full">
           {children}
         </main>
       </div>
