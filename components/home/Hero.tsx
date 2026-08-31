@@ -30,8 +30,8 @@ export function Hero() {
       <div className="absolute bottom-10 left-10 w-80 h-80 bg-solar-emerald/20 rounded-full blur-3xl pointer-events-none z-0" />
 
       {/* Content Container */}
-      <div className="relative z-10 w-full max-w-[1650px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
-        <div className="max-w-4xl space-y-6 sm:space-y-8 text-left">
+      <div className="relative z-10 w-full fluid-container">
+        <div className="max-w-5xl space-y-6 sm:space-y-8 text-left">
           {/* Top Badge */}
           <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/10 border border-white/20 text-emerald-200 text-xs sm:text-sm font-semibold backdrop-blur-md shadow-lg">
             <span className="w-2.5 h-2.5 rounded-full bg-sun-amber animate-ping" />
@@ -40,7 +40,7 @@ export function Hero() {
           </div>
 
           {/* H1 Heading */}
-          <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-7xl xl:text-8xl font-extrabold font-heading tracking-tight leading-[1.1] text-white drop-shadow-md">
+          <h1 className="fluid-h1 font-extrabold font-heading text-white drop-shadow-md">
             Power Your Future <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-sun-amber via-yellow-200 to-emerald-300">
               With Solar Energy
@@ -48,7 +48,7 @@ export function Hero() {
           </h1>
 
           {/* Supporting Subheading */}
-          <p className="text-slate-200 text-base sm:text-xl lg:text-2xl max-w-3xl leading-relaxed font-normal drop-shadow-sm">
+          <p className="fluid-lead text-slate-200 max-w-3xl leading-relaxed font-normal drop-shadow-sm">
             Professional rooftop solar installation solutions for homes, commercial businesses, and industrial facilities in Narmadapuram and across Madhya Pradesh.
           </p>
 

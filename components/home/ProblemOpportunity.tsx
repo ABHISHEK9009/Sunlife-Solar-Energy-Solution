@@ -33,9 +33,9 @@ export function ProblemOpportunity() {
   ];
 
   return (
-    <section className="py-16 sm:py-24 bg-slate-50 border-b border-slate-200/80">
-      <div className="max-w-[1650px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+    <section className="fluid-py bg-slate-50 border-b border-slate-200/80">
+      <div className="fluid-container">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-center">
           {/* Left Column (5 Cols): Real Installation Photograph */}
           <div className="lg:col-span-5 relative order-2 lg:order-1">
             <div className="relative rounded-3xl overflow-hidden shadow-xl border border-slate-200 group">

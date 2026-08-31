@@ -31,9 +31,9 @@ export function TrustStrip() {
   ];
 
   return (
-    <section className="bg-slate-900 border-y border-emerald-950/80 py-8 text-white">
-      <div className="max-w-[1650px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+    <section className="bg-slate-900 border-y border-emerald-950/80 py-6 sm:py-8 text-white">
+      <div className="fluid-container">
+        <div className="fluid-grid-4">
           {indicators.map((item, idx) => {
             const Icon = item.icon;
             return (

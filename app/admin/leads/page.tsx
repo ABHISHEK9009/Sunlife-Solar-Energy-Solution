@@ -58,7 +58,7 @@ export default function AdminLeadsPage() {
 
   return (
     <div className="min-h-screen bg-slate-100 pt-28 pb-12">
-      <div className="max-w-[1650px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 space-y-8">
+      <div className="fluid-container space-y-8">
         {/* Header Bar */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>

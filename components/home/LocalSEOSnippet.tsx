@@ -14,18 +14,18 @@ export function LocalSEOSnippet() {
   ];
 
   return (
-    <section className="py-16 sm:py-20 bg-slate-900 text-white border-y border-emerald-950">
-      <div className="max-w-[1650px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
+    <section className="fluid-py bg-slate-900 text-white border-y border-emerald-950">
+      <div className="fluid-container">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-center">
           {/* Left Description (7 cols) */}
           <div className="lg:col-span-7 space-y-5">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-solar-deep text-emerald-200 text-xs font-semibold">
               <MapPin className="w-3.5 h-3.5 text-sun-amber" />
-              <span>Madhya Pradesh Service Network</span>
+              <span>Narmadapuram & Surrounding Region</span>
             </div>
 
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold font-heading text-white tracking-tight">
-              Solar Energy Solutions in Narmadapuram & Central MP
+            <h2 className="fluid-h2 font-extrabold font-heading text-white">
+              Your Trusted Local Rooftop Solar Partner
             </h2>
 
             <p className="text-slate-300 text-sm sm:text-base leading-relaxed">

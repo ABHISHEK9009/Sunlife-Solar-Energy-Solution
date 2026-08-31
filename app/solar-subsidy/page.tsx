@@ -22,7 +22,7 @@ export default function SolarSubsidyPage() {
     <div className="bg-white">
       {/* Hero */}
       <section className="bg-gradient-to-r from-solar-dark via-solar-deep to-emerald-950 text-white pt-28 sm:pt-32 pb-16 sm:pb-20">
-        <div className="max-w-[1650px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
+        <div className="fluid-container">
           <div className="max-w-3xl">
             <span className="text-xs font-bold text-sun-amber uppercase tracking-wider bg-white/10 px-3.5 py-1.5 rounded-full inline-block mb-3">
               Government Schemes & Policy
@@ -42,7 +42,7 @@ export default function SolarSubsidyPage() {
 
       {/* Detailed Document & Process Breakdown */}
       <section className="py-16 sm:py-20 bg-slate-50 border-t border-slate-200/80">
-        <div className="max-w-[1650px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 space-y-12">
+        <div className="fluid-container space-y-12">
           <div className="max-w-3xl">
             <h2 className="text-2xl sm:text-3xl font-bold font-heading text-slate-900">
               PM Surya Ghar: Step-by-Step Subsidy Application Process

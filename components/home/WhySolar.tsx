@@ -49,22 +49,22 @@ export function WhySolar() {
   ];
 
   return (
-    <section className="py-16 sm:py-24 bg-slate-50 border-b border-slate-200/80">
-      <div className="max-w-[1650px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
+    <section className="fluid-py bg-slate-50 border-b border-slate-200/80">
+      <div className="fluid-container">
         <div className="text-center max-w-3xl mx-auto mb-14">
           <span className="text-xs font-bold text-solar-emerald uppercase tracking-wider bg-emerald-100/80 px-3.5 py-1.5 rounded-full inline-block mb-3">
             Core Advantages
           </span>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold font-heading text-slate-950 tracking-tight">
+          <h2 className="fluid-h2 font-extrabold font-heading text-slate-950">
             Why Switch to Solar Energy?
           </h2>
-          <p className="text-slate-600 text-sm sm:text-base mt-3 leading-relaxed">
+          <p className="fluid-p text-slate-600 mt-3 leading-relaxed">
             A transition to solar provides financial stability, technical autonomy, and measurable environmental benefits for decades to come.
           </p>
         </div>
 
-        {/* 6 Benefit Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+        {/* Intrinsic Fluid Grid 3 */}
+        <div className="fluid-grid-3">
           {benefits.map((b, idx) => {
             const Icon = b.icon;
             return (

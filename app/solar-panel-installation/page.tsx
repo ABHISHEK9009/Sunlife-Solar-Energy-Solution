@@ -23,7 +23,7 @@ export default function SolarInstallationPage() {
     <div className="bg-white">
       {/* Hero */}
       <section className="bg-gradient-to-r from-solar-dark via-solar-deep to-emerald-950 text-white pt-28 sm:pt-32 pb-16 sm:pb-20">
-        <div className="max-w-[1650px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
+        <div className="fluid-container">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             <div className="lg:col-span-7 space-y-4">
               <span className="text-xs font-bold text-sun-amber uppercase tracking-wider bg-white/10 px-3.5 py-1.5 rounded-full inline-block">
@@ -53,7 +53,7 @@ export default function SolarInstallationPage() {
 
       {/* Technical Standards Section */}
       <section className="py-16 sm:py-20 bg-slate-50 border-t border-slate-200/80">
-        <div className="max-w-[1650px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
+        <div className="fluid-container">
           <div className="max-w-3xl mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold font-heading text-slate-900">
               Our 4-Point Installation Quality Protocol

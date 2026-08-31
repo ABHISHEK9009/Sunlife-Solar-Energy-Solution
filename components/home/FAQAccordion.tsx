@@ -16,16 +16,16 @@ export function FAQAccordion() {
   };
 
   return (
-    <section className="py-16 sm:py-24 bg-slate-50 border-b border-slate-200/80">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="fluid-py bg-slate-50 border-b border-slate-200/80">
+      <div className="max-w-5xl mx-auto px-4 sm:px-8">
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100/80 text-solar-deep text-xs font-bold uppercase tracking-wider mb-2">
             <HelpCircle className="w-3.5 h-3.5" /> Clear Answers
           </div>
-          <h2 className="text-3xl sm:text-4xl font-extrabold font-heading text-slate-950 tracking-tight">
+          <h2 className="fluid-h2 font-extrabold font-heading text-slate-950">
             Frequently Asked Questions
           </h2>
-          <p className="text-slate-600 text-sm sm:text-base mt-2">
+          <p className="fluid-p text-slate-600 mt-2">
             Everything you need to know about rooftop solar installations in Narmadapuram and MP.
           </p>
         </div>

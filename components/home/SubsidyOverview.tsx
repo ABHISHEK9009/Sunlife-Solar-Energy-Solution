@@ -9,19 +9,19 @@ export function SubsidyOverview() {
   const [modalOpen, setModalOpen] = useState(false);
 
   return (
-    <section className="py-16 sm:py-24 bg-white">
-      <div className="max-w-[1650px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
-        <div className="bg-gradient-to-br from-emerald-50 via-teal-50/40 to-slate-50 border border-emerald-200/80 rounded-3xl p-8 sm:p-12 shadow-sm">
+    <section className="fluid-py bg-white">
+      <div className="fluid-container">
+        <div className="bg-gradient-to-br from-emerald-50 via-teal-50/40 to-slate-50 border border-emerald-200/80 rounded-3xl p-6 sm:p-12 shadow-sm">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
             {/* Left Content (7 Cols) */}
-            <div className="lg:col-span-7 space-y-5">
+            <div className="lg:col-span-7 space-y-6">
               <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-100 text-solar-deep text-xs font-bold uppercase tracking-wider">
                 <FileCheck className="w-4 h-4 text-solar-emerald" />
-                <span>Government Solar Schemes • PM Surya Ghar</span>
+                <span>Central Government Scheme</span>
               </div>
 
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold font-heading text-slate-950 tracking-tight leading-tight">
-                Understanding Solar Subsidies & Government Schemes in Madhya Pradesh
+              <h2 className="fluid-h2 font-extrabold font-heading text-slate-950">
+                PM Surya Ghar Muft Bijli Yojana & Subsidy Guide
               </h2>
 
               <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
