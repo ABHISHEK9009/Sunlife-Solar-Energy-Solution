@@ -31,6 +31,23 @@ import {
   BarChart3,
   ImageIcon,
   Loader2,
+  Banknote,
+  Building2,
+  Shield,
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  IndianRupee,
+  Wallet,
+  Eye,
+  EyeOff,
+  PauseCircle,
+  PlayCircle,
+  Info,
+  User,
+  Mail,
+  Home,
+  Briefcase,
 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 
@@ -45,6 +62,23 @@ interface TeamMember {
   skills: string[];
   joinedYear: string;
   monthlySalary?: number;
+  // Personal Info
+  email?: string;
+  dob?: string;
+  address?: string;
+  // Employment Info
+  department?: string;
+  joiningDate?: string;
+  employmentType?: "Full-Time" | "Contract" | "Part-Time";
+  reportingManager?: string;
+  // Bank & Payment Details
+  bankAccountHolder?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankIFSC?: string;
+  bankBranch?: string;
+  bankAccountType?: "Savings" | "Current";
+  upiId?: string;
 }
 
 interface AttendanceRecord {
@@ -64,6 +98,58 @@ interface PayrollRecord {
   paymentStatus: "PAID" | "PENDING";
   paymentMode: "UPI" | "Bank Transfer" | "Cash";
 }
+
+// Advance Payment System
+interface AdvanceSettlement {
+  month: string;
+  settlementType: "Not Settled" | "Partially Settled" | "Fully Settled";
+  amount: number;
+  reason?: string;
+  previousOutstanding: number;
+  remainingOutstanding: number;
+  settledAt: string;
+}
+
+interface AdvanceRecord {
+  id: string;
+  memberId: string;
+  advanceAmount: number;
+  advanceDate: string;
+  reason: string;
+  monthlyDeduction: number;
+  totalRecovered: number;
+  outstandingBalance: number;
+  recoveryStatus: "Active" | "Completed" | "Paused";
+  startMonth: string;
+  expectedCompletionMonth: string;
+  notes?: string;
+  settlements: AdvanceSettlement[];
+  createdAt: string;
+}
+
+// Monthly Payroll Snapshot
+interface MonthlyPayrollRecord {
+  memberId: string;
+  month: string;
+  monthlySalary: number;
+  totalDaysInMonth: number;
+  payableDays: number;
+  payableSalary: number;
+  fieldAllowance: number;
+  advanceOutstanding: number;
+  scheduledAdvanceDeduction: number;
+  otherDeductions: number;
+  otherDeductionNote?: string;
+  netPayable: number;
+  advanceSettlementType?: "Not Settled" | "Partially Settled" | "Fully Settled";
+  advanceSettlementAmount?: number;
+  advanceNotSettledReason?: string;
+  paymentStatus: "PENDING" | "PAID";
+  paymentDate?: string;
+  paymentMode?: "UPI" | "Bank Transfer" | "Cash";
+  paidAt?: string;
+}
+
 
 type ExportPreset =
   | "today"
@@ -161,7 +247,47 @@ function TeamContent() {
     "Hot-Dip GI Fabrication",
   ]);
 
-  // Clock ticker & formatted date
+  // ── Advance Payment State ──
+  const [advances, setAdvances] = useState<AdvanceRecord[]>([]);
+  const [monthlyPayrollRecords, setMonthlyPayrollRecords] = useState<Record<string, MonthlyPayrollRecord>>({});
+
+  // Payroll Sub-Tab: "summary" | "advances" | "payment"
+  const [payrollSubTab, setPayrollSubTab] = useState<"summary" | "advances" | "payment">("summary");
+  const [payrollMonth, setPayrollMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+
+  // Create Advance Modal
+  const [isCreateAdvanceOpen, setIsCreateAdvanceOpen] = useState(false);
+  const [newAdvance, setNewAdvance] = useState({
+    memberId: "",
+    advanceAmount: 0,
+    advanceDate: todayISO,
+    reason: "",
+    monthlyDeduction: 0,
+    startMonth: "",
+    notes: "",
+  });
+
+  // Payment Processing State
+  const [processingMemberId, setProcessingMemberId] = useState<string | null>(null);
+  const [settlementType, setSettlementType] = useState<"Not Settled" | "Partially Settled" | "Fully Settled">("Partially Settled");
+  const [settlementAmount, setSettlementAmount] = useState(0);
+  const [notSettledReason, setNotSettledReason] = useState("");
+  const [otherDeductions, setOtherDeductions] = useState(0);
+  const [otherDeductionNote, setOtherDeductionNote] = useState("");
+  const [paymentMode, setPaymentMode] = useState<"UPI" | "Bank Transfer" | "Cash">("Bank Transfer");
+
+  // Edit Profile Modal State
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [editProfileMemberId, setEditProfileMemberId] = useState<string | null>(null);
+  const [editProfileForm, setEditProfileForm] = useState<Partial<TeamMember>>({});
+  const [showAccountNumber, setShowAccountNumber] = useState(false);
+
+  // Expanded advance row
+  const [expandedAdvanceId, setExpandedAdvanceId] = useState<string | null>(null);
+
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
@@ -258,6 +384,26 @@ function TeamContent() {
         initializeDefaultPayroll(initialList);
       }
 
+      // Advance Records
+      const savedAdvances = localStorage.getItem("sunlife_advances_v1");
+      if (savedAdvances) {
+        try {
+          setAdvances(JSON.parse(savedAdvances));
+        } catch {
+          setAdvances([]);
+        }
+      }
+
+      // Monthly Payroll Snapshots
+      const savedMonthlyPayroll = localStorage.getItem("sunlife_monthly_payroll_v1");
+      if (savedMonthlyPayroll) {
+        try {
+          setMonthlyPayrollRecords(JSON.parse(savedMonthlyPayroll));
+        } catch {
+          setMonthlyPayrollRecords({});
+        }
+      }
+
       setIsLoaded(true);
     }
   }, []);
@@ -299,6 +445,344 @@ function TeamContent() {
     if (typeof window !== "undefined") {
       localStorage.setItem("sunlife_admin_payroll_v3", JSON.stringify(updated));
     }
+  };
+
+  const saveAdvances = (updated: AdvanceRecord[]) => {
+    setAdvances(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sunlife_advances_v1", JSON.stringify(updated));
+    }
+  };
+
+  const saveMonthlyPayroll = (updated: Record<string, MonthlyPayrollRecord>) => {
+    setMonthlyPayrollRecords(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sunlife_monthly_payroll_v1", JSON.stringify(updated));
+    }
+  };
+
+  // ── Advance Business Logic ──
+
+  // Get total outstanding advance for a member across ALL active advances
+  const getEmployeeAdvanceOutstanding = (memberId: string): number => {
+    return advances
+      .filter((a) => a.memberId === memberId && a.recoveryStatus === "Active")
+      .reduce((sum, a) => sum + a.outstandingBalance, 0);
+  };
+
+  // Get total scheduled monthly deduction for a member
+  const getEmployeeMonthlyDeduction = (memberId: string): number => {
+    return advances
+      .filter((a) => a.memberId === memberId && a.recoveryStatus === "Active")
+      .reduce((sum, a) => sum + a.monthlyDeduction, 0);
+  };
+
+  // Create a new advance
+  const handleCreateAdvance = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAdvance.memberId || newAdvance.advanceAmount <= 0 || newAdvance.monthlyDeduction <= 0) return;
+
+    const monthsToRecover = Math.ceil(newAdvance.advanceAmount / newAdvance.monthlyDeduction);
+    const [startY, startM] = (newAdvance.startMonth || payrollMonth).split("-").map(Number);
+    const endDate = new Date(startY, startM - 1 + monthsToRecover, 1);
+    const expectedCompletion = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, "0")}`;
+
+    const advance: AdvanceRecord = {
+      id: `adv_${Date.now()}`,
+      memberId: newAdvance.memberId,
+      advanceAmount: newAdvance.advanceAmount,
+      advanceDate: newAdvance.advanceDate || todayISO,
+      reason: newAdvance.reason,
+      monthlyDeduction: newAdvance.monthlyDeduction,
+      totalRecovered: 0,
+      outstandingBalance: newAdvance.advanceAmount,
+      recoveryStatus: "Active",
+      startMonth: newAdvance.startMonth || payrollMonth,
+      expectedCompletionMonth: expectedCompletion,
+      notes: newAdvance.notes,
+      settlements: [],
+      createdAt: new Date().toISOString(),
+    };
+
+    saveAdvances([advance, ...advances]);
+    setIsCreateAdvanceOpen(false);
+    setNewAdvance({ memberId: "", advanceAmount: 0, advanceDate: todayISO, reason: "", monthlyDeduction: 0, startMonth: "", notes: "" });
+  };
+
+  // Toggle advance pause/resume
+  const handleToggleAdvancePause = (advanceId: string) => {
+    const updated = advances.map((a) => {
+      if (a.id === advanceId) {
+        return {
+          ...a,
+          recoveryStatus: a.recoveryStatus === "Active" ? ("Paused" as const) : ("Active" as const),
+        };
+      }
+      return a;
+    });
+    saveAdvances(updated);
+  };
+
+  // State for Toast Notification
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Compute stats for a specific member in the selected month
+  const getMemberMonthlyStats = (memberId: string, monthYear: string) => {
+    let present = 0;
+    let onSurvey = 0;
+    let halfDay = 0;
+    let absent = 0;
+    let leave = 0;
+
+    const [yearStr, monthStr] = monthYear.split("-");
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10);
+    const daysInMonth = new Date(year, month, 0).getDate();
+
+    const dayBreakdown: {
+      day: number;
+      dateISO: string;
+      formattedDate: string;
+      status: string;
+      checkIn: string;
+      checkOut: string;
+      assignedSite: string;
+      remarks: string;
+    }[] = [];
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateISO = `${yearStr}-${monthStr}-${String(d).padStart(2, "0")}`;
+      const dayDate = new Date(year, month - 1, d);
+      const formattedDate = dayDate.toLocaleDateString("en-IN", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      });
+
+      const dayMap = attendanceHistory[dateISO] || {};
+      const rec = dayMap[memberId];
+
+      if (rec) {
+        if (rec.status === "Present") present++;
+        else if (rec.status === "On Survey") onSurvey++;
+        else if (rec.status === "Half Day") halfDay++;
+        else if (rec.status === "Absent") absent++;
+        else if (rec.status === "Leave") leave++;
+
+        dayBreakdown.push({
+          day: d,
+          dateISO,
+          formattedDate,
+          status: rec.status,
+          checkIn: rec.checkIn || "--",
+          checkOut: rec.checkOut || "--",
+          assignedSite: rec.assignedSite || "Narmadapuram Solar Site",
+          remarks: rec.remarks || "On-site solar installation duty",
+        });
+      } else {
+        const isSunday = dayDate.getDay() === 0;
+        dayBreakdown.push({
+          day: d,
+          dateISO,
+          formattedDate,
+          status: isSunday ? "Sunday" : "--",
+          checkIn: "--",
+          checkOut: "--",
+          assignedSite: isSunday ? "Weekly Off" : "--",
+          remarks: isSunday ? "Scheduled Weekly Off" : "--",
+        });
+      }
+    }
+
+    const totalLogged = present + onSurvey + halfDay + absent + leave;
+    const verifiedPayableDays = present + onSurvey + halfDay * 0.5;
+    const attendancePercentage =
+      totalLogged > 0
+        ? (((present + onSurvey + halfDay * 0.5) / totalLogged) * 100).toFixed(1)
+        : "100.0";
+
+    return {
+      present,
+      onSurvey,
+      halfDay,
+      absent,
+      leave,
+      totalLogged,
+      verifiedPayableDays,
+      attendancePercentage,
+      daysInMonth,
+      dayBreakdown,
+    };
+  };
+
+  // ── Payroll Computation (attendance-linked) ──
+
+  const computePayrollForMember = (memberId: string, month: string) => {
+    const member = teamList.find((m) => m.id === memberId);
+    if (!member) return null;
+
+    const stats = getMemberMonthlyStats(memberId, month);
+    const [y, m] = month.split("-").map(Number);
+    const totalDays = new Date(y, m, 0).getDate();
+    const salary = member.monthlySalary || 18000;
+    const payableDays = stats.verifiedPayableDays;
+    const payableSalary = Math.round((salary / totalDays) * payableDays);
+    const record = payrollRecords[memberId];
+    const fieldAllowance = record?.fieldAllowance || 2500;
+    const advanceOutstanding = getEmployeeAdvanceOutstanding(memberId);
+    const scheduledDeduction = getEmployeeMonthlyDeduction(memberId);
+    const existingMonthlyRecord = monthlyPayrollRecords[`${memberId}_${month}`];
+    const otherDed = existingMonthlyRecord?.otherDeductions || 0;
+    const netPayable = payableSalary + fieldAllowance - scheduledDeduction - otherDed;
+
+    return {
+      memberId,
+      month,
+      monthlySalary: salary,
+      totalDaysInMonth: totalDays,
+      payableDays,
+      payableSalary,
+      fieldAllowance,
+      advanceOutstanding,
+      scheduledAdvanceDeduction: scheduledDeduction,
+      otherDeductions: otherDed,
+      otherDeductionNote: existingMonthlyRecord?.otherDeductionNote || "",
+      netPayable: Math.max(0, netPayable),
+      paymentStatus: existingMonthlyRecord?.paymentStatus || ("PENDING" as const),
+      paidAt: existingMonthlyRecord?.paidAt,
+    };
+  };
+
+  // ── Payment Processing ──
+
+  const openPaymentProcessing = (memberId: string) => {
+    setProcessingMemberId(memberId);
+    const outstanding = getEmployeeAdvanceOutstanding(memberId);
+    const deduction = getEmployeeMonthlyDeduction(memberId);
+    setSettlementType(outstanding > 0 ? "Partially Settled" : "Fully Settled");
+    setSettlementAmount(deduction);
+    setNotSettledReason("");
+    setOtherDeductions(0);
+    setOtherDeductionNote("");
+    setPaymentMode("Bank Transfer");
+    setPayrollSubTab("payment");
+  };
+
+  const handleConfirmPayment = () => {
+    if (!processingMemberId) return;
+
+    const payroll = computePayrollForMember(processingMemberId, payrollMonth);
+    if (!payroll) return;
+
+    const actualSettlement = settlementType === "Not Settled" ? 0
+      : settlementType === "Fully Settled" ? payroll.advanceOutstanding
+      : settlementAmount;
+
+    // Update advances with settlement
+    if (actualSettlement > 0) {
+      let remainingSettlement = actualSettlement;
+      const updatedAdvances = advances.map((adv) => {
+        if (adv.memberId !== processingMemberId || adv.recoveryStatus !== "Active" || remainingSettlement <= 0) return adv;
+
+        const settleThisAdvance = Math.min(remainingSettlement, adv.outstandingBalance);
+        remainingSettlement -= settleThisAdvance;
+
+        const settlement: AdvanceSettlement = {
+          month: payrollMonth,
+          settlementType,
+          amount: settleThisAdvance,
+          reason: settlementType === "Not Settled" ? notSettledReason : undefined,
+          previousOutstanding: adv.outstandingBalance,
+          remainingOutstanding: adv.outstandingBalance - settleThisAdvance,
+          settledAt: new Date().toISOString(),
+        };
+
+        const newOutstanding = adv.outstandingBalance - settleThisAdvance;
+        return {
+          ...adv,
+          totalRecovered: adv.totalRecovered + settleThisAdvance,
+          outstandingBalance: newOutstanding,
+          recoveryStatus: newOutstanding <= 0 ? ("Completed" as const) : adv.recoveryStatus,
+          settlements: [...adv.settlements, settlement],
+        };
+      });
+      saveAdvances(updatedAdvances);
+    } else if (settlementType === "Not Settled") {
+      // Log the "Not Settled" reason without changing balances
+      const updatedAdvances = advances.map((adv) => {
+        if (adv.memberId !== processingMemberId || adv.recoveryStatus !== "Active") return adv;
+        const settlement: AdvanceSettlement = {
+          month: payrollMonth,
+          settlementType: "Not Settled",
+          amount: 0,
+          reason: notSettledReason,
+          previousOutstanding: adv.outstandingBalance,
+          remainingOutstanding: adv.outstandingBalance,
+          settledAt: new Date().toISOString(),
+        };
+        return { ...adv, settlements: [...adv.settlements, settlement] };
+      });
+      saveAdvances(updatedAdvances);
+    }
+
+    // Save monthly payroll record
+    const netPay = payroll.payableSalary + payroll.fieldAllowance - actualSettlement - otherDeductions;
+    const monthlyRecord: MonthlyPayrollRecord = {
+      memberId: processingMemberId,
+      month: payrollMonth,
+      monthlySalary: payroll.monthlySalary,
+      totalDaysInMonth: payroll.totalDaysInMonth,
+      payableDays: payroll.payableDays,
+      payableSalary: payroll.payableSalary,
+      fieldAllowance: payroll.fieldAllowance,
+      advanceOutstanding: payroll.advanceOutstanding,
+      scheduledAdvanceDeduction: actualSettlement,
+      otherDeductions,
+      otherDeductionNote,
+      netPayable: Math.max(0, netPay),
+      advanceSettlementType: settlementType,
+      advanceSettlementAmount: actualSettlement,
+      advanceNotSettledReason: settlementType === "Not Settled" ? notSettledReason : undefined,
+      paymentStatus: "PAID",
+      paymentDate: todayISO,
+      paymentMode,
+      paidAt: new Date().toISOString(),
+    };
+    saveMonthlyPayroll({ ...monthlyPayrollRecords, [`${processingMemberId}_${payrollMonth}`]: monthlyRecord });
+
+    setToastMessage(`✅ Payment of ₹${Math.max(0, netPay).toLocaleString("en-IN")} confirmed and recorded.`);
+    setTimeout(() => setToastMessage(null), 5000);
+    setProcessingMemberId(null);
+    setPayrollSubTab("summary");
+  };
+
+  // ── Edit Profile ──
+
+  const openEditProfile = (memberId: string) => {
+    const member = teamList.find((m) => m.id === memberId);
+    if (!member) return;
+    setEditProfileMemberId(memberId);
+    setEditProfileForm({ ...member });
+    setShowAccountNumber(false);
+    setIsEditProfileOpen(true);
+  };
+
+  const handleSaveProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editProfileMemberId) return;
+    const updated = teamList.map((m) =>
+      m.id === editProfileMemberId ? { ...m, ...editProfileForm } : m
+    );
+    saveTeamList(updated);
+    setIsEditProfileOpen(false);
+    setToastMessage("✅ Employee profile updated successfully.");
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  // Mask account number for display
+  const maskAccountNumber = (num?: string): string => {
+    if (!num || num.length < 4) return "Not Set";
+    return `XXXX XXXX ${num.slice(-4)}`;
   };
 
   // Current selected date's attendance records (strictly today)
@@ -549,98 +1033,6 @@ function TeamContent() {
 
     setIsExportModalOpen(false);
   };
-
-  // Compute stats for a specific member in the selected month
-  const getMemberMonthlyStats = (memberId: string, monthYear: string) => {
-    let present = 0;
-    let onSurvey = 0;
-    let halfDay = 0;
-    let absent = 0;
-    let leave = 0;
-
-    const [yearStr, monthStr] = monthYear.split("-");
-    const year = parseInt(yearStr, 10);
-    const month = parseInt(monthStr, 10);
-    const daysInMonth = new Date(year, month, 0).getDate();
-
-    const dayBreakdown: {
-      day: number;
-      dateISO: string;
-      formattedDate: string;
-      status: string;
-      checkIn: string;
-      checkOut: string;
-      assignedSite: string;
-      remarks: string;
-    }[] = [];
-
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dateISO = `${yearStr}-${monthStr}-${String(d).padStart(2, "0")}`;
-      const dayDate = new Date(year, month - 1, d);
-      const formattedDate = dayDate.toLocaleDateString("en-IN", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-      });
-
-      const dayMap = attendanceHistory[dateISO] || {};
-      const rec = dayMap[memberId];
-
-      if (rec) {
-        if (rec.status === "Present") present++;
-        else if (rec.status === "On Survey") onSurvey++;
-        else if (rec.status === "Half Day") halfDay++;
-        else if (rec.status === "Absent") absent++;
-        else if (rec.status === "Leave") leave++;
-
-        dayBreakdown.push({
-          day: d,
-          dateISO,
-          formattedDate,
-          status: rec.status,
-          checkIn: rec.checkIn || "--",
-          checkOut: rec.checkOut || "--",
-          assignedSite: rec.assignedSite || "Narmadapuram Solar Site",
-          remarks: rec.remarks || "On-site solar installation duty",
-        });
-      } else {
-        const isSunday = dayDate.getDay() === 0;
-        dayBreakdown.push({
-          day: d,
-          dateISO,
-          formattedDate,
-          status: isSunday ? "Sunday" : "--",
-          checkIn: "--",
-          checkOut: "--",
-          assignedSite: isSunday ? "Weekly Off" : "--",
-          remarks: isSunday ? "Scheduled Weekly Off" : "--",
-        });
-      }
-    }
-
-    const totalLogged = present + onSurvey + halfDay + absent + leave;
-    const verifiedPayableDays = present + onSurvey + halfDay * 0.5;
-    const attendancePercentage =
-      totalLogged > 0
-        ? (((present + onSurvey + halfDay * 0.5) / totalLogged) * 100).toFixed(1)
-        : "100.0";
-
-    return {
-      present,
-      onSurvey,
-      halfDay,
-      absent,
-      leave,
-      totalLogged,
-      verifiedPayableDays,
-      attendancePercentage,
-      daysInMonth,
-      dayBreakdown,
-    };
-  };
-
-  // State for Toast Notification
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Generate WhatsApp Web Sharing Link
   const getWhatsAppShareUrl = (member: TeamMember, monthYear: string) => {
@@ -1798,6 +2190,13 @@ function TeamContent() {
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
+                            onClick={() => openEditProfile(member.id)}
+                            title="Edit Employee Profile & Bank Details"
+                            className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 transition-colors cursor-pointer"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
                             onClick={() => {
                               setMonthlyFilterMemberId(member.id);
                               handleTabChange("monthly");
@@ -1844,109 +2243,497 @@ function TeamContent() {
       )}
 
       {/* ======================================================== */}
-      {/* 4. PAYROLL & PAYMENT */}
+      {/* 4. PAYROLL & PAYMENT — COMPLETE MODULE */}
       {/* ======================================================== */}
       {activeTab === "payroll" && (
-        <div className="space-y-6 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden w-full">
-            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <h3 className="font-bold font-heading text-base text-slate-900">
-                  Staff Wage & Payment Ledger (Attendance Verified)
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Monthly wage calculation based on verified date-wise attendance records
-                </p>
-              </div>
-              <span className="px-3 py-1.5 rounded-xl bg-emerald-50 text-solar-deep border border-emerald-200 text-xs font-bold">
-                Cycle: {new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
-              </span>
+        <div className="space-y-5 animate-in fade-in duration-200">
+          {/* Payroll Header with Month Selector & Sub-Tab Nav */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="font-bold font-heading text-lg text-slate-900">Payroll & Payment Management</h3>
+              <p className="text-xs text-slate-500">Attendance-linked salary calculation, advance tracking, and payment processing</p>
             </div>
-
-            <div className="overflow-x-auto w-full">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
-                  <tr>
-                    <th className="px-6 py-3.5">Staff Member</th>
-                    <th className="px-6 py-3.5">Verified Paid Days</th>
-                    <th className="px-6 py-3.5">Base Monthly Pay</th>
-                    <th className="px-6 py-3.5">Site Allowance (Bhatta)</th>
-                    <th className="px-6 py-3.5">Total Payable</th>
-                    <th className="px-6 py-3.5">Disbursement Status</th>
-                    <th className="px-6 py-3.5 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {teamList.map((member) => {
-                    const { verifiedPaidDays } = calculateTotalMonthlyDays(member.id);
-                    const record = payrollRecords[member.id] || {
-                      memberId: member.id,
-                      baseAmount: member.monthlySalary || 18000,
-                      fieldAllowance: 2500,
-                      paymentStatus: "PENDING" as const,
-                      paymentMode: "UPI" as const,
-                    };
-
-                    const totalPay = (record.baseAmount || 0) + (record.fieldAllowance || 0);
-
-                    return (
-                      <tr key={member.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="font-bold text-slate-900 text-sm">
-                            {member.name}
-                          </div>
-                          <div className="text-[10px] text-slate-400">
-                            {member.role}
-                          </div>
-                        </td>
-
-                        <td className="px-6 py-4 font-extrabold text-solar-deep">
-                          {verifiedPaidDays} Days Logged
-                        </td>
-
-                        <td className="px-6 py-4 font-semibold text-slate-900">
-                          ₹{record.baseAmount.toLocaleString("en-IN")}
-                        </td>
-
-                        <td className="px-6 py-4 text-emerald-700 font-semibold">
-                          +₹{record.fieldAllowance.toLocaleString("en-IN")}
-                        </td>
-
-                        <td className="px-6 py-4 font-extrabold text-sm text-slate-900">
-                          ₹{totalPay.toLocaleString("en-IN")}
-                        </td>
-
-                        <td className="px-6 py-4">
-                          <span
-                            className={`px-3 py-1 rounded-full text-[11px] font-bold ${
-                              record.paymentStatus === "PAID"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : "bg-amber-100 text-amber-800"
-                            }`}
-                          >
-                            {record.paymentStatus}
-                          </span>
-                        </td>
-
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={() => handleTogglePayment(member.id)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                              record.paymentStatus === "PAID"
-                                ? "bg-slate-100 hover:bg-amber-50 hover:text-amber-700 text-slate-700 border border-slate-200"
-                                : "bg-solar-deep hover:bg-slate-800 text-white shadow-xs"
-                            }`}
-                          >
-                            {record.paymentStatus === "PAID" ? "Mark Pending" : "Mark as Paid"}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="flex items-center gap-3">
+              <input
+                type="month"
+                value={payrollMonth}
+                onChange={(e) => setPayrollMonth(e.target.value)}
+                className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900"
+              />
             </div>
           </div>
+
+          {/* Sub-Tab Navigation */}
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl w-fit">
+            {([
+              { key: "summary" as const, label: "Payroll Summary", icon: <FileSpreadsheet className="w-3.5 h-3.5" /> },
+              { key: "advances" as const, label: "Advance Management", icon: <Wallet className="w-3.5 h-3.5" /> },
+              { key: "payment" as const, label: "Payment Processing", icon: <CreditCard className="w-3.5 h-3.5" /> },
+            ]).map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setPayrollSubTab(tab.key)}
+                className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  payrollSubTab === tab.key
+                    ? "bg-white text-solar-deep shadow-xs"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* ── SUB-TAB 1: PAYROLL SUMMARY ── */}
+          {payrollSubTab === "summary" && (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden w-full">
+              <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold font-heading text-base text-slate-900">
+                    Staff Salary Calculation — {new Date(parseInt(payrollMonth.split("-")[0]), parseInt(payrollMonth.split("-")[1]) - 1).toLocaleString("en-IN", { month: "long", year: "numeric" })}
+                  </h3>
+                  <p className="text-xs text-slate-500">Payable days auto-calculated from attendance records</p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto w-full">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+                    <tr>
+                      <th className="px-4 py-3">Staff Member</th>
+                      <th className="px-3 py-3 text-center">Monthly Salary</th>
+                      <th className="px-3 py-3 text-center">Payable Days</th>
+                      <th className="px-3 py-3 text-center">Pro-rata Salary</th>
+                      <th className="px-3 py-3 text-center">Field Allowance</th>
+                      <th className="px-3 py-3 text-center">Advance Ded.</th>
+                      <th className="px-3 py-3 text-center">Outstanding</th>
+                      <th className="px-3 py-3 text-center">Net Payable</th>
+                      <th className="px-3 py-3 text-center">Status</th>
+                      <th className="px-3 py-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {teamList.map((member) => {
+                      const payroll = computePayrollForMember(member.id, payrollMonth);
+                      if (!payroll) return null;
+                      const existing = monthlyPayrollRecords[`${member.id}_${payrollMonth}`];
+
+                      return (
+                        <tr key={member.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="px-4 py-3.5">
+                            <div className="font-bold text-slate-900 text-sm">{member.name}</div>
+                            <div className="text-[10px] text-slate-400">{member.role}</div>
+                          </td>
+                          <td className="px-3 py-3.5 text-center font-semibold text-slate-700">
+                            ₹{payroll.monthlySalary.toLocaleString("en-IN")}
+                          </td>
+                          <td className="px-3 py-3.5 text-center">
+                            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 rounded-lg border border-emerald-200 font-bold">
+                              {payroll.payableDays}
+                            </span>
+                            <span className="text-[10px] text-slate-400 block">/ {payroll.totalDaysInMonth}</span>
+                          </td>
+                          <td className="px-3 py-3.5 text-center font-semibold text-slate-900">
+                            ₹{payroll.payableSalary.toLocaleString("en-IN")}
+                          </td>
+                          <td className="px-3 py-3.5 text-center text-emerald-700 font-semibold">
+                            +₹{payroll.fieldAllowance.toLocaleString("en-IN")}
+                          </td>
+                          <td className="px-3 py-3.5 text-center">
+                            {payroll.scheduledAdvanceDeduction > 0 ? (
+                              <span className="text-rose-700 font-bold">-₹{payroll.scheduledAdvanceDeduction.toLocaleString("en-IN")}</span>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3.5 text-center">
+                            {payroll.advanceOutstanding > 0 ? (
+                              <span className="text-amber-700 font-bold text-[11px]">₹{payroll.advanceOutstanding.toLocaleString("en-IN")}</span>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3.5 text-center font-extrabold text-sm text-solar-deep">
+                            ₹{(existing?.netPayable ?? payroll.netPayable).toLocaleString("en-IN")}
+                          </td>
+                          <td className="px-3 py-3.5 text-center">
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                              (existing?.paymentStatus || payroll.paymentStatus) === "PAID"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-amber-100 text-amber-800"
+                            }`}>
+                              {existing?.paymentStatus || payroll.paymentStatus}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3.5 text-right">
+                            {(existing?.paymentStatus || "PENDING") === "PENDING" ? (
+                              <button
+                                onClick={() => openPaymentProcessing(member.id)}
+                                className="px-3 py-1.5 rounded-xl bg-solar-deep hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ml-auto"
+                              >
+                                <CreditCard className="w-3.5 h-3.5" />
+                                <span>Process</span>
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-emerald-700 font-semibold">
+                                ✓ Paid {existing?.paymentDate ? new Date(existing.paymentDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : ""}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── SUB-TAB 2: ADVANCE MANAGEMENT ── */}
+          {payrollSubTab === "advances" && (
+            <div className="space-y-4">
+              {/* Create Advance Button */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold font-heading text-base text-slate-900">Employee Advance Records</h3>
+                  <p className="text-xs text-slate-500">Track salary advances, monthly deductions, and outstanding balances</p>
+                </div>
+                <button
+                  onClick={() => { setNewAdvance({ ...newAdvance, memberId: teamList[0]?.id || "", startMonth: payrollMonth }); setIsCreateAdvanceOpen(true); }}
+                  className="px-4 py-2.5 bg-solar-deep hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Create New Advance</span>
+                </button>
+              </div>
+
+              {/* Advances List */}
+              {advances.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center">
+                  <Wallet className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                  <p className="text-sm text-slate-500 font-medium">No advance records yet</p>
+                  <p className="text-xs text-slate-400 mt-1">Create an advance to start tracking salary advance deductions</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {advances.map((adv) => {
+                    const member = teamList.find((m) => m.id === adv.memberId);
+                    const isExpanded = expandedAdvanceId === adv.id;
+                    const progressPct = adv.advanceAmount > 0 ? Math.round((adv.totalRecovered / adv.advanceAmount) * 100) : 0;
+
+                    return (
+                      <div key={adv.id} className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                        <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-4">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                              adv.recoveryStatus === "Active" ? "bg-emerald-100 text-emerald-700"
+                              : adv.recoveryStatus === "Paused" ? "bg-amber-100 text-amber-700"
+                              : "bg-slate-100 text-slate-500"
+                            }`}>
+                              <IndianRupee className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="font-bold text-sm text-slate-900">{member?.name || "Unknown"}</div>
+                              <div className="text-[11px] text-slate-500">{adv.reason} • Created {new Date(adv.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-4 sm:gap-6">
+                            <div className="text-center">
+                              <div className="text-[10px] text-slate-400 uppercase font-bold">Advance</div>
+                              <div className="font-extrabold text-sm text-slate-900">₹{adv.advanceAmount.toLocaleString("en-IN")}</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-[10px] text-slate-400 uppercase font-bold">Monthly Ded.</div>
+                              <div className="font-bold text-sm text-rose-700">₹{adv.monthlyDeduction.toLocaleString("en-IN")}</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-[10px] text-slate-400 uppercase font-bold">Recovered</div>
+                              <div className="font-bold text-sm text-emerald-700">₹{adv.totalRecovered.toLocaleString("en-IN")}</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-[10px] text-slate-400 uppercase font-bold">Outstanding</div>
+                              <div className="font-extrabold text-sm text-amber-800">₹{adv.outstandingBalance.toLocaleString("en-IN")}</div>
+                            </div>
+
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                              adv.recoveryStatus === "Active" ? "bg-emerald-100 text-emerald-800"
+                              : adv.recoveryStatus === "Paused" ? "bg-amber-100 text-amber-800"
+                              : "bg-slate-100 text-slate-600"
+                            }`}>
+                              {adv.recoveryStatus}
+                            </span>
+
+                            <div className="flex items-center gap-1">
+                              {adv.recoveryStatus !== "Completed" && (
+                                <button
+                                  onClick={() => handleToggleAdvancePause(adv.id)}
+                                  title={adv.recoveryStatus === "Active" ? "Pause Recovery" : "Resume Recovery"}
+                                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors cursor-pointer"
+                                >
+                                  {adv.recoveryStatus === "Active" ? <PauseCircle className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}
+                                </button>
+                              )}
+                              <button
+                                onClick={() => setExpandedAdvanceId(isExpanded ? null : adv.id)}
+                                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors cursor-pointer"
+                              >
+                                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="px-5 pb-3">
+                          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${progressPct}%` }} />
+                          </div>
+                          <div className="flex justify-between mt-1 text-[10px] text-slate-400">
+                            <span>{progressPct}% recovered</span>
+                            <span>Expected completion: {adv.expectedCompletionMonth}</span>
+                          </div>
+                        </div>
+
+                        {/* Expanded: Settlement Audit Trail */}
+                        {isExpanded && (
+                          <div className="border-t border-slate-100 p-4 bg-slate-50/50">
+                            <h4 className="text-xs font-bold text-slate-700 mb-3 flex items-center gap-1.5">
+                              <Shield className="w-3.5 h-3.5 text-slate-400" />
+                              Settlement Audit Trail
+                            </h4>
+                            {adv.settlements.length === 0 ? (
+                              <p className="text-xs text-slate-400 italic">No settlements recorded yet</p>
+                            ) : (
+                              <div className="space-y-2">
+                                {adv.settlements.map((s, idx) => (
+                                  <div key={idx} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200 text-xs">
+                                    <div>
+                                      <span className="font-bold text-slate-900">{s.month}</span>
+                                      <span className={`ml-2 px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                        s.settlementType === "Fully Settled" ? "bg-emerald-100 text-emerald-800"
+                                        : s.settlementType === "Partially Settled" ? "bg-amber-100 text-amber-800"
+                                        : "bg-rose-100 text-rose-800"
+                                      }`}>{s.settlementType}</span>
+                                      {s.reason && <span className="ml-2 text-slate-500 italic">— {s.reason}</span>}
+                                    </div>
+                                    <div className="text-right">
+                                      <span className="font-bold text-emerald-700">₹{s.amount.toLocaleString("en-IN")}</span>
+                                      <span className="text-slate-400 ml-2">→ ₹{s.remainingOutstanding.toLocaleString("en-IN")} remaining</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── SUB-TAB 3: PAYMENT PROCESSING ── */}
+          {payrollSubTab === "payment" && (() => {
+            if (!processingMemberId) {
+              return (
+                <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center">
+                  <CreditCard className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                  <p className="text-sm text-slate-500 font-medium">Select an employee from Payroll Summary</p>
+                  <p className="text-xs text-slate-400 mt-1">Click &quot;Process&quot; on any pending payment to begin</p>
+                  <button
+                    onClick={() => setPayrollSubTab("summary")}
+                    className="mt-4 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold cursor-pointer"
+                  >
+                    ← Go to Payroll Summary
+                  </button>
+                </div>
+              );
+            }
+
+            const member = teamList.find((m) => m.id === processingMemberId);
+            if (!member) return null;
+            const payroll = computePayrollForMember(processingMemberId, payrollMonth);
+            if (!payroll) return null;
+            const actualSettlement = settlementType === "Not Settled" ? 0
+              : settlementType === "Fully Settled" ? payroll.advanceOutstanding
+              : settlementAmount;
+            const finalNet = Math.max(0, payroll.payableSalary + payroll.fieldAllowance - actualSettlement - otherDeductions);
+
+            return (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {/* Left: Payroll Summary Card */}
+                <div className="space-y-4">
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div>
+                        <h3 className="font-bold font-heading text-base text-slate-900">{member.name}</h3>
+                        <p className="text-[11px] text-slate-500">{member.role} • {new Date(parseInt(payrollMonth.split("-")[0]), parseInt(payrollMonth.split("-")[1]) - 1).toLocaleString("en-IN", { month: "long", year: "numeric" })}</p>
+                      </div>
+                      <button onClick={() => { setProcessingMemberId(null); setPayrollSubTab("summary"); }} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 cursor-pointer">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Salary Breakdown Table */}
+                    <table className="w-full text-xs">
+                      <tbody className="divide-y divide-slate-100">
+                        <tr><td className="py-2.5 text-slate-600">Monthly Salary</td><td className="py-2.5 text-right font-bold text-slate-900">₹{payroll.monthlySalary.toLocaleString("en-IN")}</td></tr>
+                        <tr><td className="py-2.5 text-slate-600">Payable Days</td><td className="py-2.5 text-right font-bold text-emerald-700">{payroll.payableDays} / {payroll.totalDaysInMonth}</td></tr>
+                        <tr><td className="py-2.5 text-slate-600">Pro-rata Salary</td><td className="py-2.5 text-right font-bold text-slate-900">₹{payroll.payableSalary.toLocaleString("en-IN")}</td></tr>
+                        <tr><td className="py-2.5 text-slate-600">Field Allowance</td><td className="py-2.5 text-right font-bold text-emerald-700">+₹{payroll.fieldAllowance.toLocaleString("en-IN")}</td></tr>
+                        {payroll.advanceOutstanding > 0 && (
+                          <tr><td className="py-2.5 text-slate-600">Advance Outstanding</td><td className="py-2.5 text-right font-bold text-amber-700">₹{payroll.advanceOutstanding.toLocaleString("en-IN")}</td></tr>
+                        )}
+                        {actualSettlement > 0 && (
+                          <tr><td className="py-2.5 text-rose-600">Advance Deduction</td><td className="py-2.5 text-right font-bold text-rose-700">-₹{actualSettlement.toLocaleString("en-IN")}</td></tr>
+                        )}
+                        {otherDeductions > 0 && (
+                          <tr><td className="py-2.5 text-rose-600">Other Deductions {otherDeductionNote && <span className="text-slate-400">({otherDeductionNote})</span>}</td><td className="py-2.5 text-right font-bold text-rose-700">-₹{otherDeductions.toLocaleString("en-IN")}</td></tr>
+                        )}
+                        <tr className="border-t-2 border-slate-200">
+                          <td className="py-3 font-extrabold text-sm text-slate-900">Net Payable</td>
+                          <td className="py-3 text-right font-extrabold text-lg text-solar-deep">₹{finalNet.toLocaleString("en-IN")}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Bank Details Card */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
+                        <Building2 className="w-4 h-4 text-slate-400" />
+                        Payment Account
+                      </h4>
+                      <button
+                        onClick={() => openEditProfile(member.id)}
+                        className="text-[11px] text-solar-deep font-bold hover:underline cursor-pointer"
+                      >
+                        Edit Bank Details
+                      </button>
+                    </div>
+                    {member.bankAccountNumber ? (
+                      <div className="space-y-2 text-xs">
+                        <div className="flex justify-between"><span className="text-slate-500">Bank</span><span className="font-bold text-slate-900">{member.bankName || "—"}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Account Holder</span><span className="font-bold text-slate-900">{member.bankAccountHolder || member.name}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Account Number</span><span className="font-bold text-slate-900 font-mono">{maskAccountNumber(member.bankAccountNumber)}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">IFSC</span><span className="font-bold text-slate-900 font-mono">{member.bankIFSC || "—"}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Account Type</span><span className="font-bold text-slate-900">{member.bankAccountType || "Savings"}</span></div>
+                        {member.upiId && <div className="flex justify-between"><span className="text-slate-500">UPI ID</span><span className="font-bold text-slate-900">{member.upiId}</span></div>}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4">
+                        <p className="text-xs text-slate-400">No bank details added yet</p>
+                        <button onClick={() => openEditProfile(member.id)} className="mt-2 text-xs text-solar-deep font-bold hover:underline cursor-pointer">
+                          + Add Bank Details
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right: Settlement Controls & Confirm */}
+                <div className="space-y-4">
+                  {/* Advance Settlement Control */}
+                  {payroll.advanceOutstanding > 0 && (
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 space-y-4">
+                      <h4 className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
+                        <Wallet className="w-4 h-4 text-amber-600" />
+                        Advance Settlement
+                      </h4>
+
+                      <div className="space-y-2.5">
+                        {(["Not Settled", "Partially Settled", "Fully Settled"] as const).map((opt) => (
+                          <label key={opt} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                            settlementType === opt ? "border-solar-deep bg-emerald-50/50" : "border-slate-200 hover:border-slate-300"
+                          }`}>
+                            <input type="radio" name="settlement" checked={settlementType === opt} onChange={() => setSettlementType(opt)} className="mt-0.5 accent-emerald-700" />
+                            <div className="flex-1">
+                              <span className="font-bold text-xs text-slate-900">{opt}</span>
+                              {opt === "Partially Settled" && settlementType === opt && (
+                                <div className="mt-2 space-y-2">
+                                  <div>
+                                    <label className="text-[10px] text-slate-500 font-bold block mb-1">Settlement Amount (₹)</label>
+                                    <input type="number" value={settlementAmount} onChange={(e) => setSettlementAmount(Number(e.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold" />
+                                  </div>
+                                  <div className="flex justify-between text-[11px]">
+                                    <span className="text-slate-500">Previous Outstanding:</span>
+                                    <span className="font-bold text-slate-900">₹{payroll.advanceOutstanding.toLocaleString("en-IN")}</span>
+                                  </div>
+                                  <div className="flex justify-between text-[11px]">
+                                    <span className="text-slate-500">Remaining After Settlement:</span>
+                                    <span className="font-bold text-amber-700">₹{Math.max(0, payroll.advanceOutstanding - settlementAmount).toLocaleString("en-IN")}</span>
+                                  </div>
+                                </div>
+                              )}
+                              {opt === "Fully Settled" && settlementType === opt && (
+                                <div className="mt-2 text-[11px] text-emerald-700 font-bold">
+                                  Full settlement: ₹{payroll.advanceOutstanding.toLocaleString("en-IN")} → Outstanding: ₹0
+                                </div>
+                              )}
+                              {opt === "Not Settled" && settlementType === opt && (
+                                <div className="mt-2">
+                                  <label className="text-[10px] text-slate-500 font-bold block mb-1">Reason (Required)</label>
+                                  <textarea value={notSettledReason} onChange={(e) => setNotSettledReason(e.target.value)} required placeholder="e.g. Employee requested deferral" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs resize-none" rows={2} />
+                                </div>
+                              )}
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Other Deductions */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 space-y-3">
+                    <h4 className="font-bold text-sm text-slate-900">Other Deductions</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] text-slate-500 font-bold block mb-1">Amount (₹)</label>
+                        <input type="number" value={otherDeductions} onChange={(e) => setOtherDeductions(Number(e.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-500 font-bold block mb-1">Note</label>
+                        <input type="text" value={otherDeductionNote} onChange={(e) => setOtherDeductionNote(e.target.value)} placeholder="e.g. Uniform cost" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment Mode */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 space-y-3">
+                    <h4 className="font-bold text-sm text-slate-900">Payment Mode</h4>
+                    <div className="flex gap-2">
+                      {(["Bank Transfer", "UPI", "Cash"] as const).map((mode) => (
+                        <button key={mode} onClick={() => setPaymentMode(mode)} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          paymentMode === mode ? "bg-solar-deep text-white shadow-xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}>{mode}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Final Summary & Confirm */}
+                  <div className="bg-emerald-50 rounded-2xl border border-emerald-300 p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-sm text-solar-deep">Final Payable Amount</span>
+                      <span className="font-extrabold text-2xl text-solar-deep">₹{finalNet.toLocaleString("en-IN")}</span>
+                    </div>
+                    <button
+                      onClick={handleConfirmPayment}
+                      disabled={settlementType === "Not Settled" && !notSettledReason.trim()}
+                      className="w-full py-3 rounded-xl bg-solar-deep hover:bg-slate-800 text-white font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <CheckCheck className="w-5 h-5" />
+                      Confirm Payment — ₹{finalNet.toLocaleString("en-IN")}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -2396,6 +3183,223 @@ function TeamContent() {
                   >
                     Save Member
                   </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
+      {/* ======================================================== */}
+      {/* CREATE ADVANCE MODAL */}
+      {/* ======================================================== */}
+      {isCreateAdvanceOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-[999] flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95 duration-150 my-auto">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div>
+                  <h3 className="font-bold font-heading text-base text-slate-900">Create New Advance</h3>
+                  <p className="text-[11px] text-slate-500">Record a salary advance for an employee</p>
+                </div>
+                <button onClick={() => setIsCreateAdvanceOpen(false)} className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateAdvance} className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Employee *</label>
+                  <select value={newAdvance.memberId} onChange={(e) => setNewAdvance({ ...newAdvance, memberId: e.target.value })} required className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                    <option value="">Select Employee</option>
+                    {teamList.map((m) => <option key={m.id} value={m.id}>{m.name} — {m.role}</option>)}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Advance Amount (₹) *</label>
+                    <input type="number" required min={1} value={newAdvance.advanceAmount || ""} onChange={(e) => setNewAdvance({ ...newAdvance, advanceAmount: Number(e.target.value) })} placeholder="50000" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Monthly Deduction (₹) *</label>
+                    <input type="number" required min={1} value={newAdvance.monthlyDeduction || ""} onChange={(e) => setNewAdvance({ ...newAdvance, monthlyDeduction: Number(e.target.value) })} placeholder="5000" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Advance Date</label>
+                    <input type="date" value={newAdvance.advanceDate} onChange={(e) => setNewAdvance({ ...newAdvance, advanceDate: e.target.value })} className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Start Month</label>
+                    <input type="month" value={newAdvance.startMonth || payrollMonth} onChange={(e) => setNewAdvance({ ...newAdvance, startMonth: e.target.value })} className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Reason *</label>
+                  <input type="text" required value={newAdvance.reason} onChange={(e) => setNewAdvance({ ...newAdvance, reason: e.target.value })} placeholder="e.g. Personal loan, Medical expense" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Notes (Optional)</label>
+                  <textarea value={newAdvance.notes} onChange={(e) => setNewAdvance({ ...newAdvance, notes: e.target.value })} placeholder="Any additional notes" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl resize-none" rows={2} />
+                </div>
+
+                {newAdvance.advanceAmount > 0 && newAdvance.monthlyDeduction > 0 && (
+                  <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs">
+                    <div className="flex justify-between"><span className="text-slate-600">Expected Duration:</span><span className="font-bold text-slate-900">{Math.ceil(newAdvance.advanceAmount / newAdvance.monthlyDeduction)} months</span></div>
+                  </div>
+                )}
+
+                <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
+                  <button type="button" onClick={() => setIsCreateAdvanceOpen(false)} className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 cursor-pointer">Cancel</button>
+                  <button type="submit" className="px-6 py-2.5 rounded-xl bg-solar-deep hover:bg-slate-800 text-white font-bold cursor-pointer transition-all shadow-md">Create Advance</button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* ======================================================== */}
+      {/* EDIT EMPLOYEE PROFILE MODAL */}
+      {/* ======================================================== */}
+      {isEditProfileOpen &&
+        editProfileMemberId &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-[999] flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95 duration-150 my-auto max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div>
+                  <h3 className="font-bold font-heading text-base text-slate-900">Edit Employee Profile</h3>
+                  <p className="text-[11px] text-slate-500">{editProfileForm.name} — {editProfileForm.role}</p>
+                </div>
+                <button onClick={() => setIsEditProfileOpen(false)} className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveProfile} className="space-y-6 text-xs">
+                {/* Section 1: Personal Information */}
+                <div className="space-y-3">
+                  <h4 className="font-bold text-sm text-slate-900 flex items-center gap-1.5 pb-2 border-b border-slate-100">
+                    <User className="w-4 h-4 text-slate-400" />
+                    Personal Information
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Full Name</label>
+                      <input type="text" value={editProfileForm.name || ""} onChange={(e) => setEditProfileForm({ ...editProfileForm, name: e.target.value })} className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Employee ID</label>
+                      <input type="text" value={editProfileMemberId} disabled className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-500" />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Mobile Number</label>
+                      <input type="tel" value={editProfileForm.phone || ""} onChange={(e) => setEditProfileForm({ ...editProfileForm, phone: e.target.value })} className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Email</label>
+                      <input type="email" value={editProfileForm.email || ""} onChange={(e) => setEditProfileForm({ ...editProfileForm, email: e.target.value })} placeholder="employee@email.com" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Date of Birth</label>
+                      <input type="date" value={editProfileForm.dob || ""} onChange={(e) => setEditProfileForm({ ...editProfileForm, dob: e.target.value })} className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Address</label>
+                      <input type="text" value={editProfileForm.address || ""} onChange={(e) => setEditProfileForm({ ...editProfileForm, address: e.target.value })} placeholder="Full address" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 2: Employment Information */}
+                <div className="space-y-3">
+                  <h4 className="font-bold text-sm text-slate-900 flex items-center gap-1.5 pb-2 border-b border-slate-100">
+                    <Briefcase className="w-4 h-4 text-slate-400" />
+                    Employment Information
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Department</label>
+                      <input type="text" value={editProfileForm.department || ""} onChange={(e) => setEditProfileForm({ ...editProfileForm, department: e.target.value })} placeholder="e.g. Solar EPC" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Designation</label>
+                      <input type="text" value={editProfileForm.role || ""} onChange={(e) => setEditProfileForm({ ...editProfileForm, role: e.target.value })} className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Joining Date</label>
+                      <input type="date" value={editProfileForm.joiningDate || ""} onChange={(e) => setEditProfileForm({ ...editProfileForm, joiningDate: e.target.value })} className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Employment Type</label>
+                      <select value={editProfileForm.employmentType || "Full-Time"} onChange={(e) => setEditProfileForm({ ...editProfileForm, employmentType: e.target.value as TeamMember["employmentType"] })} className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                        <option value="Full-Time">Full-Time</option>
+                        <option value="Contract">Contract</option>
+                        <option value="Part-Time">Part-Time</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Reporting Manager</label>
+                      <input type="text" value={editProfileForm.reportingManager || ""} onChange={(e) => setEditProfileForm({ ...editProfileForm, reportingManager: e.target.value })} placeholder="Manager name" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Monthly Salary (₹)</label>
+                      <input type="number" value={editProfileForm.monthlySalary || ""} onChange={(e) => setEditProfileForm({ ...editProfileForm, monthlySalary: Number(e.target.value) })} className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 3: Bank & Payment Details */}
+                <div className="space-y-3">
+                  <h4 className="font-bold text-sm text-slate-900 flex items-center gap-1.5 pb-2 border-b border-slate-100">
+                    <Building2 className="w-4 h-4 text-slate-400" />
+                    Bank & Payment Details
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Account Holder Name</label>
+                      <input type="text" value={editProfileForm.bankAccountHolder || ""} onChange={(e) => setEditProfileForm({ ...editProfileForm, bankAccountHolder: e.target.value })} placeholder="As per bank records" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Bank Name</label>
+                      <input type="text" value={editProfileForm.bankName || ""} onChange={(e) => setEditProfileForm({ ...editProfileForm, bankName: e.target.value })} placeholder="e.g. State Bank of India" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Account Number</label>
+                      <input type="text" value={editProfileForm.bankAccountNumber || ""} onChange={(e) => setEditProfileForm({ ...editProfileForm, bankAccountNumber: e.target.value })} placeholder="Account number" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">IFSC Code</label>
+                      <input type="text" value={editProfileForm.bankIFSC || ""} onChange={(e) => setEditProfileForm({ ...editProfileForm, bankIFSC: e.target.value.toUpperCase() })} placeholder="e.g. SBIN0001234" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono" />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Branch</label>
+                      <input type="text" value={editProfileForm.bankBranch || ""} onChange={(e) => setEditProfileForm({ ...editProfileForm, bankBranch: e.target.value })} placeholder="Branch name" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Account Type</label>
+                      <select value={editProfileForm.bankAccountType || "Savings"} onChange={(e) => setEditProfileForm({ ...editProfileForm, bankAccountType: e.target.value as "Savings" | "Current" })} className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                        <option value="Savings">Savings</option>
+                        <option value="Current">Current</option>
+                      </select>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block font-bold text-slate-700 mb-1">UPI ID (Optional)</label>
+                      <input type="text" value={editProfileForm.upiId || ""} onChange={(e) => setEditProfileForm({ ...editProfileForm, upiId: e.target.value })} placeholder="e.g. name@upi" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
+                  <button type="button" onClick={() => setIsEditProfileOpen(false)} className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 cursor-pointer">Cancel</button>
+                  <button type="submit" className="px-6 py-2.5 rounded-xl bg-solar-deep hover:bg-slate-800 text-white font-bold cursor-pointer transition-all shadow-md">Save Profile</button>
                 </div>
               </form>
             </div>
