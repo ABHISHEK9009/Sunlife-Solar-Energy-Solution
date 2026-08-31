@@ -56,30 +56,30 @@ export function Hero() {
             Professional rooftop solar installation solutions for homes, commercial businesses, and industrial facilities in Narmadapuram and across Madhya Pradesh.
           </motion.p>
 
-          {/* CTA Action Buttons */}
+          {/* CTA Action Buttons - Compact, Sleek & Mobile-Proportional */}
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.25, ease: "easeOut" }}
-            className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 max-w-md sm:max-w-xl"
+            className="pt-2 flex flex-wrap items-center gap-2.5 sm:gap-4"
           >
             <motion.button
-              whileHover={{ scale: 1.02 }}
+              whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setModalOpen(true)}
-              className="inline-flex items-center justify-center gap-2.5 px-7 py-3.5 sm:py-4 bg-gradient-to-r from-sun-amber to-amber-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm sm:text-base rounded-full shadow-lg shadow-amber-500/30 transition-all group cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3.5 bg-gradient-to-r from-sun-amber to-amber-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs sm:text-sm md:text-base rounded-full shadow-md shadow-amber-500/25 transition-all group cursor-pointer"
             >
-              <span>Get Free Solar Quote</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <span>Get Free Quote</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </motion.button>
 
             <motion.a
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               href={`tel:${siteConfig.contact.phoneClean}`}
-              className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 sm:py-4 bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold text-sm sm:text-base rounded-full backdrop-blur-md transition-all"
+              className="inline-flex items-center justify-center gap-2 px-3.5 sm:px-5 py-2.5 sm:py-3.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold text-xs sm:text-sm md:text-base rounded-full backdrop-blur-md transition-all"
             >
-              <Phone className="w-4 h-4 text-sun-amber" />
+              <Phone className="w-3.5 h-3.5 text-sun-amber" />
               <span>Call {siteConfig.contact.phoneDisplay}</span>
             </motion.a>
           </motion.div>
