@@ -44,6 +44,15 @@ export function Navbar() {
 
   const solutions = siteConfig.navLinks.find((l) => l.name === "Solutions")?.children || [];
 
+  const getMobileLinkClass = (href: string) => {
+    const isActive = pathname === href;
+    return `p-3 rounded-2xl text-xs font-bold uppercase tracking-wider text-center transition-all ${
+      isActive
+        ? "bg-sun-amber text-slate-950 shadow-md font-extrabold"
+        : "bg-white/5 hover:bg-white/10 text-white/90"
+    }`;
+  };
+
   return (
     <>
       <header
@@ -54,7 +63,7 @@ export function Navbar() {
         }`}
       >
         <div className="site-container flex items-center justify-between gap-3">
-          {/* Left Brand Logo - Scaled responsibly across breakpoints */}
+          {/* Left Brand Logo */}
           <Link href="/" className="flex items-center group shrink-0 py-0.5">
             <Image
               src="/logo/logo.svg"
@@ -73,7 +82,7 @@ export function Navbar() {
                 href="/"
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
                   pathname === "/"
-                    ? "bg-slate-200/80 text-solar-dark"
+                    ? "bg-slate-200/80 text-solar-dark font-bold"
                     : "text-slate-700 hover:text-solar-dark hover:bg-slate-100/70"
                 }`}
               >
@@ -84,7 +93,7 @@ export function Navbar() {
                 href="/about"
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
                   pathname === "/about"
-                    ? "bg-slate-200/80 text-solar-dark"
+                    ? "bg-slate-200/80 text-solar-dark font-bold"
                     : "text-slate-700 hover:text-solar-dark hover:bg-slate-100/70"
                 }`}
               >
@@ -102,7 +111,7 @@ export function Navbar() {
                     pathname.includes("solar") &&
                     pathname !== "/solar-calculator" &&
                     pathname !== "/solar-subsidy"
-                      ? "bg-slate-200/80 text-solar-dark"
+                      ? "bg-slate-200/80 text-solar-dark font-bold"
                       : "text-slate-700 hover:text-solar-dark hover:bg-slate-100/70"
                   }`}
                 >
@@ -148,7 +157,7 @@ export function Navbar() {
                 href="/solar-calculator"
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
                   pathname === "/solar-calculator"
-                    ? "bg-slate-200/80 text-solar-dark"
+                    ? "bg-slate-200/80 text-solar-dark font-bold"
                     : "text-slate-700 hover:text-solar-dark hover:bg-slate-100/70"
                 }`}
               >
@@ -159,7 +168,7 @@ export function Navbar() {
                 href="/solar-subsidy"
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
                   pathname === "/solar-subsidy"
-                    ? "bg-slate-200/80 text-solar-dark"
+                    ? "bg-slate-200/80 text-solar-dark font-bold"
                     : "text-slate-700 hover:text-solar-dark hover:bg-slate-100/70"
                 }`}
               >
@@ -170,7 +179,7 @@ export function Navbar() {
                 href="/projects"
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
                   pathname === "/projects"
-                    ? "bg-slate-200/80 text-solar-dark"
+                    ? "bg-slate-200/80 text-solar-dark font-bold"
                     : "text-slate-700 hover:text-solar-dark hover:bg-slate-100/70"
                 }`}
               >
@@ -181,7 +190,7 @@ export function Navbar() {
                 href="/faqs"
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
                   pathname === "/faqs"
-                    ? "bg-slate-200/80 text-solar-dark"
+                    ? "bg-slate-200/80 text-solar-dark font-bold"
                     : "text-slate-700 hover:text-solar-dark hover:bg-slate-100/70"
                 }`}
               >
@@ -192,7 +201,7 @@ export function Navbar() {
                 href="/contact"
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all ${
                   pathname === "/contact"
-                    ? "bg-slate-200/80 text-solar-dark"
+                    ? "bg-slate-200/80 text-solar-dark font-bold"
                     : "text-slate-700 hover:text-solar-dark hover:bg-slate-100/70"
                 }`}
               >
@@ -232,40 +241,22 @@ export function Navbar() {
         {mobileMenuOpen && (
           <div className="lg:hidden mt-2 mx-3 sm:mx-6 bg-slate-950/95 backdrop-blur-2xl border border-white/15 rounded-3xl p-5 space-y-3 text-white shadow-2xl animate-in slide-in-from-top-2 duration-200 max-h-[85vh] overflow-y-auto">
             <div className="grid grid-cols-2 gap-2">
-              <Link
-                href="/"
-                className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-xs font-bold uppercase tracking-wider text-center"
-              >
+              <Link href="/" className={getMobileLinkClass("/")}>
                 Home
               </Link>
-              <Link
-                href="/about"
-                className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-xs font-bold uppercase tracking-wider text-center"
-              >
+              <Link href="/about" className={getMobileLinkClass("/about")}>
                 About Us
               </Link>
-              <Link
-                href="/solar-calculator"
-                className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-xs font-bold uppercase tracking-wider text-center text-sun-amber"
-              >
+              <Link href="/solar-calculator" className={getMobileLinkClass("/solar-calculator")}>
                 Calculator
               </Link>
-              <Link
-                href="/solar-subsidy"
-                className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-xs font-bold uppercase tracking-wider text-center"
-              >
+              <Link href="/solar-subsidy" className={getMobileLinkClass("/solar-subsidy")}>
                 Subsidy
               </Link>
-              <Link
-                href="/projects"
-                className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-xs font-bold uppercase tracking-wider text-center"
-              >
+              <Link href="/projects" className={getMobileLinkClass("/projects")}>
                 Projects
               </Link>
-              <Link
-                href="/faqs"
-                className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-xs font-bold uppercase tracking-wider text-center"
-              >
+              <Link href="/faqs" className={getMobileLinkClass("/faqs")}>
                 FAQs
               </Link>
             </div>
@@ -286,7 +277,11 @@ export function Navbar() {
                     <Link
                       key={item.href}
                       href={item.href}
-                      className="p-2.5 rounded-xl bg-white/[0.03] hover:bg-emerald-500/20 text-xs text-slate-200 hover:text-white font-medium flex items-center justify-between"
+                      className={`p-2.5 rounded-xl text-xs font-medium flex items-center justify-between transition-colors ${
+                        pathname === item.href
+                          ? "bg-sun-amber text-slate-950 font-bold"
+                          : "bg-white/[0.03] hover:bg-emerald-500/20 text-slate-200 hover:text-white"
+                      }`}
                     >
                       <span>{item.name}</span>
                       <span className="text-[10px] text-emerald-400">View →</span>
@@ -304,7 +299,11 @@ export function Navbar() {
 
             <Link
               href="/contact"
-              className="block p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-xs font-bold uppercase tracking-wider text-center"
+              className={`block p-3 rounded-2xl text-xs font-bold uppercase tracking-wider text-center transition-all ${
+                pathname === "/contact"
+                  ? "bg-sun-amber text-slate-950 font-extrabold shadow-md"
+                  : "bg-white/5 hover:bg-white/10 text-white/90"
+              }`}
             >
               Contact & Location
             </Link>
