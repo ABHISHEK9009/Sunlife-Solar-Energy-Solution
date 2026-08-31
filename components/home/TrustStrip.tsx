@@ -1,32 +1,30 @@
+"use client";
+
 import React from "react";
-import { Calendar, Home, MapPin, Wrench } from "lucide-react";
-import { siteConfig } from "@/lib/site-config";
+import { motion } from "framer-motion";
+import { ShieldCheck, Building2, MapPin, Wrench } from "lucide-react";
 
 export function TrustStrip() {
   const indicators = [
     {
-      icon: Calendar,
+      icon: ShieldCheck,
       title: "Since 2021",
-      subtitle: "Solar Energy Solutions",
-      highlight: siteConfig.foundedDateFormatted,
+      desc: "Solar Energy Solutions",
     },
     {
-      icon: Home,
+      icon: Building2,
       title: "Residential & Commercial",
-      subtitle: "Solar Installation",
-      highlight: "On-Grid & Hybrid",
+      desc: "Solar Installation",
     },
     {
       icon: MapPin,
       title: "Local Expertise",
-      subtitle: "Narmadapuram, MP",
-      highlight: "Malakhedi Office",
+      desc: "Narmadapuram, MP",
     },
     {
       icon: Wrench,
       title: "End-to-End Support",
-      subtitle: "Consultation → Commissioning",
-      highlight: "Full Handover",
+      desc: "Consultation → Commissioning",
     },
   ];
 
@@ -37,22 +35,27 @@ export function TrustStrip() {
           {indicators.map((item, idx) => {
             const Icon = item.icon;
             return (
-              <div
+              <motion.div
                 key={idx}
-                className="flex items-center gap-3.5 p-3 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-emerald-500/30 transition-all group"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ duration: 0.5, delay: idx * 0.1 }}
+                whileHover={{ y: -4, scale: 1.02 }}
+                className="flex items-center gap-3.5 p-3 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 hover:border-emerald-500/30 transition-all duration-300 group cursor-default"
               >
-                <div className="w-11 h-11 rounded-xl bg-solar-deep/80 text-sun-amber flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <div className="w-11 h-11 rounded-xl bg-solar-deep/80 text-sun-amber flex items-center justify-center shrink-0 border border-emerald-700/40 group-hover:scale-110 group-hover:bg-solar-deep transition-all duration-300 shadow-md">
                   <Icon className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <div className="font-heading font-bold text-sm sm:text-base text-white tracking-tight leading-tight">
+                <div>
+                  <div className="font-heading font-bold text-sm sm:text-base text-white leading-tight">
                     {item.title}
                   </div>
-                  <div className="text-xs text-slate-400 mt-0.5 truncate">
-                    {item.subtitle}
+                  <div className="text-xs text-emerald-300/80 mt-0.5">
+                    {item.desc}
                   </div>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>

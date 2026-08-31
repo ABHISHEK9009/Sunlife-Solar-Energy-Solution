@@ -1,63 +1,70 @@
-import React from "react";
+"use client";
+
+import React, { useState } from "react";
+import { motion } from "framer-motion";
 import {
-  PhoneCall,
-  Compass,
-  FileCode,
-  Wrench,
+  FileSearch,
+  PenTool,
+  FileCheck2,
+  Hammer,
+  Activity,
   CheckCircle2,
-  Zap,
+  ArrowRight,
 } from "lucide-react";
+import { LeadQuoteModal } from "@/components/forms/LeadQuoteModal";
 
 export function HowItWorks() {
+  const [modalOpen, setModalOpen] = useState(false);
+
   const steps = [
     {
-      step: "01",
-      title: "Consultation",
-      icon: PhoneCall,
-      description:
-        "Understand your monthly electricity usage, connected load, property type, and long-term energy requirements.",
+      num: "01",
+      icon: FileSearch,
+      title: "Site Survey & Assessment",
+      desc: "Detailed on-site inspection, shadow analysis, roof structure verification, and electrical load profiling.",
     },
     {
-      step: "02",
-      title: "Site Assessment",
-      icon: Compass,
-      description:
-        "Evaluate available terrace area, roof orientation, solar shadow profile, and structural integrity in detail.",
+      num: "02",
+      icon: PenTool,
+      title: "System Design & Proposal",
+      desc: "Custom 3D layout, module configuration, single-line diagrams, and transparent itemized quote.",
     },
     {
-      step: "03",
-      title: "System Design",
-      icon: FileCode,
-      description:
-        "Engineer the ideal PV capacity (kW), panel arrangement, inverter sizing, and electrical safety scheme.",
+      num: "03",
+      icon: FileCheck2,
+      title: "Approvals & Subsidy Liaison",
+      desc: "Complete documentation filing on PM Surya Ghar portal and MP Discom net metering permission.",
     },
     {
-      step: "04",
-      title: "Installation",
-      icon: Wrench,
-      description:
-        "Professional erection of GI structures, mounting Tier-1 modules, precision AC/DC cabling, and earthing pits.",
+      num: "04",
+      icon: Hammer,
+      title: "Precision Installation",
+      desc: "Mounting of hot-dip GI structures, Tier-1 Mono-PERC modules, micro/string inverters, and lightning earthing.",
     },
     {
-      step: "05",
-      title: "Commissioning",
+      num: "05",
+      icon: Activity,
+      title: "Net Metering & Commissioning",
+      desc: "Discom meter testing, bidirectional net-meter installation, and seamless grid synchronization.",
+    },
+    {
+      num: "06",
       icon: CheckCircle2,
-      description:
-        "DISCOM net meter coordination, rigorous safety checks, voltage synchronization, and client handover.",
-    },
-    {
-      step: "06",
-      title: "Start Generating",
-      icon: Zap,
-      description:
-        "Your system starts harvesting clean solar power, reducing meter units, and generating continuous savings.",
+      title: "Lifetime Support & Monitoring",
+      desc: "Mobile app generation tracking, system handover, warranty documentation, and periodic maintenance.",
     },
   ];
 
   return (
     <section className="fluid-py bg-white">
       <div className="fluid-container">
-        <div className="text-center max-w-3xl mx-auto mb-14">
+        <motion.div
+          initial={{ opacity: 0, y: 25 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.6 }}
+          className="text-center max-w-3xl mx-auto mb-14"
+        >
           <span className="text-xs font-bold text-solar-emerald uppercase tracking-wider bg-solar-light px-3.5 py-1.5 rounded-full inline-block mb-3">
             Systematic Execution
           </span>
@@ -67,38 +74,69 @@ export function HowItWorks() {
           <p className="fluid-p text-slate-600 mt-3 leading-relaxed">
             From your first inquiry in Narmadapuram to final grid synchronization, we handle every technical and liaison step with total transparency.
           </p>
-        </div>
+        </motion.div>
 
-        {/* Intrinsic Fluid 6-Step Grid */}
+        {/* Intrinsic Fluid 6-Step Grid with Sequential Step Animation */}
         <div className="fluid-grid-6">
           {steps.map((item, idx) => {
             const Icon = item.icon;
             return (
-              <div
+              <motion.div
                 key={idx}
-                className="relative p-6 sm:p-7 rounded-2xl bg-slate-50 border border-slate-200/90 shadow-sm hover:shadow-premium hover:border-emerald-300 transition-all duration-300 group"
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-40px" }}
+                transition={{ duration: 0.5, delay: idx * 0.1 }}
+                whileHover={{ y: -6, scale: 1.02 }}
+                className="relative p-6 rounded-3xl bg-slate-50 hover:bg-white border border-slate-200/80 hover:border-emerald-500/40 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between group"
               >
-                {/* Step Number Tag */}
+                {/* Step Number */}
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs font-extrabold text-solar-deep font-heading tracking-widest px-2.5 py-1 rounded-lg bg-emerald-100/70">
-                    STEP {item.step}
+                  <span className="text-2xl font-extrabold font-heading text-slate-300 group-hover:text-solar-emerald transition-colors">
+                    {item.num}
                   </span>
-                  <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-700 group-hover:bg-solar-deep group-hover:text-sun-amber flex items-center justify-center transition-colors shadow-sm">
+                  <div className="w-10 h-10 rounded-xl bg-white group-hover:bg-solar-deep text-solar-deep group-hover:text-sun-amber flex items-center justify-center shadow-sm border border-slate-200 group-hover:border-transparent transition-all duration-300">
                     <Icon className="w-5 h-5" />
                   </div>
                 </div>
 
-                <h3 className="text-lg font-bold font-heading text-slate-900 mb-2">
-                  {item.title}
-                </h3>
-                <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
-                  {item.description}
-                </p>
-              </div>
+                <div className="space-y-2">
+                  <h3 className="font-heading font-bold text-sm sm:text-base text-slate-900 leading-snug">
+                    {item.title}
+                  </h3>
+                  <p className="text-slate-600 text-xs leading-relaxed">
+                    {item.desc}
+                  </p>
+                </div>
+              </motion.div>
             );
           })}
         </div>
+
+        {/* Central CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.5 }}
+          className="mt-14 text-center"
+        >
+          <motion.button
+            whileHover={{ scale: 1.04, y: -2 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setModalOpen(true)}
+            className="inline-flex items-center gap-2 px-8 py-4 bg-solar-deep hover:bg-solar-dark text-white font-bold text-sm sm:text-base rounded-full shadow-lg shadow-emerald-950/20 transition-all group cursor-pointer"
+          >
+            <span>Book Your Free Site Assessment</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </motion.button>
+        </motion.div>
       </div>
+
+      <LeadQuoteModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+      />
     </section>
   );
 }

@@ -1,6 +1,9 @@
+"use client";
+
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { Phone, CheckCircle2, ShieldCheck, MapPin, Calendar, ArrowRight, UserCheck } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 
@@ -17,7 +20,13 @@ export function AboutSnippet() {
       <div className="fluid-container">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-center">
           {/* Left Column (7 Cols): Company Story & Values */}
-          <div className="lg:col-span-7 space-y-6">
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.7 }}
+            className="lg:col-span-7 space-y-6"
+          >
             <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-solar-light text-solar-deep text-xs font-bold uppercase tracking-wider">
               <Calendar className="w-3.5 h-3.5 text-solar-emerald" />
               <span>Founded {siteConfig.foundedDateFormatted}</span>
@@ -38,7 +47,11 @@ export function AboutSnippet() {
             {/* 4 Pillars Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
               {pillars.map((p, idx) => (
-                <div key={idx} className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                <motion.div
+                  key={idx}
+                  whileHover={{ y: -3, scale: 1.02 }}
+                  className="p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:border-emerald-500/30 transition-all duration-300 shadow-sm"
+                >
                   <div className="flex items-center gap-2 text-sm font-bold text-slate-900 mb-1">
                     <CheckCircle2 className="w-4 h-4 text-solar-emerald shrink-0" />
                     <span>{p.title}</span>
@@ -46,7 +59,7 @@ export function AboutSnippet() {
                   <p className="text-xs text-slate-600 leading-relaxed pl-6">
                     {p.desc}
                   </p>
-                </div>
+                </motion.div>
               ))}
             </div>
 
@@ -59,10 +72,16 @@ export function AboutSnippet() {
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>
-          </div>
+          </motion.div>
 
           {/* Right Column (5 Cols): Founder Spotlight Card */}
-          <div className="lg:col-span-5">
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.7 }}
+            className="lg:col-span-5"
+          >
             <div className="relative rounded-3xl bg-gradient-to-br from-solar-dark via-solar-deep to-emerald-900 text-white p-8 sm:p-9 shadow-2xl border border-emerald-700/50 overflow-hidden">
               <div className="absolute top-0 right-0 w-40 h-40 bg-sun-amber/10 rounded-full blur-2xl pointer-events-none" />
 
@@ -109,17 +128,19 @@ export function AboutSnippet() {
                 </div>
 
                 <div className="pt-2">
-                  <a
+                  <motion.a
+                    whileHover={{ scale: 1.03, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
                     href={`tel:${siteConfig.owner.phone}`}
-                    className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl bg-sun-amber hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-md transition-all"
+                    className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-full bg-sun-amber hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-md transition-all"
                   >
                     <Phone className="w-4 h-4" />
                     <span>Call Rahul: {siteConfig.owner.phone}</span>
-                  </a>
+                  </motion.a>
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>
