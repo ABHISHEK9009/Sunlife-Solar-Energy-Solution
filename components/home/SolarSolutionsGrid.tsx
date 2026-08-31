@@ -18,9 +18,9 @@ export function SolarSolutionsGrid() {
       icon: Home,
       image: "/images/residential-solar.jpg",
       tagline: "Cut up to 90% from Home Power Bills",
-      desc: "Custom on-grid and hybrid rooftop solar solutions designed for independent houses, duplexes, and villas in Narmadapuram and nearby towns.",
+      desc: "Custom on-grid and hybrid rooftop solar for independent houses and villas.",
       badge: "PM Surya Ghar",
-      features: ["1 kW to 10 kW Custom Systems", "Subsidy up to ₹78,000 Support", "25-Year Panel Warranty"],
+      features: ["1 kW to 10 kW Systems", "Subsidy up to ₹78,000", "25-Yr Panel Warranty"],
     },
     {
       title: "Commercial Solar",
@@ -28,9 +28,9 @@ export function SolarSolutionsGrid() {
       icon: Building2,
       image: "/images/commercial-solar.jpg",
       tagline: "Reduce High Commercial Electricity Tariffs",
-      desc: "High-yield solar systems for commercial complexes, offices, hospitals, private schools, colleges, and retail showrooms across Madhya Pradesh.",
+      desc: "High-yield solar systems for offices, hospitals, schools & showrooms in MP.",
       badge: "High ROI & Tax Deprec.",
-      features: ["10 kW to 100 kW+ Plants", "Accelerated Depreciation", "Smart Monitoring App"],
+      features: ["10 kW to 100 kW+ Plants", "Tax Depreciation", "Smart Monitoring App"],
     },
     {
       title: "Industrial Solar",
@@ -38,9 +38,9 @@ export function SolarSolutionsGrid() {
       icon: Factory,
       image: "/images/industrial-solar.jpg",
       tagline: "Heavy Power Solutions for Production Units",
-      desc: "Robust rooftop and shed-mounted solar installations for factories, processing plants, cold storages, and warehouses in Central MP.",
+      desc: "Robust rooftop and shed-mounted solar installations for factories & warehouses.",
       badge: "Heavy Continuous Loads",
-      features: ["50 kW to 500 kW+ Engineering", "High Voltage Net Metering", "Heavy-Duty GI Structures"],
+      features: ["50 kW to 500 kW+ EPC", "HV Net Metering", "Heavy GI Structures"],
     },
     {
       title: "Rooftop Solar EPC",
@@ -48,9 +48,9 @@ export function SolarSolutionsGrid() {
       icon: Sun,
       image: "/images/hero-solar.jpg",
       tagline: "Gazebo, Elevated & Standard Structure EPC",
-      desc: "End-to-end engineering, procurement, and construction with customized terrace elevations to preserve 100% usable rooftop recreation space.",
-      badge: "Full Terrace Usability",
-      features: ["High-Rise Elevated Frames", "Mono-PERC Modules", "MP DISCOM Meter Liaison"],
+      desc: "Customized terrace elevations to preserve 100% usable rooftop recreation space.",
+      badge: "Full Usability",
+      features: ["Elevated Frames", "Mono-PERC Modules", "DISCOM Meter Liaison"],
     },
   ];
 
@@ -68,36 +68,36 @@ export function SolarSolutionsGrid() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-60px" }}
           transition={{ duration: 0.5 }}
-          className="text-center max-w-3xl mx-auto mb-8 sm:mb-12 md:mb-14"
+          className="text-center max-w-3xl mx-auto mb-6 sm:mb-10 md:mb-12"
         >
-          <span className="text-xs font-bold text-solar-emerald uppercase tracking-wider bg-solar-light px-3.5 py-1.5 rounded-full inline-block mb-3">
+          <span className="text-xs font-bold text-solar-emerald uppercase tracking-wider bg-solar-light px-3.5 py-1.5 rounded-full inline-block mb-2 sm:mb-3">
             Tailored Engineering
           </span>
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold font-heading text-slate-950 leading-tight">
-            Solar Solutions Designed Around Your Energy Needs
+            Solar Solutions Designed Around Your Needs
           </h2>
-          <p className="text-sm sm:text-base text-slate-600 mt-3 leading-relaxed">
-            Whether for your family home in Narmadapuram, commercial showroom in Itarsi, or industrial shed in Central MP, our systems are engineered for maximum generation.
+          <p className="text-xs sm:text-sm md:text-base text-slate-600 mt-2 sm:mt-3 leading-relaxed">
+            Whether for your family home in Narmadapuram or industrial shed in Central MP, our systems are engineered for maximum generation.
           </p>
         </motion.div>
 
-        {/* Responsive Grid: 1 col on mobile, 2 cols on tablet/sm, 4 cols on desktop */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        {/* Responsive 2-Column Mobile Grid, 4-Column Desktop Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-6">
           {solutions.map((item, idx) => {
             const Icon = item.icon;
             return (
               <motion.div
                 key={idx}
-                initial={{ opacity: 0, y: 25 }}
+                initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-40px" }}
-                transition={{ duration: 0.4, delay: idx * 0.08 }}
-                whileHover={{ y: -5 }}
-                className="group bg-white rounded-3xl overflow-hidden border border-slate-200 hover:border-emerald-500/40 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between"
+                viewport={{ once: true, margin: "-30px" }}
+                transition={{ duration: 0.4, delay: idx * 0.05 }}
+                whileHover={{ y: -4 }}
+                className="group bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200 hover:border-emerald-500/40 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between"
               >
                 <div>
                   {/* Image Aspect */}
-                  <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-900">
+                  <div className="relative aspect-[16/11] sm:aspect-[16/10] w-full overflow-hidden bg-slate-900">
                     <Image
                       src={item.image}
                       alt={`${item.title} installation in Narmadapuram Madhya Pradesh`}
@@ -107,38 +107,35 @@ export function SolarSolutionsGrid() {
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/20 to-transparent" />
 
                     {/* Badge */}
-                    <div className="absolute top-3 left-3">
-                      <span className="text-[10px] sm:text-[11px] font-bold px-2.5 py-1 bg-white/95 text-solar-dark backdrop-blur-md rounded-full shadow-sm">
+                    <div className="absolute top-2 left-2 sm:top-3 sm:left-3">
+                      <span className="text-[9px] sm:text-[11px] font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 bg-white/95 text-solar-dark backdrop-blur-md rounded-full shadow-sm">
                         {item.badge}
                       </span>
                     </div>
 
                     {/* Icon & Title Overlay */}
-                    <div className="absolute bottom-3 left-3 right-3 flex items-center gap-2.5">
-                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-solar-deep text-sun-amber flex items-center justify-center shrink-0 border border-emerald-500/30 shadow-md">
-                        <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <div className="absolute bottom-2 left-2 right-2 sm:bottom-3 sm:left-3 sm:right-3 flex items-center gap-1.5 sm:gap-2.5">
+                      <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-solar-deep text-sun-amber flex items-center justify-center shrink-0 border border-emerald-500/30 shadow-md">
+                        <Icon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
                       </div>
                       <div className="min-w-0">
-                        <h3 className="font-heading font-bold text-base sm:text-lg text-white leading-tight truncate">
+                        <h3 className="font-heading font-bold text-xs sm:text-base md:text-lg text-white leading-tight truncate">
                           {item.title}
                         </h3>
-                        <p className="text-[11px] text-emerald-300 font-medium truncate">
-                          {item.tagline}
-                        </p>
                       </div>
                     </div>
                   </div>
 
                   {/* Body Content */}
-                  <div className="p-4 sm:p-5 space-y-3">
-                    <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
+                  <div className="p-3 sm:p-5 space-y-2 sm:space-y-3">
+                    <p className="text-slate-600 text-[11px] sm:text-sm leading-relaxed line-clamp-2 sm:line-clamp-none">
                       {item.desc}
                     </p>
 
                     {/* Feature Bullets */}
-                    <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                    <div className="space-y-1 pt-1.5 border-t border-slate-100 hidden sm:block">
                       {item.features.map((feat, fidx) => (
-                        <div key={fidx} className="flex items-center gap-2 text-xs text-slate-700 font-medium">
+                        <div key={fidx} className="flex items-center gap-1.5 text-xs text-slate-700 font-medium">
                           <ShieldCheck className="w-3.5 h-3.5 text-solar-emerald shrink-0" />
                           <span className="truncate">{feat}</span>
                         </div>
@@ -148,20 +145,20 @@ export function SolarSolutionsGrid() {
                 </div>
 
                 {/* Card Bottom CTA Actions */}
-                <div className="p-4 sm:p-5 pt-0 flex items-center justify-between gap-2 border-t border-slate-100/60 mt-2">
+                <div className="p-3 sm:p-5 pt-0 flex items-center justify-between gap-1.5 border-t border-slate-100/60 mt-1">
                   <Link
                     href={`/${item.slug}`}
-                    className="text-xs font-bold text-solar-deep hover:text-solar-dark inline-flex items-center gap-1 group/link"
+                    className="text-[11px] sm:text-xs font-bold text-solar-deep hover:text-solar-dark inline-flex items-center gap-0.5 group/link truncate"
                   >
-                    <span>Explore Specs</span>
-                    <ArrowRight className="w-3 h-3 group-hover/link:translate-x-1 transition-transform" />
+                    <span>Specs</span>
+                    <ArrowRight className="w-3 h-3 group-hover/link:translate-x-0.5 transition-transform" />
                   </Link>
 
                   <button
                     onClick={() => handleOpenQuote(item.title)}
-                    className="px-3.5 py-1.5 bg-slate-900 hover:bg-solar-deep text-white text-xs font-bold rounded-full transition-colors cursor-pointer"
+                    className="px-2.5 py-1 sm:px-3.5 sm:py-1.5 bg-slate-900 hover:bg-solar-deep text-white text-[10px] sm:text-xs font-bold rounded-full transition-colors cursor-pointer shrink-0"
                   >
-                    Get Quote
+                    Quote
                   </button>
                 </div>
               </motion.div>

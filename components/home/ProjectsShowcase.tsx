@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { MapPin, Zap, ArrowRight, ShieldCheck } from "lucide-react";
+import { MapPin, Zap, ArrowRight } from "lucide-react";
 import { LeadQuoteModal } from "@/components/forms/LeadQuoteModal";
 
 export function ProjectsShowcase() {
@@ -13,40 +13,40 @@ export function ProjectsShowcase() {
 
   const projects = [
     {
-      title: "5 kW Residential Rooftop Solar Plant",
+      title: "5 kW Residential Rooftop Plant",
       location: "Malakhedi, Narmadapuram",
       category: "Residential",
       capacity: "5 kW Grid-Tied",
-      modules: "Mono-PERC 545W (Top-Tier)",
+      modules: "Mono-PERC 545W",
       image: "/images/residential-solar.jpg",
-      result: "Generates ~20-22 units daily • Saves ~₹4,500 monthly",
+      result: "Saves ~₹4,500 monthly",
     },
     {
-      title: "25 kW Commercial Rooftop Installation",
-      location: "Itarsi Main Market, MP",
+      title: "25 kW Commercial Installation",
+      location: "Itarsi Market, MP",
       category: "Commercial",
       capacity: "25 kW On-Grid",
-      modules: "High-Efficiency Monocrystalline",
+      modules: "Monocrystalline",
       image: "/images/commercial-solar.jpg",
-      result: "Powering 3-floor retail complex • ~38% power cost cut",
+      result: "~38% power cost cut",
     },
     {
-      title: "75 kW Industrial Factory Shed Plant",
-      location: "Industrial Area, Central MP",
+      title: "75 kW Industrial Factory Shed",
+      location: "Central MP Area",
       category: "Industrial",
-      capacity: "75 kW High-Voltage Net Meter",
-      modules: "Bifacial Mono Modules",
+      capacity: "75 kW High-Voltage",
+      modules: "Bifacial Mono",
       image: "/images/industrial-solar.jpg",
-      result: "Heavy continuous machinery support • High depreciation ROI",
+      result: "Heavy continuous machinery",
     },
     {
-      title: "3 kW PM Surya Ghar Rooftop Setup",
+      title: "3 kW PM Surya Ghar Setup",
       location: "Civil Lines, Narmadapuram",
       category: "Residential",
-      capacity: "3 kW Standard Grid-Tied",
-      modules: "DCR Compliant Modules",
+      capacity: "3 kW Standard",
+      modules: "DCR Compliant",
       image: "/images/hero-solar.jpg",
-      result: "Zero electricity bills • Received ₹78,000 Direct Subsidy",
+      result: "₹78,000 Direct Subsidy",
     },
   ];
 
@@ -59,20 +59,20 @@ export function ProjectsShowcase() {
     <section className="section-py bg-slate-50 border-b border-slate-200/80">
       <div className="site-container">
         {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 sm:mb-12 gap-4 sm:gap-6">
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 sm:mb-10 gap-3 sm:gap-6">
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
           >
-            <span className="text-xs font-bold text-solar-emerald uppercase tracking-wider bg-emerald-100/80 px-3.5 py-1.5 rounded-full inline-block mb-3">
+            <span className="text-xs font-bold text-solar-emerald uppercase tracking-wider bg-emerald-100/80 px-3.5 py-1.5 rounded-full inline-block mb-2 sm:mb-3">
               Field Installations
             </span>
             <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold font-heading text-slate-950 leading-tight">
-              Solar Installations That Make a Difference
+              Solar Installations Showcase
             </h2>
-            <p className="text-sm sm:text-base text-slate-600 mt-2 max-w-2xl leading-relaxed">
+            <p className="text-xs sm:text-sm md:text-base text-slate-600 mt-2 max-w-2xl leading-relaxed">
               Representative rooftop solar installations engineered across Narmadapuram and neighboring Central MP districts.
             </p>
           </motion.div>
@@ -97,8 +97,8 @@ export function ProjectsShowcase() {
           </div>
         </div>
 
-        {/* Responsive Grid: 1 col on mobile, 2 cols on tablet, 4 cols on desktop */}
-        <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        {/* Responsive 2-Column Mobile Grid, 4-Column Desktop Grid */}
+        <motion.div layout className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-6">
           <AnimatePresence>
             {filtered.map((item, idx) => (
               <motion.div
@@ -108,11 +108,11 @@ export function ProjectsShowcase() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.35, delay: idx * 0.05 }}
-                whileHover={{ y: -5 }}
-                className="bg-white rounded-3xl overflow-hidden border border-slate-200 hover:border-emerald-500/40 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between group"
+                whileHover={{ y: -4 }}
+                className="bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200 hover:border-emerald-500/40 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between group"
               >
                 <div>
-                  <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-900">
+                  <div className="relative aspect-[16/11] sm:aspect-[16/10] w-full overflow-hidden bg-slate-900">
                     <Image
                       src={item.image}
                       alt={item.title}
@@ -120,28 +120,28 @@ export function ProjectsShowcase() {
                       className="object-cover group-hover:scale-108 transition-transform duration-500"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
-                    <span className="absolute top-3 left-3 px-2.5 py-1 bg-white/90 text-solar-dark font-bold text-[10px] sm:text-[11px] rounded-full backdrop-blur-md shadow-sm">
+                    <span className="absolute top-2 left-2 sm:top-3 sm:left-3 px-2 py-0.5 sm:px-2.5 sm:py-1 bg-white/90 text-solar-dark font-bold text-[9px] sm:text-[11px] rounded-full backdrop-blur-md shadow-sm">
                       {item.category}
                     </span>
                   </div>
 
-                  <div className="p-4 sm:p-5 space-y-3">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                        <MapPin className="w-3.5 h-3.5 text-solar-emerald shrink-0" />
+                  <div className="p-3 sm:p-5 space-y-2 sm:space-y-3">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1 text-[10px] sm:text-xs text-slate-500 font-medium">
+                        <MapPin className="w-3 h-3 text-solar-emerald shrink-0" />
                         <span className="truncate">{item.location}</span>
                       </div>
-                      <h3 className="font-heading font-bold text-sm sm:text-base text-slate-900 leading-snug group-hover:text-solar-deep transition-colors line-clamp-2">
+                      <h3 className="font-heading font-bold text-xs sm:text-sm md:text-base text-slate-900 leading-snug group-hover:text-solar-deep transition-colors line-clamp-2">
                         {item.title}
                       </h3>
                     </div>
 
-                    <div className="space-y-2 pt-2 border-t border-slate-100 text-xs">
-                      <div className="flex items-center gap-1.5 text-slate-700 font-semibold">
-                        <Zap className="w-3.5 h-3.5 text-sun-amber shrink-0" />
+                    <div className="space-y-1 pt-1.5 border-t border-slate-100 text-[10px] sm:text-xs">
+                      <div className="flex items-center gap-1 text-slate-700 font-semibold">
+                        <Zap className="w-3 h-3 text-sun-amber shrink-0" />
                         <span className="truncate">{item.capacity}</span>
                       </div>
-                      <p className="text-emerald-700 bg-emerald-50 p-2.5 rounded-xl font-medium leading-relaxed text-[11px] sm:text-xs">
+                      <p className="text-emerald-700 bg-emerald-50 p-1.5 sm:p-2 rounded-lg font-medium leading-relaxed truncate">
                         {item.result}
                       </p>
                     </div>
@@ -157,13 +157,13 @@ export function ProjectsShowcase() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.4, delay: 0.2 }}
-          className="mt-8 sm:mt-12 text-center"
+          className="mt-6 sm:mt-10 text-center"
         >
           <Link
             href="/projects"
-            className="inline-flex items-center gap-2 px-6 sm:px-8 py-3.5 bg-slate-900 hover:bg-solar-deep text-white font-bold text-xs sm:text-sm rounded-full transition-all group shadow-md"
+            className="inline-flex items-center gap-2 px-6 py-3 sm:px-8 sm:py-3.5 bg-slate-900 hover:bg-solar-deep text-white font-bold text-xs sm:text-sm rounded-full transition-all group shadow-md"
           >
-            <span>View Full Portfolio & Specifications</span>
+            <span>View Full Portfolio & Specs</span>
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </Link>
         </motion.div>

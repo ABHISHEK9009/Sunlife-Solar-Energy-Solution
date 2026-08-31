@@ -19,33 +19,33 @@ export function WhySolar() {
   const benefits = [
     {
       icon: Coins,
-      title: "Immediate & Massive Savings",
-      desc: "Slash your monthly electricity bill by up to 80%–90% right from the first billing cycle after net meter synchronization.",
+      title: "Immediate Savings",
+      desc: "Slash your monthly electricity bill by up to 80%–90% from the first billing cycle.",
     },
     {
       icon: ShieldAlert,
-      title: "Hedge Against Tariff Hikes",
-      desc: "Lock in your electricity generation cost for the next 25 years and protect your household or business from rising Discom power rates.",
+      title: "Tariff Protection",
+      desc: "Lock in electricity costs for 25 years against rising DISCOM power tariffs.",
     },
     {
       icon: Home,
-      title: "Appreciates Property Value",
-      desc: "Properties equipped with modern rooftop solar arrays attract higher market valuation and appeal strongly to energy-conscious buyers.",
+      title: "Property Value",
+      desc: "Rooftop solar increases property market valuation and buyer appeal.",
     },
     {
       icon: Award,
-      title: "Direct PM Surya Ghar Subsidies",
-      desc: "Eligible residential installations receive direct bank account transfers under the central PM Surya Ghar Muft Bijli Yojana.",
+      title: "PM Surya Ghar",
+      desc: "Direct bank transfer subsidies up to ₹78,000 for eligible homes.",
     },
     {
       icon: Clock,
-      title: "25-Year Linear Performance",
-      desc: "Tier-1 Monocrystalline PERC solar panels retain high conversion efficiency over decades with minimal routine maintenance.",
+      title: "25-Yr Performance",
+      desc: "Tier-1 Mono-PERC panels retain high power output over decades.",
     },
     {
       icon: Leaf,
-      title: "Clean Green Environmental Impact",
-      desc: "A typical 5 kW residential solar setup offsets approximately 6 tonnes of carbon dioxide emissions every single year.",
+      title: "Clean & Green",
+      desc: "Offset ~6 tonnes of carbon dioxide emissions every single year.",
     },
   ];
 
@@ -57,41 +57,41 @@ export function WhySolar() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-60px" }}
           transition={{ duration: 0.5 }}
-          className="text-center max-w-3xl mx-auto mb-8 sm:mb-12 md:mb-14"
+          className="text-center max-w-3xl mx-auto mb-6 sm:mb-10 md:mb-12"
         >
-          <span className="text-xs font-bold text-solar-emerald uppercase tracking-wider bg-emerald-100/80 px-3.5 py-1.5 rounded-full inline-block mb-3">
+          <span className="text-xs font-bold text-solar-emerald uppercase tracking-wider bg-emerald-100/80 px-3.5 py-1.5 rounded-full inline-block mb-2 sm:mb-3">
             Core Advantages
           </span>
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold font-heading text-slate-950 leading-tight">
             Why Switch to Solar Energy?
           </h2>
-          <p className="text-sm sm:text-base text-slate-600 mt-3 leading-relaxed">
+          <p className="text-xs sm:text-sm md:text-base text-slate-600 mt-2 sm:mt-3 leading-relaxed">
             A transition to solar provides financial stability, technical autonomy, and measurable environmental benefits for decades to come.
           </p>
         </motion.div>
 
-        {/* Responsive Grid: 1 col on mobile, 2 cols on sm, 3 cols on lg */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-5 lg:gap-6">
+        {/* Responsive 2-Column Mobile Grid, 3-Column Desktop Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-4 md:gap-6">
           {benefits.map((b, idx) => {
             const Icon = b.icon;
             return (
               <motion.div
                 key={idx}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 15 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-40px" }}
-                transition={{ duration: 0.4, delay: idx * 0.06 }}
+                viewport={{ once: true, margin: "-30px" }}
+                transition={{ duration: 0.4, delay: idx * 0.05 }}
                 whileHover={{ y: -4 }}
-                className="p-5 sm:p-6 md:p-7 rounded-3xl bg-white border border-slate-200/80 hover:border-emerald-500/40 shadow-sm hover:shadow-lg transition-all duration-300 group flex flex-col justify-between"
+                className="p-3.5 sm:p-5 md:p-6 rounded-2xl sm:rounded-3xl bg-white border border-slate-200/80 hover:border-emerald-500/40 shadow-sm hover:shadow-lg transition-all duration-300 group flex flex-col justify-between"
               >
-                <div className="space-y-3 sm:space-y-4">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-solar-light text-solar-deep flex items-center justify-center group-hover:bg-solar-deep group-hover:text-sun-amber transition-colors duration-300 shadow-sm">
-                    <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
+                <div className="space-y-2 sm:space-y-3">
+                  <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl bg-solar-light text-solar-deep flex items-center justify-center group-hover:bg-solar-deep group-hover:text-sun-amber transition-colors duration-300 shadow-sm">
+                    <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
-                  <h3 className="font-heading font-bold text-base sm:text-lg text-slate-900 leading-snug">
+                  <h3 className="font-heading font-bold text-xs sm:text-sm md:text-base text-slate-900 leading-tight">
                     {b.title}
                   </h3>
-                  <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
+                  <p className="text-slate-600 text-[11px] sm:text-xs leading-relaxed line-clamp-3 sm:line-clamp-none">
                     {b.desc}
                   </p>
                 </div>
@@ -105,14 +105,14 @@ export function WhySolar() {
           initial={{ opacity: 0, y: 15 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.4, delay: 0.3 }}
-          className="mt-8 sm:mt-12 text-center"
+          transition={{ duration: 0.4, delay: 0.2 }}
+          className="mt-6 sm:mt-10 text-center"
         >
           <motion.button
             whileHover={{ scale: 1.03, y: -2 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setModalOpen(true)}
-            className="inline-flex items-center gap-2 px-7 py-3.5 sm:px-8 sm:py-4 bg-solar-deep hover:bg-solar-dark text-white font-bold text-xs sm:text-sm md:text-base rounded-full shadow-lg shadow-emerald-950/20 transition-all group cursor-pointer"
+            className="inline-flex items-center gap-2 px-6 py-3 sm:px-8 sm:py-4 bg-solar-deep hover:bg-solar-dark text-white font-bold text-xs sm:text-sm md:text-base rounded-full shadow-lg shadow-emerald-950/20 transition-all group cursor-pointer"
           >
             <span>Claim Your Free Solar Consultation</span>
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
