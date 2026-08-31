@@ -33,6 +33,7 @@ import {
   ExternalLink,
   Edit3,
   Download,
+  MoreVertical,
 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 
@@ -55,6 +56,8 @@ interface AttendanceRecord {
   checkIn: string;
   checkOut: string;
   assignedSite: string;
+  remarks?: string;
+  updatedAt?: string;
 }
 
 interface PayrollRecord {
@@ -102,14 +105,29 @@ function TeamContent() {
   const [selectedDate, setSelectedDate] = useState(getTodayISO());
   const [search, setSearch] = useState("");
   const [teamList, setTeamList] = useState<TeamMember[]>([]);
+  
+  // Date-wise Attendance Store: { [YYYY-MM-DD]: { [memberId]: AttendanceRecord } }
   const [attendanceHistory, setAttendanceHistory] = useState<
     Record<string, Record<string, AttendanceRecord>>
   >({});
   const [payrollRecords, setPayrollRecords] = useState<Record<string, PayrollRecord>>({});
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
+  // Active Action Menu Dropdown State (Member ID or null)
+  const [activeMenuMemberId, setActiveMenuMemberId] = useState<string | null>(null);
+
+  // Update Attendance Card / Modal State
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [selectedMemberForUpdate, setSelectedMemberForUpdate] = useState<TeamMember | null>(null);
+  const [modalFormDate, setModalFormDate] = useState(getTodayISO());
+  const [modalFormStatus, setModalFormStatus] = useState<AttendanceRecord["status"]>("Present");
+  const [modalFormCheckIn, setModalFormCheckIn] = useState("09:15 AM");
+  const [modalFormCheckOut, setModalFormCheckOut] = useState("05:30 PM");
+  const [modalFormSite, setModalFormSite] = useState("");
+  const [modalFormRemarks, setModalFormRemarks] = useState("");
+
   // Add Member Modal State
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newMember, setNewMember] = useState({
     name: "",
     role: "",
@@ -122,11 +140,19 @@ function TeamContent() {
     "Mono-PERC Installation",
     "Hot-Dip GI Fabrication",
   ]);
-  const [customSkillInput, setCustomSkillInput] = useState("");
-  const [isSkillDropdownOpen, setIsSkillDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Load real team list and attendance records from localStorage
+  // Close menus on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!(event.target as HTMLElement).closest(".action-menu-container")) {
+        setActiveMenuMemberId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Load real team list and date-wise attendance from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
       const today = getTodayISO();
@@ -159,8 +185,8 @@ function TeamContent() {
       }
       setTeamList(initialList);
 
-      // Attendance History
-      const savedAtt = localStorage.getItem("sunlife_admin_attendance_simple");
+      // Date-wise Attendance History
+      const savedAtt = localStorage.getItem("sunlife_attendance_database_v3");
       let history: Record<string, Record<string, AttendanceRecord>> = {};
       if (savedAtt) {
         try {
@@ -179,6 +205,7 @@ function TeamContent() {
             checkIn: "09:15 AM",
             checkOut: "05:30 PM",
             assignedSite: m.territory ? `${m.territory} Solar Site` : "Narmadapuram HQ",
+            remarks: "On-site EPC duty",
           };
         });
         history[today] = todayRecords;
@@ -186,7 +213,7 @@ function TeamContent() {
       setAttendanceHistory(history);
 
       // Payroll Records
-      const savedPay = localStorage.getItem("sunlife_admin_payroll_simple");
+      const savedPay = localStorage.getItem("sunlife_admin_payroll_v3");
       if (savedPay) {
         try {
           setPayrollRecords(JSON.parse(savedPay));
@@ -215,18 +242,7 @@ function TeamContent() {
     setPayrollRecords(records);
   };
 
-  // Close skills dropdown on outside click
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsSkillDropdownOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Save Helpers
+  // Save Helpers (Preserves all historical dates permanently)
   const saveTeamList = (updated: TeamMember[]) => {
     setTeamList(updated);
     if (typeof window !== "undefined") {
@@ -239,7 +255,7 @@ function TeamContent() {
   ) => {
     setAttendanceHistory(updated);
     if (typeof window !== "undefined") {
-      localStorage.setItem("sunlife_admin_attendance_simple", JSON.stringify(updated));
+      localStorage.setItem("sunlife_attendance_database_v3", JSON.stringify(updated));
       // Also sync with mobile punch storage
       localStorage.setItem("sunlife_admin_attendance_v2", JSON.stringify(updated));
     }
@@ -248,72 +264,77 @@ function TeamContent() {
   const savePayroll = (updated: Record<string, PayrollRecord>) => {
     setPayrollRecords(updated);
     if (typeof window !== "undefined") {
-      localStorage.setItem("sunlife_admin_payroll_simple", JSON.stringify(updated));
+      localStorage.setItem("sunlife_admin_payroll_v3", JSON.stringify(updated));
     }
   };
 
-  // Current day attendance map
+  // Current selected date's attendance records
   const currentDayAttendance = attendanceHistory[selectedDate] || {};
 
-  // Instant 1-Click Status Update in Row
-  const handleUpdateStatus = (
-    memberId: string,
-    status: AttendanceRecord["status"]
-  ) => {
-    const current = currentDayAttendance[memberId] || {
-      memberId,
-      status: "Present",
-      checkIn: "09:00 AM",
+  // Open Update Attendance Modal Card for specific staff member
+  const handleOpenUpdateModal = (member: TeamMember) => {
+    setActiveMenuMemberId(null);
+    setSelectedMemberForUpdate(member);
+    setModalFormDate(selectedDate);
+
+    const existing = currentDayAttendance[member.id] || {
+      memberId: member.id,
+      status: "Present" as const,
+      checkIn: "09:15 AM",
       checkOut: "05:30 PM",
-      assignedSite: "Narmadapuram Site",
+      assignedSite: `${member.territory} Solar Site`,
+      remarks: "",
     };
 
-    const updatedDay = {
-      ...currentDayAttendance,
-      [memberId]: { ...current, status },
-    };
-
-    saveAttendanceHistory({
-      ...attendanceHistory,
-      [selectedDate]: updatedDay,
-    });
+    setModalFormStatus(existing.status || "Present");
+    setModalFormCheckIn(existing.checkIn || "09:15 AM");
+    setModalFormCheckOut(existing.checkOut || "05:30 PM");
+    setModalFormSite(existing.assignedSite || `${member.territory} Solar Site`);
+    setModalFormRemarks(existing.remarks || "");
+    setIsUpdateModalOpen(true);
   };
 
-  // Instant 1-Click Time / Site Update in Row
-  const handleUpdateField = (
-    memberId: string,
-    field: keyof AttendanceRecord,
-    value: string
-  ) => {
-    const current = currentDayAttendance[memberId] || {
+  // Save Attendance from Modal Card (Date-Wise Persistent)
+  const handleSaveModalAttendance = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedMemberForUpdate) return;
+
+    const memberId = selectedMemberForUpdate.id;
+    const targetDate = modalFormDate;
+
+    const dayRecords = attendanceHistory[targetDate] || {};
+    const updatedRecord: AttendanceRecord = {
       memberId,
-      status: "Present",
-      checkIn: "09:00 AM",
-      checkOut: "05:30 PM",
-      assignedSite: "Narmadapuram Site",
+      status: modalFormStatus,
+      checkIn: modalFormStatus === "Absent" || modalFormStatus === "Leave" ? "--" : modalFormCheckIn,
+      checkOut: modalFormStatus === "Absent" || modalFormStatus === "Leave" ? "--" : modalFormCheckOut,
+      assignedSite: modalFormSite.trim() || `${selectedMemberForUpdate.territory} Site`,
+      remarks: modalFormRemarks.trim(),
+      updatedAt: new Date().toISOString(),
     };
 
-    const updatedDay = {
-      ...currentDayAttendance,
-      [memberId]: { ...current, [field]: value },
-    };
-
-    saveAttendanceHistory({
+    const updatedHistory = {
       ...attendanceHistory,
-      [selectedDate]: updatedDay,
-    });
+      [targetDate]: {
+        ...dayRecords,
+        [memberId]: updatedRecord,
+      },
+    };
+
+    saveAttendanceHistory(updatedHistory);
+    setIsUpdateModalOpen(false);
   };
 
-  // Quick Action: Mark All Present
+  // Quick Action: Mark All Present for Selected Date
   const handleMarkAllPresent = () => {
     const updatedDay = { ...currentDayAttendance };
     teamList.forEach((m) => {
       const current = currentDayAttendance[m.id] || {
         memberId: m.id,
         status: "Present",
-        checkIn: "09:00 AM",
+        checkIn: "09:15 AM",
         checkOut: "05:30 PM",
-        assignedSite: `${m.territory} Site`,
+        assignedSite: `${m.territory} Solar Site`,
       };
       updatedDay[m.id] = { ...current, status: "Present" };
     });
@@ -328,19 +349,20 @@ function TeamContent() {
   const handleExportCSV = () => {
     let csv = "SUNLIFE SOLAR ENERGY SOLUTION - WORKFORCE ATTENDANCE REPORT\n";
     csv += `Date:,"${selectedDate}"\n`;
-    csv += `Export Time:,"${new Date().toLocaleString("en-IN")}"\n\n`;
+    csv += `Exported On:,"${new Date().toLocaleString("en-IN")}"\n\n`;
 
-    csv += "Employee Name,Department,Contact Phone,Attendance Status,Check-In,Check-Out,Assigned Project Site\n";
+    csv += "Employee Name,Department,Contact Phone,Attendance Status,Check-In,Check-Out,Assigned Project Site,Remarks\n";
 
     teamList.forEach((m) => {
       const rec = currentDayAttendance[m.id] || {
         status: "Present",
-        checkIn: "09:00 AM",
+        checkIn: "09:15 AM",
         checkOut: "05:30 PM",
         assignedSite: `${m.territory} Site`,
+        remarks: "",
       };
 
-      csv += `"${m.name}","${m.category}","${m.phone}","${rec.status}","${rec.checkIn}","${rec.checkOut}","${rec.assignedSite}"\n`;
+      csv += `"${m.name}","${m.category}","${m.phone}","${rec.status}","${rec.checkIn}","${rec.checkOut}","${rec.assignedSite}","${rec.remarks || ""}"\n`;
     });
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -386,7 +408,7 @@ function TeamContent() {
     const updatedList = [created, ...teamList];
     saveTeamList(updatedList);
 
-    // Add attendance
+    // Add attendance entry for selected date
     const todayRecords = attendanceHistory[selectedDate] || {};
     saveAttendanceHistory({
       ...attendanceHistory,
@@ -395,14 +417,14 @@ function TeamContent() {
         [created.id]: {
           memberId: created.id,
           status: "Present",
-          checkIn: "09:00 AM",
+          checkIn: "09:15 AM",
           checkOut: "05:30 PM",
           assignedSite: `${created.territory} Site`,
         },
       },
     });
 
-    // Add payroll
+    // Add payroll record
     savePayroll({
       ...payrollRecords,
       [created.id]: {
@@ -431,7 +453,32 @@ function TeamContent() {
     saveTeamList(updated);
   };
 
-  // KPI calculations
+  // Aggregate monthly attendance count across all logged dates
+  const calculateTotalMonthlyDays = (memberId: string) => {
+    let presentDays = 0;
+    let absentDays = 0;
+    let halfDays = 0;
+
+    Object.values(attendanceHistory).forEach((dayMap) => {
+      const rec = dayMap[memberId];
+      if (rec) {
+        if (rec.status === "Present" || rec.status === "On Survey") {
+          presentDays += 1;
+        } else if (rec.status === "Half Day") {
+          halfDays += 1;
+        } else if (rec.status === "Absent") {
+          absentDays += 1;
+        }
+      }
+    });
+
+    return {
+      verifiedPaidDays: presentDays + halfDays * 0.5,
+      absentDays: absentDays + halfDays * 0.5,
+    };
+  };
+
+  // KPI calculations for selected date
   const totalStaff = teamList.length;
   const presentCount = Object.values(currentDayAttendance).filter(
     (a) => a.status === "Present" || a.status === "On Survey"
@@ -465,7 +512,7 @@ function TeamContent() {
             Team & Field Crew
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Quick daily attendance marking, technician profiles, and wage ledger.
+            Manage daily attendance records date-wise, staff profiles, and monthly salary calculations.
           </p>
         </div>
 
@@ -502,7 +549,7 @@ function TeamContent() {
         </div>
       </div>
 
-      {/* 3 Simple, Clean Subheading Tabs */}
+      {/* 3 Simple Subheading Tabs */}
       <div className="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap sm:flex-nowrap gap-1.5 w-full">
         {/* Tab 1: Daily Attendance */}
         <button
@@ -563,39 +610,10 @@ function TeamContent() {
       </div>
 
       {/* ======================================================== */}
-      {/* 1. DAILY ATTENDANCE (SUPER SIMPLE 1-CLICK MARKING) */}
+      {/* 1. DAILY ATTENDANCE (CLEAN TABLE + THREE DOT ACTIONS) */}
       {/* ======================================================== */}
       {activeTab === "attendance" && (
         <div className="space-y-5 animate-in fade-in duration-200">
-          {/* Mobile App Link Strip for Field Crew */}
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-950 text-white border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
-                <Smartphone className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="font-bold text-sm text-white flex items-center gap-2">
-                  <span>Crew Mobile Self-Punch Portal</span>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-400 text-slate-950 text-[10px] font-extrabold">
-                    LIVE
-                  </span>
-                </div>
-                <p className="text-xs text-slate-300">
-                  Technicians on site can punch in & out directly from their phone browser via <code className="bg-black/40 px-1.5 py-0.5 rounded text-emerald-300 font-mono">/crew/punch</code>
-                </p>
-              </div>
-            </div>
-
-            <Link
-              href="/crew/punch"
-              target="_blank"
-              className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-colors self-start sm:self-auto cursor-pointer"
-            >
-              <span>Test Mobile App Screen</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-
           {/* Simple KPI Summary Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 w-full">
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
@@ -609,7 +627,7 @@ function TeamContent() {
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
               <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">
-                Present Today
+                Present on {selectedDate}
               </span>
               <div className="text-2xl font-extrabold font-heading text-solar-deep mt-1">
                 {presentCount}
@@ -644,13 +662,13 @@ function TeamContent() {
             </div>
           </div>
 
-          {/* Date Picker & Quick Action Bar */}
+          {/* Date Picker & Action Strip */}
           <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3">
-              {/* Date */}
+              {/* Date Input */}
               <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
                 <Calendar className="w-4 h-4 text-solar-deep" />
-                <label className="text-xs font-bold text-slate-700">Date:</label>
+                <label className="text-xs font-bold text-slate-700">Attendance Date:</label>
                 <input
                   type="date"
                   value={selectedDate}
@@ -658,6 +676,12 @@ function TeamContent() {
                   className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
                 />
               </div>
+
+              {selectedDate === getTodayISO() && (
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                  Today
+                </span>
+              )}
 
               {/* Search */}
               <div className="relative w-64">
@@ -692,19 +716,19 @@ function TeamContent() {
             </div>
           </div>
 
-          {/* Super Simple Attendance Table with 1-Click Dropdown */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden w-full">
+          {/* Clean Read-Only Attendance Table with Three-Dot Actions */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-visible w-full">
             <div className="overflow-x-auto w-full">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
                   <tr>
                     <th className="px-6 py-3.5">Staff Member</th>
                     <th className="px-6 py-3.5">Department</th>
-                    <th className="px-6 py-3.5 min-w-[200px]">Attendance Status (1-Click)</th>
+                    <th className="px-6 py-3.5">Attendance Status</th>
                     <th className="px-6 py-3.5">Check-In</th>
                     <th className="px-6 py-3.5">Check-Out</th>
                     <th className="px-6 py-3.5">Assigned Solar Site</th>
-                    <th className="px-6 py-3.5 text-right">Quick Call</th>
+                    <th className="px-6 py-3.5 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -712,9 +736,19 @@ function TeamContent() {
                     const rec = currentDayAttendance[member.id] || {
                       memberId: member.id,
                       status: "Present",
-                      checkIn: "09:00 AM",
+                      checkIn: "09:15 AM",
                       checkOut: "05:30 PM",
-                      assignedSite: `${member.territory} Site`,
+                      assignedSite: `${member.territory} Solar Site`,
+                    };
+
+                    const isMenuOpen = activeMenuMemberId === member.id;
+
+                    const statusStyles: Record<string, string> = {
+                      Present: "bg-emerald-50 text-emerald-800 border-emerald-200",
+                      "On Survey": "bg-amber-50 text-amber-900 border-amber-200",
+                      "Half Day": "bg-orange-50 text-orange-800 border-orange-200",
+                      Absent: "bg-red-50 text-red-800 border-red-200",
+                      Leave: "bg-purple-50 text-purple-800 border-purple-200",
                     };
 
                     return (
@@ -736,81 +770,94 @@ function TeamContent() {
                           </span>
                         </td>
 
-                        {/* Instant 1-Click Status Dropdown */}
+                        {/* Status Badge */}
                         <td className="px-6 py-4">
-                          <select
-                            value={rec.status}
-                            onChange={(e) =>
-                              handleUpdateStatus(
-                                member.id,
-                                e.target.value as AttendanceRecord["status"]
-                              )
-                            }
-                            className={`w-full px-3 py-2 rounded-xl text-xs font-extrabold border transition-all cursor-pointer shadow-xs ${
-                              rec.status === "Present"
-                                ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                                : rec.status === "On Survey"
-                                ? "bg-amber-50 text-amber-900 border-amber-300"
-                                : rec.status === "Half Day"
-                                ? "bg-orange-50 text-orange-800 border-orange-300"
-                                : rec.status === "Absent"
-                                ? "bg-red-50 text-red-800 border-red-300"
-                                : "bg-purple-50 text-purple-800 border-purple-300"
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-bold border inline-flex items-center gap-1.5 ${
+                              statusStyles[rec.status] || "bg-slate-100 text-slate-700"
                             }`}
                           >
-                            <option value="Present">🟢 Present (Full Day On-Site)</option>
-                            <option value="On Survey">🟡 On Site Survey</option>
-                            <option value="Half Day">🟠 Half Day</option>
-                            <option value="Absent">🔴 Absent</option>
-                            <option value="Leave">🟣 On Leave</option>
-                          </select>
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                rec.status === "Present"
+                                  ? "bg-emerald-500"
+                                  : rec.status === "On Survey"
+                                  ? "bg-amber-500"
+                                  : rec.status === "Half Day"
+                                  ? "bg-orange-500"
+                                  : rec.status === "Absent"
+                                  ? "bg-red-500"
+                                  : "bg-purple-500"
+                              }`}
+                            />
+                            <span>{rec.status}</span>
+                          </span>
                         </td>
 
-                        {/* Check-In Editable */}
-                        <td className="px-6 py-4">
-                          <input
-                            type="text"
-                            value={rec.checkIn}
-                            onChange={(e) =>
-                              handleUpdateField(member.id, "checkIn", e.target.value)
-                            }
-                            className="w-24 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          />
+                        {/* Check-In */}
+                        <td className="px-6 py-4 font-semibold text-slate-800">
+                          {rec.checkIn || "--"}
                         </td>
 
-                        {/* Check-Out Editable */}
-                        <td className="px-6 py-4">
-                          <input
-                            type="text"
-                            value={rec.checkOut}
-                            onChange={(e) =>
-                              handleUpdateField(member.id, "checkOut", e.target.value)
-                            }
-                            className="w-24 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          />
+                        {/* Check-Out */}
+                        <td className="px-6 py-4 font-semibold text-slate-800">
+                          {rec.checkOut || "--"}
                         </td>
 
-                        {/* Assigned Site Editable */}
-                        <td className="px-6 py-4">
-                          <input
-                            type="text"
-                            value={rec.assignedSite}
-                            onChange={(e) =>
-                              handleUpdateField(member.id, "assignedSite", e.target.value)
-                            }
-                            className="w-48 sm:w-56 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          />
+                        {/* Assigned Site */}
+                        <td className="px-6 py-4 text-slate-700 font-medium">
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-solar-emerald shrink-0" />
+                            <span>{rec.assignedSite || `${member.territory} Site`}</span>
+                          </span>
                         </td>
 
-                        {/* Quick Contact */}
-                        <td className="px-6 py-4 text-right">
-                          <a
-                            href={`tel:${member.phone}`}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-solar-deep hover:text-white rounded-xl text-slate-700 font-bold transition-colors"
-                          >
-                            <Phone className="w-3.5 h-3.5" />
-                            <span>Call</span>
-                          </a>
+                        {/* Three Dot Action Menu */}
+                        <td className="px-6 py-4 text-right relative action-menu-container">
+                          <div className="relative inline-block text-left">
+                            <button
+                              onClick={() =>
+                                setActiveMenuMemberId(isMenuOpen ? null : member.id)
+                              }
+                              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+                              title="Actions"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+
+                            {/* Dropdown Floating Menu */}
+                            {isMenuOpen && (
+                              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 text-left">
+                                <button
+                                  onClick={() => handleOpenUpdateModal(member)}
+                                  className="w-full px-3.5 py-2 text-xs font-bold text-solar-deep hover:bg-emerald-50 flex items-center gap-2 transition-colors cursor-pointer"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5 text-solar-emerald" />
+                                  <span>Update Attendance</span>
+                                </button>
+
+                                <div className="h-px bg-slate-100 my-1" />
+
+                                <a
+                                  href={`tel:${member.phone}`}
+                                  className="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                                >
+                                  <Phone className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>Call {member.name.split(" ")[0]}</span>
+                                </a>
+
+                                <a
+                                  href={`https://wa.me/91${member.phone.replace(/[^0-9]/g, "")}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="w-full px-3.5 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50/60 flex items-center gap-2 transition-colors"
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>WhatsApp Message</span>
+                                </a>
+                              </div>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -948,7 +995,7 @@ function TeamContent() {
       )}
 
       {/* ======================================================== */}
-      {/* 3. PAYROLL & PAYMENT */}
+      {/* 3. PAYROLL & PAYMENT (CONNECTED TO DATE-WISE ATTENDANCE) */}
       {/* ======================================================== */}
       {activeTab === "payroll" && (
         <div className="space-y-6 animate-in fade-in duration-200">
@@ -956,10 +1003,10 @@ function TeamContent() {
             <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="font-bold font-heading text-base text-slate-900">
-                  Staff Wage & Payment Ledger
+                  Staff Wage & Payment Ledger (Attendance Verified)
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Monthly wage calculation, site allowances (Bhatta), and payment clearance
+                  Monthly wage calculation based on verified date-wise attendance records
                 </p>
               </div>
               <span className="px-3 py-1.5 rounded-xl bg-slate-900 text-sun-amber text-xs font-bold">
@@ -972,6 +1019,7 @@ function TeamContent() {
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
                   <tr>
                     <th className="px-6 py-3.5">Staff Member</th>
+                    <th className="px-6 py-3.5">Verified Paid Days</th>
                     <th className="px-6 py-3.5">Base Monthly Pay</th>
                     <th className="px-6 py-3.5">Site Allowance (Bhatta)</th>
                     <th className="px-6 py-3.5">Total Payable</th>
@@ -981,6 +1029,7 @@ function TeamContent() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {teamList.map((member) => {
+                    const { verifiedPaidDays } = calculateTotalMonthlyDays(member.id);
                     const record = payrollRecords[member.id] || {
                       memberId: member.id,
                       baseAmount: member.monthlySalary || 18000,
@@ -1000,6 +1049,10 @@ function TeamContent() {
                           <div className="text-[10px] text-slate-400">
                             {member.role}
                           </div>
+                        </td>
+
+                        <td className="px-6 py-4 font-extrabold text-solar-deep">
+                          {verifiedPaidDays} Days Logged
                         </td>
 
                         <td className="px-6 py-4 font-semibold text-slate-900">
@@ -1048,7 +1101,176 @@ function TeamContent() {
         </div>
       )}
 
-      {/* Add Team Member Modal via React Portal */}
+      {/* ======================================================== */}
+      {/* 4. UPDATE ATTENDANCE CARD / MODAL (DATE-WISE PERSISTENT) */}
+      {/* ======================================================== */}
+      {isUpdateModalOpen &&
+        selectedMemberForUpdate &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-[999] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+            <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95 duration-150 my-auto">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-3">
+                  <Image
+                    src="/logo/logo.svg"
+                    alt="Sunlife Solar"
+                    width={130}
+                    height={38}
+                    className="h-7 w-auto object-contain"
+                  />
+                  <div className="h-5 w-px bg-slate-200 hidden sm:block" />
+                  <div>
+                    <h3 className="font-bold font-heading text-base text-slate-900 leading-tight">
+                      Update Attendance
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      {selectedMemberForUpdate.name} ({selectedMemberForUpdate.role})
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsUpdateModalOpen(false)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Form */}
+              <form onSubmit={handleSaveModalAttendance} className="space-y-4 text-xs">
+                {/* Date Picker */}
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Attendance Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={modalFormDate}
+                    onChange={(e) => setModalFormDate(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Record will be saved permanently under date: {modalFormDate}
+                  </span>
+                </div>
+
+                {/* Duty Status Buttons */}
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Duty Status <span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {[
+                      { key: "Present", label: "🟢 Present (Full Day)" },
+                      { key: "On Survey", label: "🟡 On Site Survey" },
+                      { key: "Half Day", label: "🟠 Half Day" },
+                      { key: "Absent", label: "🔴 Absent" },
+                      { key: "Leave", label: "🟣 On Leave" },
+                    ].map((st) => (
+                      <button
+                        key={st.key}
+                        type="button"
+                        onClick={() => setModalFormStatus(st.key as AttendanceRecord["status"])}
+                        className={`p-2 rounded-xl font-bold text-left transition-all border cursor-pointer ${
+                          modalFormStatus === st.key
+                            ? "bg-solar-deep text-white border-solar-deep shadow-xs"
+                            : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                        }`}
+                      >
+                        {st.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Timings (if present/survey/halfday) */}
+                {modalFormStatus !== "Absent" && modalFormStatus !== "Leave" && (
+                  <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">
+                        Check-In Time
+                      </label>
+                      <input
+                        type="text"
+                        value={modalFormCheckIn}
+                        onChange={(e) => setModalFormCheckIn(e.target.value)}
+                        placeholder="09:15 AM"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">
+                        Check-Out Time
+                      </label>
+                      <input
+                        type="text"
+                        value={modalFormCheckOut}
+                        onChange={(e) => setModalFormCheckOut(e.target.value)}
+                        placeholder="05:30 PM"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Assigned Solar Site */}
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Assigned Solar Site / Location
+                  </label>
+                  <input
+                    type="text"
+                    value={modalFormSite}
+                    onChange={(e) => setModalFormSite(e.target.value)}
+                    placeholder="e.g. Narmadapuram 5kW Rooftop Site"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-medium"
+                  />
+                </div>
+
+                {/* Remarks */}
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Remarks / Work Notes
+                  </label>
+                  <input
+                    type="text"
+                    value={modalFormRemarks}
+                    onChange={(e) => setModalFormRemarks(e.target.value)}
+                    placeholder="e.g. Structure erection and DC cabling completed"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-medium"
+                  />
+                </div>
+
+                {/* Footer Buttons */}
+                <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsUpdateModalOpen(false)}
+                    className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 cursor-pointer transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 rounded-xl bg-solar-deep hover:bg-slate-900 text-white font-bold cursor-pointer transition-all shadow-md shadow-emerald-950/15"
+                  >
+                    Save Attendance
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* ======================================================== */}
+      {/* 5. ADD TEAM MEMBER MODAL */}
+      {/* ======================================================== */}
       {isAddModalOpen &&
         isLoaded &&
         typeof document !== "undefined" &&
