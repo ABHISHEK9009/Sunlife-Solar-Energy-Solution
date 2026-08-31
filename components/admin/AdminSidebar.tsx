@@ -77,19 +77,19 @@ export function AdminSidebar({ mobileOpen, setMobileOpen }: AdminSidebarProps) {
         {/* Top Header & Navigation */}
         <div className="flex flex-col h-full overflow-y-auto">
           {/* Logo Bar */}
-          <div className="h-16 px-5 flex items-center justify-between border-b border-slate-100 shrink-0">
+          <div className="h-16 px-5 flex items-center justify-between border-b border-slate-200/90 bg-white shrink-0">
             <Link href="/admin/dashboard" className="flex items-center gap-2">
               <Image
                 src="/logo/logo.svg"
                 alt="Sunlife Solar"
-                width={160}
-                height={50}
-                className="h-8 w-auto object-contain"
+                width={170}
+                height={55}
+                className="h-9 w-auto object-contain"
                 priority
               />
             </Link>
 
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-50 text-solar-deep border border-emerald-200/60 hidden sm:inline-block">
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-50 text-solar-deep border border-emerald-200/80 hidden sm:inline-block">
               Admin
             </span>
 
