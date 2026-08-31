@@ -115,31 +115,65 @@ export function AdminSidebar({ mobileOpen, setMobileOpen }: AdminSidebarProps) {
                 const isActive =
                   pathname === item.href ||
                   (item.href === "/admin/dashboard" && pathname === "/admin");
+                const isTeamItem = item.href === "/admin/team";
 
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMobileOpen(false)}
-                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-                      isActive
-                        ? "bg-solar-deep text-white shadow-xs"
-                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Icon
-                        className={`w-4 h-4 ${
-                          isActive ? "text-sun-amber" : "text-slate-400"
-                        }`}
-                      />
-                      <span>{item.name}</span>
-                    </div>
+                  <div key={item.href} className="space-y-1">
+                    <Link
+                      href={item.href}
+                      onClick={() => setMobileOpen(false)}
+                      className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                        isActive
+                          ? "bg-solar-deep text-white shadow-xs"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Icon
+                          className={`w-4 h-4 ${
+                            isActive ? "text-sun-amber" : "text-slate-400"
+                          }`}
+                        />
+                        <span>{item.name}</span>
+                      </div>
 
-                    {isActive && (
-                      <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+                      {isActive && (
+                        <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+                      )}
+                    </Link>
+
+                    {/* Sub-Headings under Team & Field Crew */}
+                    {isTeamItem && (
+                      <div className="pl-7 pr-2 py-1 space-y-1">
+                        <Link
+                          href="/admin/team?tab=profiles"
+                          onClick={() => setMobileOpen(false)}
+                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-slate-500 hover:text-solar-deep hover:bg-emerald-50/60 transition-colors"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                          <span>Employee Profiles</span>
+                        </Link>
+
+                        <Link
+                          href="/admin/team?tab=attendance"
+                          onClick={() => setMobileOpen(false)}
+                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-slate-500 hover:text-solar-deep hover:bg-emerald-50/60 transition-colors"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                          <span>Attendance & Duty</span>
+                        </Link>
+
+                        <Link
+                          href="/admin/team?tab=payroll"
+                          onClick={() => setMobileOpen(false)}
+                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-slate-500 hover:text-solar-deep hover:bg-emerald-50/60 transition-colors"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                          <span>Payroll & Payment</span>
+                        </Link>
+                      </div>
                     )}
-                  </Link>
+                  </div>
                 );
               })}
             </div>
