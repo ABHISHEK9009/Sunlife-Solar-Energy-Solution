@@ -1,38 +1,80 @@
-# dependencies
+# Dependencies
 /node_modules
 /.pnp
 .pnp.js
 
-# testing
-/coverage
-
-# next.js
+# Next.js Build Outputs
 /.next/
 /out/
-
-# production
 /build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# local env files
-.env*.local
-
-# vercel
-.vercel
-
-# typescript
+/dist
 *.tsbuildinfo
 next-env.d.ts
 
-# prisma sqlite database
+# Testing & Coverage
+/coverage
+
+# Environment & Credentials
+.env*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+
+# Python & Language Server Caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+__pyrefly*
+.pyrefly*
+*pyrefly*
+
+# Temporary & Scratch Files
+scratch/
+.temp*
+*.tmp
+*.temp
+
+# Debug & Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE & Editor Settings
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Vercel
+.vercel
+
+# Prisma
 prisma/*.db
 prisma/*.db-journal
 dev.db
