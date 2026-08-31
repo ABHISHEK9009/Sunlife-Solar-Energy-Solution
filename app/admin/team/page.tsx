@@ -684,6 +684,7 @@ function TeamContent() {
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
+        allowTaint: true,
         backgroundColor: "#ffffff",
         logging: false,
       });
@@ -711,6 +712,7 @@ function TeamContent() {
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
+        allowTaint: true,
         backgroundColor: "#ffffff",
         logging: false,
       });
@@ -1534,12 +1536,12 @@ function TeamContent() {
                   {/* Slip Header with Sunlife Logo */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
                     <div className="flex items-center gap-4">
-                      <Image
-                        src="/logo/logo.svg"
-                        alt="Sunlife Solar"
-                        width={150}
-                        height={42}
-                        className="h-9 w-auto object-contain"
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src="/logo/logo.png"
+                        alt="Sunlife Solar Energy Solution"
+                        className="h-10 w-auto object-contain shrink-0"
+                        crossOrigin="anonymous"
                       />
                       <div className="h-8 w-px bg-slate-200 hidden sm:block" />
                       <div>
