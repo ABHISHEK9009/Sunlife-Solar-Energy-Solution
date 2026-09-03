@@ -27,7 +27,7 @@ interface AdminSidebarProps {
 export function AdminSidebar({ mobileOpen, setMobileOpen }: AdminSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [teamMenuOpen, setTeamMenuOpen] = useState(true);
+  const [teamMenuOpen, setTeamMenuOpen] = useState(false);
 
   const handleLogout = () => {
     void fetch("/api/admin/login", { method: "DELETE" });

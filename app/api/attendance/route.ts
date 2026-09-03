@@ -94,7 +94,7 @@ export async function PUT(request: Request) {
         });
       })
     );
-    const saved = await prisma.$transaction(operations);
+    const saved = await Promise.all(operations);
     return NextResponse.json({ records: saved.map(toRecord) });
   } catch (error) {
     console.error("Unable to save attendance:", error);
