@@ -1,47 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import React, { useState } from "react";
+import { usePathname } from "next/navigation";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
-import { Menu, RefreshCw, ChevronRight } from "lucide-react";
+import { Menu, ChevronRight } from "lucide-react";
 
 export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [authenticated, setAuthenticated] = useState(false);
 
   const isLoginPage = pathname === "/admin/login";
 
-  useEffect(() => {
-    if (isLoginPage) {
-      setAuthenticated(true);
-      return;
-    }
-
-    if (typeof window !== "undefined") {
-      const auth = localStorage.getItem("sunlife_admin_auth");
-      if (auth !== "true") {
-        router.replace("/admin/login");
-        return;
-      }
-      setAuthenticated(true);
-    }
-  }, [pathname, isLoginPage, router]);
-
   if (isLoginPage) {
     return <>{children}</>;
-  }
-
-  if (!authenticated) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-white text-xs">
-        <div className="flex items-center gap-2.5">
-          <RefreshCw className="w-4 h-4 animate-spin text-sun-amber" />
-          <span>Verifying admin session...</span>
-        </div>
-      </div>
-    );
   }
 
   const getPageTitle = () => {
@@ -78,14 +49,6 @@ export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) 
             </div>
           </div>
 
-          {/* Right Status */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 text-xs font-semibold text-emerald-800">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="hidden sm:inline">Neon PostgreSQL</span>
-              <span>Connected</span>
-            </div>
-          </div>
         </header>
 
         {/* Page Content - Full Width Fluid Canvas */}

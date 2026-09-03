@@ -4,6 +4,8 @@ export function LocalBusinessJsonLd() {
   const schema = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
+    "@id": `${siteConfig.url}/#organization`,
+    additionalType: "https://schema.org/SolarEnergyCompany",
     name: siteConfig.name,
     legalName: siteConfig.legalName,
     description: siteConfig.description,
@@ -33,6 +35,19 @@ export function LocalBusinessJsonLd() {
       name: area,
     })),
     priceRange: "₹₹₹",
+    hasOfferCatalog: {
+      "@type": "OfferCatalog",
+      name: "Solar Energy Solutions",
+      itemListElement: [
+        "Residential Rooftop Solar",
+        "Commercial Solar Installation",
+        "Industrial Solar Power Plants",
+        "Solar Site Survey & System Design",
+      ].map((name) => ({
+        "@type": "Offer",
+        itemOffered: { "@type": "Service", name },
+      })),
+    },
     openingHoursSpecification: [
       {
         "@type": "OpeningHoursSpecification",
@@ -56,6 +71,21 @@ export function LocalBusinessJsonLd() {
       dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
     />
   );
+}
+
+export function WebsiteJsonLd() {
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": `${siteConfig.url}/#website`,
+    url: siteConfig.url,
+    name: siteConfig.name,
+    description: siteConfig.description,
+    publisher: { "@id": `${siteConfig.url}/#organization` },
+    inLanguage: "en-IN",
+  };
+
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />;
 }
 
 export function FAQJsonLd({ faqs }: { faqs: { q: string; a: string }[] }) {

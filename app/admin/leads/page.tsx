@@ -121,7 +121,7 @@ export default function AdminLeadsPage() {
         {loading ? (
           <div className="p-16 text-center text-xs text-slate-500">
             <RefreshCw className="w-6 h-6 animate-spin mx-auto text-solar-deep mb-2" />
-            Connecting to Neon PostgreSQL database...
+            Loading customer leads...
           </div>
         ) : filteredLeads.length === 0 ? (
           <div className="p-16 text-center text-xs text-slate-400 space-y-2">

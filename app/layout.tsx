@@ -6,7 +6,7 @@ import { Footer } from "@/components/layout/Footer";
 import { WhatsAppFloating } from "@/components/layout/WhatsAppFloating";
 import { StickyMobileBar } from "@/components/layout/StickyMobileBar";
 import { SmoothScroll } from "@/components/layout/SmoothScroll";
-import { LocalBusinessJsonLd } from "@/components/seo/JsonLd";
+import { LocalBusinessJsonLd, WebsiteJsonLd } from "@/components/seo/JsonLd";
 import { siteConfig } from "@/lib/site-config";
 
 const inter = Inter({
@@ -111,6 +111,7 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${outfit.variable}`}>
       <head>
         <LocalBusinessJsonLd />
+        <WebsiteJsonLd />
       </head>
       <body className="min-h-screen flex flex-col antialiased bg-white text-slate-900">
         <SmoothScroll>
