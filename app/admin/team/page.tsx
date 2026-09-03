@@ -83,7 +83,7 @@ interface TeamMember {
 
 interface AttendanceRecord {
   memberId: string;
-  status: "Present" | "On Survey" | "Half Day" | "Absent" | "Leave";
+  status: "Present" | "On Survey" | "Half Day" | "Absent" | "Leave" | "Pending";
   checkIn: string;
   checkOut: string;
   assignedSite: string;
@@ -191,8 +191,17 @@ function TeamContent() {
     router.replace(`/admin/team?tab=${tab}`, { scroll: false });
   };
 
-  // Date is strictly locked to TODAY for real-time punch
-  const getTodayISO = () => new Date().toISOString().split("T")[0];
+  // Date is locked to the organisation's local day, not UTC.
+  const getTodayISO = () => {
+    const parts = new Intl.DateTimeFormat("en-IN", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
+    const value = (type: string) => parts.find((part) => part.type === type)?.value;
+    return `${value("year")}-${value("month")}-${value("day")}`;
+  };
   const todayISO = getTodayISO();
   const [todayFormatted, setTodayFormatted] = useState("");
   const [liveClockTime, setLiveClockTime] = useState("");
@@ -312,19 +321,31 @@ function TeamContent() {
     return () => clearInterval(interval);
   }, []);
 
-  // Load real team list and date-wise attendance from localStorage
+  // Load the roster and attendance from the shared database. Legacy local data is
+  // imported only once when the database has no corresponding records yet.
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const today = getTodayISO();
+    const loadWorkforceData = async () => {
+      try {
+      const [teamResponse, attendanceResponse, hrResponse] = await Promise.all([
+        fetch("/api/team"),
+        fetch("/api/attendance"),
+        fetch("/api/hr"),
+      ]);
+      const teamData = teamResponse.ok ? await teamResponse.json() : { members: [] };
+      const attendanceData = attendanceResponse.ok ? await attendanceResponse.json() : { records: [] };
+      const hrData = hrResponse.ok
+        ? await hrResponse.json()
+        : { payrollProfiles: [], advances: [], monthlyPayroll: [] };
+      let initialList: TeamMember[] = teamData.members || [];
 
-      // Team Roster
-      const savedTeam = localStorage.getItem("sunlife_admin_team_roster");
-      let initialList: TeamMember[] = [];
-      if (savedTeam) {
-        try {
-          initialList = JSON.parse(savedTeam);
-        } catch {
-          initialList = [];
+      if (initialList.length === 0 && typeof window !== "undefined") {
+        const savedTeam = localStorage.getItem("sunlife_admin_team_roster");
+        if (savedTeam) {
+          try {
+            initialList = JSON.parse(savedTeam);
+          } catch {
+            initialList = [];
+          }
         }
       }
       if (initialList.length === 0) {
@@ -343,69 +364,66 @@ function TeamContent() {
           },
         ];
       }
+      if ((teamData.members || []).length === 0) {
+        await fetch("/api/team", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ members: initialList }),
+        });
+      }
       setTeamList(initialList);
 
-      // Date-wise Attendance History
-      const savedAtt = localStorage.getItem("sunlife_attendance_database_v3");
-      let history: Record<string, Record<string, AttendanceRecord>> = {};
-      if (savedAtt) {
-        try {
-          history = JSON.parse(savedAtt);
-        } catch {
-          history = {};
+      let records: Array<AttendanceRecord & { date: string }> = attendanceData.records || [];
+      if (records.length === 0 && typeof window !== "undefined") {
+        const savedAtt = localStorage.getItem("sunlife_attendance_database_v3");
+        if (savedAtt) {
+          try {
+            const legacyHistory = JSON.parse(savedAtt) as Record<string, Record<string, AttendanceRecord>>;
+            records = Object.entries(legacyHistory).flatMap(([date, dayRecords]) =>
+              Object.values(dayRecords).map((record) => ({ ...record, date }))
+            );
+            if (records.length > 0) {
+              await fetch("/api/attendance", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ records }),
+              });
+            }
+          } catch {
+            records = [];
+          }
         }
       }
 
-      if (!history[today]) {
-        const todayRecords: Record<string, AttendanceRecord> = {};
-        initialList.forEach((m) => {
-          todayRecords[m.id] = {
-            memberId: m.id,
-            status: "Present",
-            checkIn: "09:15 AM",
-            checkOut: "--",
-            assignedSite: m.territory ? `${m.territory} Solar Site` : "Narmadapuram HQ",
-            remarks: "On-site EPC duty",
-          };
-        });
-        history[today] = todayRecords;
-      }
+      const history = records.reduce<Record<string, Record<string, AttendanceRecord>>>((all, record) => {
+        const { date, ...attendance } = record;
+        all[date] = { ...(all[date] || {}), [record.memberId]: attendance };
+        return all;
+      }, {});
       setAttendanceHistory(history);
 
-      // Payroll Records
-      const savedPay = localStorage.getItem("sunlife_admin_payroll_v3");
-      if (savedPay) {
-        try {
-          setPayrollRecords(JSON.parse(savedPay));
-        } catch {
-          initializeDefaultPayroll(initialList);
-        }
-      } else {
-        initializeDefaultPayroll(initialList);
-      }
-
-      // Advance Records
-      const savedAdvances = localStorage.getItem("sunlife_advances_v1");
-      if (savedAdvances) {
-        try {
-          setAdvances(JSON.parse(savedAdvances));
-        } catch {
-          setAdvances([]);
-        }
-      }
-
-      // Monthly Payroll Snapshots
-      const savedMonthlyPayroll = localStorage.getItem("sunlife_monthly_payroll_v1");
-      if (savedMonthlyPayroll) {
-        try {
-          setMonthlyPayrollRecords(JSON.parse(savedMonthlyPayroll));
-        } catch {
-          setMonthlyPayrollRecords({});
-        }
-      }
-
+      const payroll = (hrData.payrollProfiles || []).reduce<Record<string, PayrollRecord>>(
+        (all: Record<string, PayrollRecord>, record: PayrollRecord) => ({ ...all, [record.memberId]: record }),
+        {}
+      );
+      if (Object.keys(payroll).length > 0) setPayrollRecords(payroll);
+      else initializeDefaultPayroll(initialList);
+      setAdvances((hrData.advances || []) as AdvanceRecord[]);
+      const monthlyRecords = (hrData.monthlyPayroll || []).reduce<Record<string, MonthlyPayrollRecord>>(
+        (all: Record<string, MonthlyPayrollRecord>, record: MonthlyPayrollRecord) => ({
+          ...all,
+          [`${record.memberId}_${record.month}`]: record,
+        }),
+        {}
+      );
+      setMonthlyPayrollRecords(monthlyRecords);
       setIsLoaded(true);
-    }
+      } catch (error) {
+        console.error("Unable to load workforce data:", error);
+        setIsLoaded(true);
+      }
+    };
+    loadWorkforceData();
   }, []);
 
   const initializeDefaultPayroll = (members: TeamMember[]) => {
@@ -420,45 +438,62 @@ function TeamContent() {
       };
     });
     setPayrollRecords(records);
+    void fetch("/api/hr", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ payrollRecords: records }),
+    });
   };
 
   // Save Helpers
   const saveTeamList = (updated: TeamMember[]) => {
     setTeamList(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("sunlife_admin_team_roster", JSON.stringify(updated));
-    }
+    void fetch("/api/team", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ members: updated }),
+    });
   };
 
   const saveAttendanceHistory = (
     updated: Record<string, Record<string, AttendanceRecord>>
   ) => {
     setAttendanceHistory(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("sunlife_attendance_database_v3", JSON.stringify(updated));
-      localStorage.setItem("sunlife_admin_attendance_v2", JSON.stringify(updated));
-    }
+    const records = Object.entries(updated).flatMap(([date, dayRecords]) =>
+      Object.values(dayRecords).map((record) => ({ ...record, date }))
+    );
+    void fetch("/api/attendance", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ records }),
+    });
   };
 
   const savePayroll = (updated: Record<string, PayrollRecord>) => {
     setPayrollRecords(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("sunlife_admin_payroll_v3", JSON.stringify(updated));
-    }
+    void fetch("/api/hr", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ payrollRecords: updated }),
+    });
   };
 
   const saveAdvances = (updated: AdvanceRecord[]) => {
     setAdvances(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("sunlife_advances_v1", JSON.stringify(updated));
-    }
+    void fetch("/api/hr", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ advances: updated }),
+    });
   };
 
   const saveMonthlyPayroll = (updated: Record<string, MonthlyPayrollRecord>) => {
     setMonthlyPayrollRecords(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("sunlife_monthly_payroll_v1", JSON.stringify(updated));
-    }
+    void fetch("/api/hr", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ monthlyPayrollRecords: updated }),
+    });
   };
 
   // ── Advance Business Logic ──
@@ -811,6 +846,10 @@ function TeamContent() {
 
   // Trigger Punch In (Captures exact current real-time clock)
   const handleTriggerPunchIn = () => {
+    if (modalFormCheckIn && modalFormCheckIn !== "--") {
+      setToastMessage("Check-in is already recorded and cannot be changed.");
+      return;
+    }
     const timeNow = new Date().toLocaleTimeString("en-IN", {
       hour: "2-digit",
       minute: "2-digit",
@@ -823,6 +862,10 @@ function TeamContent() {
 
   // Trigger Punch Out (Captures exact current real-time clock)
   const handleTriggerPunchOut = () => {
+    if (modalFormCheckOut && modalFormCheckOut !== "--") {
+      setToastMessage("Check-out is already recorded and cannot be changed.");
+      return;
+    }
     const timeNow = new Date().toLocaleTimeString("en-IN", {
       hour: "2-digit",
       minute: "2-digit",
@@ -1043,7 +1086,7 @@ function TeamContent() {
       { month: "long", year: "numeric" }
     );
 
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://sunlifesolar.in";
+    const origin = typeof window !== "undefined" ? window.location.origin : siteConfig.url;
     const slipUrl = `${origin}/crew/slip?id=${member.id}&month=${monthYear}`;
 
     let msg = `☀️ *SUNLIFE SOLAR ENERGY SOLUTION*\n`;
@@ -1284,7 +1327,7 @@ function TeamContent() {
   });
 
   return (
-    <div className="w-full space-y-6 relative">
+    <div className="hrm-workspace w-full space-y-6 relative">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-20 right-6 z-[9999] bg-emerald-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-emerald-700 flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200 max-w-md">
@@ -1302,16 +1345,16 @@ function TeamContent() {
       )}
 
       {/* Page Title & Main Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="hrm-hero flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="text-xs font-bold uppercase tracking-wider text-solar-emerald mb-1">
-            Workforce & Attendance Management
+          <div className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-300 mb-2">
+            Human Resource Management
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900 tracking-tight">
-            Team & Field Crew
+          <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-white tracking-tight">
+            Team & Field Crew HRM
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Real-time punch attendance, month-wise employee report slips, and verified wage records.
+          <p className="text-xs sm:text-sm text-emerald-50/80 mt-1.5 max-w-2xl leading-relaxed">
+            Employee profiles, live attendance, monthly reports, salary processing, and advance management in one workspace.
           </p>
         </div>
 
@@ -1349,7 +1392,7 @@ function TeamContent() {
       </div>
 
       {/* 4 Clean Subheading Tabs */}
-      <div className="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap sm:flex-nowrap gap-1.5 w-full">
+      <div className="hrm-tabbar bg-white p-1.5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap sm:flex-nowrap gap-1.5 w-full">
         {/* Tab 1: Daily Attendance */}
         <button
           onClick={() => handleTabChange("attendance")}
@@ -1427,7 +1470,7 @@ function TeamContent() {
       {activeTab === "attendance" && (
         <div className="space-y-5 animate-in fade-in duration-200">
           {/* Simple KPI Summary Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 w-full">
+          <div className="hrm-kpis grid grid-cols-2 sm:grid-cols-5 gap-3 w-full">
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                 Total Staff
@@ -1537,7 +1580,7 @@ function TeamContent() {
                   {filteredTeam.map((member) => {
                     const rec = todayAttendance[member.id] || {
                       memberId: member.id,
-                      status: "Present",
+                      status: "Pending" as const,
                       checkIn: "--",
                       checkOut: "--",
                       assignedSite: `${member.territory} Solar Site`,

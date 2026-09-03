@@ -1,6 +1,7 @@
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["multiSchema"]
+  output          = "./generated/client"
 }
 
 datasource db {
@@ -89,5 +90,143 @@ model BlogPost {
   publishedAt     DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  @@schema("sunlife")
+}
+
+model TeamMember {
+  id               String       @id
+  name             String
+  role             String
+  category         String
+  phone            String
+  territory        String
+  status           String       @default("Available")
+  skills           Json         @default("[]")
+  joinedYear       String
+  monthlySalary    Float?
+  email            String?
+  dob              String?
+  address          String?
+  department       String?
+  joiningDate      String?
+  employmentType   String?
+  reportingManager String?
+  bankAccountHolder String?
+  bankName         String?
+  bankAccountNumber String?
+  bankIFSC         String?
+  bankBranch       String?
+  bankAccountType  String?
+  upiId            String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  attendance       Attendance[]
+  payrollProfile   PayrollProfile?
+  advances         EmployeeAdvance[]
+  monthlyPayroll   MonthlyPayroll[]
+  leaveRequests    LeaveRequest[]
+
+  @@schema("sunlife")
+}
+
+model Attendance {
+  id           String     @id @default(cuid())
+  memberId     String
+  date         DateTime   @db.Date
+  status       String     @default("Present")
+  checkIn      String     @default("--")
+  checkOut     String     @default("--")
+  workingMinutes Int       @default(0)
+  assignedSite String
+  remarks      String?
+  updatedAt    DateTime   @updatedAt
+  createdAt    DateTime   @default(now())
+  member       TeamMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, date])
+  @@index([date])
+  @@schema("sunlife")
+}
+
+model PayrollProfile {
+  id              String     @id @default(cuid())
+  memberId        String     @unique
+  baseAmount      Float
+  fieldAllowance  Float      @default(0)
+  paymentStatus   String     @default("PENDING")
+  paymentMode     String     @default("Bank Transfer")
+  member          TeamMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@schema("sunlife")
+}
+
+model EmployeeAdvance {
+  id                      String     @id
+  memberId                String
+  advanceAmount           Float
+  advanceDate             String
+  reason                  String
+  monthlyDeduction        Float
+  totalRecovered          Float      @default(0)
+  outstandingBalance      Float
+  recoveryStatus          String     @default("Active")
+  startMonth              String
+  expectedCompletionMonth String
+  notes                   String?
+  settlements             Json       @default("[]")
+  member                  TeamMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  createdAt               DateTime   @default(now())
+  updatedAt               DateTime   @updatedAt
+
+  @@index([memberId])
+  @@schema("sunlife")
+}
+
+model MonthlyPayroll {
+  id                         String     @id
+  memberId                   String
+  month                      String
+  monthlySalary              Float
+  totalDaysInMonth           Int
+  payableDays                Float
+  payableSalary              Float
+  fieldAllowance             Float
+  advanceOutstanding         Float
+  scheduledAdvanceDeduction  Float
+  otherDeductions            Float
+  otherDeductionNote         String?
+  netPayable                 Float
+  advanceSettlementType      String?
+  advanceSettlementAmount    Float?
+  advanceNotSettledReason    String?
+  paymentStatus              String     @default("PENDING")
+  paymentDate                String?
+  paymentMode                String?
+  paidAt                     String?
+  member                     TeamMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  createdAt                  DateTime   @default(now())
+  updatedAt                  DateTime   @updatedAt
+
+  @@unique([memberId, month])
+  @@schema("sunlife")
+}
+
+model LeaveRequest {
+  id          String     @id @default(cuid())
+  memberId    String
+  startDate   String
+  endDate     String
+  leaveType   String
+  reason      String
+  status      String     @default("PENDING")
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  member      TeamMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([memberId, status])
   @@schema("sunlife")
 }

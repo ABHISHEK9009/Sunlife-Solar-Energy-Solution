@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -13,6 +13,7 @@ import {
   LogOut,
   X,
   ChevronRight,
+  ChevronDown,
   Shield,
   Activity,
 } from "lucide-react";
@@ -26,8 +27,10 @@ interface AdminSidebarProps {
 export function AdminSidebar({ mobileOpen, setMobileOpen }: AdminSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [teamMenuOpen, setTeamMenuOpen] = useState(true);
 
   const handleLogout = () => {
+    void fetch("/api/admin/login", { method: "DELETE" });
     if (typeof window !== "undefined") {
       localStorage.removeItem("sunlife_admin_auth");
       localStorage.removeItem("sunlife_admin_user");
@@ -110,7 +113,8 @@ export function AdminSidebar({ mobileOpen, setMobileOpen }: AdminSidebarProps) {
                 Main Menu
               </div>
 
-              {navItems.map((item) => {
+              <div className="space-y-1">
+                {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive =
                   pathname === item.href ||
@@ -119,32 +123,49 @@ export function AdminSidebar({ mobileOpen, setMobileOpen }: AdminSidebarProps) {
 
                 return (
                   <div key={item.href} className="space-y-1">
-                    <Link
-                      href={item.href}
-                      onClick={() => setMobileOpen(false)}
-                      className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                    <div
+                      className={`flex items-center rounded-xl text-xs font-semibold transition-all ${
                         isActive
                           ? "bg-solar-deep text-white shadow-xs"
                           : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                       }`}
                     >
-                      <div className="flex items-center gap-2.5">
+                      <Link
+                        href={item.href}
+                        onClick={() => setMobileOpen(false)}
+                        className="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2"
+                      >
                         <Icon
                           className={`w-4 h-4 ${
                             isActive ? "text-sun-amber" : "text-slate-400"
                           }`}
                         />
                         <span>{item.name}</span>
-                      </div>
+                      </Link>
 
-                      {isActive && (
-                        <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+                      {isTeamItem ? (
+                        <button
+                          type="button"
+                          onClick={() => setTeamMenuOpen((isOpen) => !isOpen)}
+                          aria-label={`${teamMenuOpen ? "Collapse" : "Expand"} Team & Field Crew submenu`}
+                          aria-expanded={teamMenuOpen}
+                          aria-controls="team-submenu"
+                          className="mr-2 p-1 rounded-md hover:bg-black/10 transition-colors"
+                        >
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 transition-transform ${
+                              teamMenuOpen ? "rotate-0" : "-rotate-90"
+                            }`}
+                          />
+                        </button>
+                      ) : (
+                        isActive && <ChevronRight className="mr-3 w-3.5 h-3.5 opacity-60" />
                       )}
-                    </Link>
+                    </div>
 
                     {/* Sub-Headings under Team & Field Crew */}
-                    {isTeamItem && (
-                      <div className="pl-7 pr-2 py-1 space-y-1">
+                    {isTeamItem && teamMenuOpen && (
+                      <div id="team-submenu" className="pl-7 pr-2 py-1 space-y-1">
                         <Link
                           href="/admin/team?tab=attendance"
                           onClick={() => setMobileOpen(false)}
@@ -184,7 +205,8 @@ export function AdminSidebar({ mobileOpen, setMobileOpen }: AdminSidebarProps) {
                     )}
                   </div>
                 );
-              })}
+                })}
+              </div>
             </div>
 
             <div className="space-y-1">
