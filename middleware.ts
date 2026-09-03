@@ -19,15 +19,21 @@ async function sessionToken(password: string) {
 }
 
 export async function middleware(request: NextRequest) {
-  if (request.nextUrl.pathname === "/admin/login") return NextResponse.next();
+  if (request.nextUrl.pathname === "/admin/login") {
+    const response = NextResponse.next();
+    response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+    return response;
+  }
 
   const password = process.env.ADMIN_PASSWORD;
   const session = request.cookies.get(SESSION_COOKIE)?.value;
   if (!password || !session || session !== (await sessionToken(password))) {
-    return NextResponse.redirect(new URL("/admin/login", request.url));
+    return NextResponse.rewrite(new URL("/not-found", request.url));
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  return response;
 }
 
 export const config = { matcher: ["/admin/:path*"] };

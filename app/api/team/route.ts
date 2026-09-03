@@ -48,6 +48,8 @@ export async function PUT(request: Request) {
           bankBranch: member.bankBranch ?? null,
           bankAccountType: member.bankAccountType ?? null,
           upiId: member.upiId ?? null,
+          emailVerifiedAt: member.emailVerifiedAt ? new Date(member.emailVerifiedAt) : null,
+          employeeAccessEnabled: member.employeeAccessEnabled ?? false,
         };
 
         return prisma.teamMember.upsert({ where: { id: member.id }, create: { id: member.id, ...data }, update: data });

@@ -37,6 +37,7 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
+  MoreHorizontal,
   IndianRupee,
   Wallet,
   Eye,
@@ -220,6 +221,7 @@ function TeamContent() {
   >({});
   const [payrollRecords, setPayrollRecords] = useState<Record<string, PayrollRecord>>({});
   const [isLoaded, setIsLoaded] = useState(false);
+  const [openActionMenuMemberId, setOpenActionMenuMemberId] = useState<string | null>(null);
 
   // Update Attendance Card / Modal State
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
@@ -799,12 +801,7 @@ function TeamContent() {
   // ── Edit Profile ──
 
   const openEditProfile = (memberId: string) => {
-    const member = teamList.find((m) => m.id === memberId);
-    if (!member) return;
-    setEditProfileMemberId(memberId);
-    setEditProfileForm({ ...member });
-    setShowAccountNumber(false);
-    setIsEditProfileOpen(true);
+    router.push(`/admin/team/${memberId}/edit`);
   };
 
   const handleSaveProfile = (e: React.FormEvent) => {
@@ -2236,48 +2233,54 @@ function TeamContent() {
                       </td>
 
                       <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                        <div className="relative inline-flex justify-end">
                           <button
-                            onClick={() => openEditProfile(member.id)}
-                            title="Edit Employee Profile & Bank Details"
-                            className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 transition-colors cursor-pointer"
+                            type="button"
+                            onClick={() => setOpenActionMenuMemberId((openId) => openId === member.id ? null : member.id)}
+                            title={`More actions for ${member.name}`}
+                            aria-label={`More actions for ${member.name}`}
+                            aria-expanded={openActionMenuMemberId === member.id}
+                            className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors cursor-pointer"
                           >
-                            <Edit3 className="w-3.5 h-3.5" />
+                            <MoreHorizontal className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => {
-                              setMonthlyFilterMemberId(member.id);
-                              handleTabChange("monthly");
-                            }}
-                            title="View Monthly Attendance Slip"
-                            className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 transition-colors cursor-pointer"
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                          </button>
-                          <a
-                            href={`tel:${member.phone}`}
-                            title="Call Staff"
-                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-solar-deep hover:text-white text-slate-700 transition-colors"
-                          >
-                            <Phone className="w-3.5 h-3.5" />
-                          </a>
-                          <a
-                            href={`https://wa.me/91${member.phone.replace(/[^0-9]/g, "")}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            title="WhatsApp"
-                            className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 transition-colors"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                          </a>
-                          {member.id !== "owner-1" && (
-                            <button
-                              onClick={() => handleDeleteMember(member.id)}
-                              title="Delete Member"
-                              className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600 transition-colors cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                          {openActionMenuMemberId === member.id && (
+                            <div className="absolute right-0 top-full z-30 mt-2 w-48 rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl">
+                              <button
+                                onClick={() => { openEditProfile(member.id); setOpenActionMenuMemberId(null); }}
+                                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                              >
+                                <Edit3 className="w-3.5 h-3.5 text-blue-600" /> Edit profile
+                              </button>
+                              <button
+                                onClick={() => { setMonthlyFilterMemberId(member.id); handleTabChange("monthly"); setOpenActionMenuMemberId(null); }}
+                                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                              >
+                                <FileText className="w-3.5 h-3.5 text-emerald-600" /> View monthly slip
+                              </button>
+                              <a
+                                href={`tel:${member.phone}`}
+                                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                              >
+                                <Phone className="w-3.5 h-3.5 text-slate-500" /> Call staff
+                              </a>
+                              <a
+                                href={`https://wa.me/91${member.phone.replace(/[^0-9]/g, "")}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                              >
+                                <MessageSquare className="w-3.5 h-3.5 text-emerald-600" /> WhatsApp
+                              </a>
+                              {member.id !== "owner-1" && (
+                                <button
+                                  onClick={() => { handleDeleteMember(member.id); setOpenActionMenuMemberId(null); }}
+                                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" /> Delete employee
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
                       </td>

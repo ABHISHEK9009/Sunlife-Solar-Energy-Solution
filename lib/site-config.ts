@@ -21,7 +21,7 @@ export const siteConfig = {
     whatsapp: "7722995100",
     whatsappText:
       "Hello Sunlife Solar Energy Solution, I am interested in installing a solar system. I would like to know more about the available options and pricing.",
-    email: "contact@sunlifesolar.in",
+    email: "infosses24@gmail.com",
     address: {
       street: "VINAYAK COMPLEX, Near AZAD CHOWK, Malakhedi",
       city: "Narmadapuram",

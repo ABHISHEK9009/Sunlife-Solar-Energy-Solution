@@ -118,6 +118,10 @@ model TeamMember {
   bankBranch       String?
   bankAccountType  String?
   upiId            String?
+  emailVerifiedAt  DateTime?
+  verificationCodeHash String?
+  verificationExpiresAt DateTime?
+  employeeAccessEnabled Boolean @default(false)
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
   attendance       Attendance[]
