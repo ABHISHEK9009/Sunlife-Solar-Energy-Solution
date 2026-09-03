@@ -53,7 +53,13 @@ export default function EmployeePunchPage() {
   >({});
   const [isSuccessMessage, setIsSuccessMessage] = useState<string | null>(null);
 
-  const getTodayISO = () => new Date().toISOString().split("T")[0];
+  const getTodayISO = () => {
+    const parts = new Intl.DateTimeFormat("en-IN", {
+      timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+    }).formatToParts(new Date());
+    const value = (type: string) => parts.find((part) => part.type === type)?.value;
+    return `${value("year")}-${value("month")}-${value("day")}`;
+  };
   const today = getTodayISO();
 
   // Clock Ticker
@@ -82,52 +88,33 @@ export default function EmployeePunchPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Load team and attendance from shared storage
+  // The crew page reads the same database-backed roster and attendance as admin.
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedTeam = localStorage.getItem("sunlife_admin_team_roster");
-      let list: TeamMember[] = [];
-      if (savedTeam) {
-        try {
-          list = JSON.parse(savedTeam);
-        } catch {
-          list = [];
-        }
-      }
-      if (list.length === 0) {
-        list = [
-          {
-            id: "owner-1",
-            name: siteConfig.owner.name,
-            role: "Founder & Lead Solar Specialist",
-            category: "Management",
-            phone: siteConfig.contact.phoneClean,
-            territory: `${siteConfig.contact.address.city}, MP`,
+    const loadPunchData = async () => {
+      try {
+        const [teamResponse, attendanceResponse] = await Promise.all([
+          fetch("/api/team"),
+          fetch("/api/attendance"),
+        ]);
+        const teamData = teamResponse.ok ? await teamResponse.json() : { members: [] };
+        const attendanceData = attendanceResponse.ok ? await attendanceResponse.json() : { records: [] };
+        const list = teamData.members || [];
+        setTeamList(list);
+        setSelectedMemberId(list[0]?.id || "");
+        const history = (attendanceData.records || []).reduce(
+          (all: Record<string, Record<string, AttendanceRecord>>, record: AttendanceRecord) => {
+            all[record.date] = { ...(all[record.date] || {}), [record.memberId]: record };
+            return all;
           },
-        ];
+          {}
+        );
+        setAttendanceHistory(history);
+      } catch (error) {
+        console.error("Unable to load punch data:", error);
       }
-      setTeamList(list);
-      setSelectedMemberId(list[0]?.id || "");
-
-      const savedAtt = localStorage.getItem("sunlife_admin_attendance_v2");
-      if (savedAtt) {
-        try {
-          setAttendanceHistory(JSON.parse(savedAtt));
-        } catch {
-          setAttendanceHistory({});
-        }
-      }
-    }
+    };
+    loadPunchData();
   }, []);
-
-  const saveAttendance = (
-    updated: Record<string, Record<string, AttendanceRecord>>
-  ) => {
-    setAttendanceHistory(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("sunlife_admin_attendance_v2", JSON.stringify(updated));
-    }
-  };
 
   const selectedMember = teamList.find((m) => m.id === selectedMemberId);
   const todayRecords = attendanceHistory[today] || {};
@@ -137,63 +124,38 @@ export default function EmployeePunchPage() {
   const isCheckedOut = currentPunch && currentPunch.checkOut && currentPunch.checkOut !== "--";
 
   // Punch In Handler
-  const handlePunchIn = () => {
-    const timeStr = new Date().toLocaleTimeString("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
+  const handlePunchIn = async () => {
+    const response = await fetch("/api/attendance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberId: selectedMemberId, action: "punch-in" }),
     });
-
-    const newRecord: AttendanceRecord = {
-      id: `att_${selectedMemberId}_${today}`,
-      memberId: selectedMemberId,
-      date: today,
-      checkIn: timeStr,
-      checkOut: "--",
-      workingHoursMinutes: 0,
-      status: "Present",
-      location: selectedMember ? `${selectedMember.territory} Solar Site` : "Narmadapuram HQ",
-      remarks: "Self Mobile Punch",
-      lateMinutes: 0,
-    };
-
-    const updated = {
-      ...attendanceHistory,
-      [today]: {
-        ...todayRecords,
-        [selectedMemberId]: newRecord,
-      },
-    };
-
-    saveAttendance(updated);
-    setIsSuccessMessage(`✓ Checked In at ${timeStr}`);
+    const data = await response.json();
+    if (!response.ok) {
+      setIsSuccessMessage(data.error || "Unable to punch in.");
+      return;
+    }
+    const updated = { ...attendanceHistory, [today]: { ...todayRecords, [selectedMemberId]: data.record } };
+    setAttendanceHistory(updated);
+    setIsSuccessMessage(`✓ Checked In at ${data.record.checkIn}`);
     setTimeout(() => setIsSuccessMessage(null), 4000);
   };
 
   // Punch Out Handler
-  const handlePunchOut = () => {
-    if (!currentPunch) return;
-    const timeStr = new Date().toLocaleTimeString("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
+  const handlePunchOut = async () => {
+    const response = await fetch("/api/attendance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberId: selectedMemberId, action: "punch-out" }),
     });
-
-    const updatedRecord: AttendanceRecord = {
-      ...currentPunch,
-      checkOut: timeStr,
-      workingHoursMinutes: 480, // standard 8 hours
-      remarks: `Shift finished on field at ${timeStr}`,
-    };
-
-    const updated = {
-      ...attendanceHistory,
-      [today]: {
-        ...todayRecords,
-        [selectedMemberId]: updatedRecord,
-      },
-    };
-
-    saveAttendance(updated);
-    setIsSuccessMessage(`✓ Checked Out at ${timeStr}`);
+    const data = await response.json();
+    if (!response.ok) {
+      setIsSuccessMessage(data.error || "Unable to punch out.");
+      return;
+    }
+    const updated = { ...attendanceHistory, [today]: { ...todayRecords, [selectedMemberId]: data.record } };
+    setAttendanceHistory(updated);
+    setIsSuccessMessage(`✓ Checked Out at ${data.record.checkOut}`);
     setTimeout(() => setIsSuccessMessage(null), 4000);
   };
 

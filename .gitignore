@@ -21,7 +21,7 @@ next-env.d.ts
 .env.test.local
 .env.production.local
 *.pem
-
+.env
 # Python & Language Server Caches
 __pycache__/
 *.py[cod]
@@ -77,4 +77,5 @@ desktop.ini
 # Prisma
 prisma/*.db
 prisma/*.db-journal
+prisma/generated/
 dev.db

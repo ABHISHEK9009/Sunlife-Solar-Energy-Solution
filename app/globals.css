@@ -110,3 +110,72 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #0b4d3c;
 }
+
+/* Team & Field Crew HRM workspace */
+.hrm-workspace {
+  padding: 0.25rem;
+}
+
+.hrm-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid rgb(16 185 129 / 0.25);
+  border-radius: 1.5rem;
+  background:
+    radial-gradient(circle at 88% 8%, rgb(52 211 153 / 0.27), transparent 30%),
+    radial-gradient(circle at 12% 110%, rgb(45 212 191 / 0.18), transparent 34%),
+    linear-gradient(135deg, #063d32 0%, #075845 52%, #0b6b52 100%);
+  box-shadow: 0 18px 40px rgb(6 78 59 / 0.18);
+}
+
+.hrm-hero::after {
+  position: absolute;
+  z-index: -1;
+  top: -8rem;
+  right: -3rem;
+  width: 16rem;
+  height: 16rem;
+  content: "";
+  border: 1px solid rgb(167 243 208 / 0.2);
+  border-radius: 9999px;
+  box-shadow: 0 0 0 2rem rgb(167 243 208 / 0.04), 0 0 0 4rem rgb(167 243 208 / 0.03);
+}
+
+.hrm-hero a,
+.hrm-hero button {
+  box-shadow: 0 8px 18px rgb(2 44 34 / 0.2);
+}
+
+.hrm-tabbar {
+  position: sticky;
+  top: 4.5rem;
+  z-index: 8;
+  box-shadow: 0 10px 24px rgb(15 23 42 / 0.06);
+}
+
+.hrm-kpis > div {
+  position: relative;
+  overflow: hidden;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.hrm-kpis > div:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 22px rgb(15 23 42 / 0.08);
+}
+
+@media (max-width: 639px) {
+  .hrm-workspace {
+    padding: 0;
+  }
+
+  .hrm-hero {
+    border-radius: 1.25rem;
+  }
+
+  .hrm-tabbar {
+    top: 4rem;
+  }
+}

@@ -39,11 +39,19 @@ export default function AdminLoginPage() {
       return;
     }
 
-    // Secure local verification for owner & admin credentials
-    const validUsers = ["admin", "rahul", "7722995100", "sunlife"];
-    const validPass = ["admin123", "sunlife@2021", "95100", "solar@123", "admin"];
+    try {
+      const response = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cleanUser, password: cleanPass }),
+      });
 
-    if (validUsers.includes(cleanUser) || cleanPass.length >= 4) {
+      if (!response.ok) {
+        setError("Invalid admin credentials. Please check your email and password.");
+        setLoading(false);
+        return;
+      }
+
       if (typeof window !== "undefined") {
         localStorage.setItem("sunlife_admin_auth", "true");
         localStorage.setItem("sunlife_admin_user", username.trim());
@@ -51,8 +59,8 @@ export default function AdminLoginPage() {
       setTimeout(() => {
         router.push("/admin/dashboard");
       }, 400);
-    } else {
-      setError("Invalid admin credentials. Please check username & password.");
+    } catch {
+      setError("Unable to sign in right now. Please try again.");
       setLoading(false);
     }
   };
@@ -92,10 +100,10 @@ export default function AdminLoginPage() {
               </div>
             )}
 
-            {/* Username / Phone */}
+            {/* Admin email */}
             <div className="space-y-1.5">
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                Admin Username or Phone
+                Admin Email
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -105,7 +113,7 @@ export default function AdminLoginPage() {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="e.g. admin or 7722995100"
+                  placeholder="Enter your email"
                   className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
                   required
                 />
