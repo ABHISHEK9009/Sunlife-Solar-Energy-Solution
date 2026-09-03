@@ -150,6 +150,11 @@ interface MonthlyPayrollRecord {
   paidAt?: string;
 }
 
+interface HrResponse {
+  payrollProfiles: PayrollRecord[];
+  advances: AdvanceRecord[];
+  monthlyPayroll: MonthlyPayrollRecord[];
+}
 
 type ExportPreset =
   | "today"
@@ -333,7 +338,7 @@ function TeamContent() {
       ]);
       const teamData = teamResponse.ok ? await teamResponse.json() : { members: [] };
       const attendanceData = attendanceResponse.ok ? await attendanceResponse.json() : { records: [] };
-      const hrData = hrResponse.ok
+      const hrData: HrResponse = hrResponse.ok
         ? await hrResponse.json()
         : { payrollProfiles: [], advances: [], monthlyPayroll: [] };
       let initialList: TeamMember[] = teamData.members || [];
@@ -402,14 +407,14 @@ function TeamContent() {
       }, {});
       setAttendanceHistory(history);
 
-      const payroll = (hrData.payrollProfiles || []).reduce<Record<string, PayrollRecord>>(
+      const payroll = hrData.payrollProfiles.reduce<Record<string, PayrollRecord>>(
         (all: Record<string, PayrollRecord>, record: PayrollRecord) => ({ ...all, [record.memberId]: record }),
         {}
       );
       if (Object.keys(payroll).length > 0) setPayrollRecords(payroll);
       else initializeDefaultPayroll(initialList);
-      setAdvances((hrData.advances || []) as AdvanceRecord[]);
-      const monthlyRecords = (hrData.monthlyPayroll || []).reduce<Record<string, MonthlyPayrollRecord>>(
+      setAdvances(hrData.advances);
+      const monthlyRecords = hrData.monthlyPayroll.reduce<Record<string, MonthlyPayrollRecord>>(
         (all: Record<string, MonthlyPayrollRecord>, record: MonthlyPayrollRecord) => ({
           ...all,
           [`${record.memberId}_${record.month}`]: record,
