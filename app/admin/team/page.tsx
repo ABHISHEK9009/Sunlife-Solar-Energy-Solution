@@ -258,10 +258,7 @@ function TeamContent() {
     territory: "Narmadapuram",
     monthlySalary: 18000,
   });
-  const [selectedSkills, setSelectedSkills] = useState<string[]>([
-    "Mono-PERC Installation",
-    "Hot-Dip GI Fabrication",
-  ]);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
 
   // ── Advance Payment State ──
   const [advances, setAdvances] = useState<AdvanceRecord[]>([]);
@@ -365,7 +362,7 @@ function TeamContent() {
             phone: siteConfig.contact.phoneClean,
             territory: `${siteConfig.contact.address.city}, MP`,
             status: "Available",
-            skills: ["Solar EPC", "DISCOM Liaison", "System Sizing"],
+            skills: [],
             joinedYear: "2021",
             monthlySalary: 75000,
           },
@@ -1262,6 +1259,7 @@ function TeamContent() {
       territory: "Narmadapuram",
       monthlySalary: 18000,
     });
+    setSelectedSkills([]);
   };
 
   const handleDeleteMember = (id: string) => {
@@ -1347,15 +1345,16 @@ function TeamContent() {
       )}
 
       {/* Page Title & Main Header */}
-      <div className="hrm-hero flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-300 mb-2">
-            Human Resource Management
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 text-[11px] font-semibold uppercase tracking-wider mb-2 border border-slate-200/80">
+            <Users className="w-3.5 h-3.5 text-slate-500" />
+            <span>Human Resource Management</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-white tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-bold font-heading text-slate-900 tracking-tight">
             Team & Field Crew HRM
           </h1>
-          <p className="text-xs sm:text-sm text-emerald-50/80 mt-1.5 max-w-2xl leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
             Employee profiles, live attendance, monthly reports, salary processing, and advance management in one workspace.
           </p>
         </div>
@@ -1365,18 +1364,18 @@ function TeamContent() {
           <Link
             href="/crew/punch"
             target="_blank"
-            className="px-3.5 py-2.5 bg-solar-deep hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+            className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 text-xs font-semibold rounded-xl transition-all border border-slate-200 shadow-xs flex items-center gap-1.5 cursor-pointer"
           >
-            <Smartphone className="w-4 h-4 text-emerald-300" />
+            <Smartphone className="w-3.5 h-3.5 text-slate-500" />
             <span>Open Mobile Punch App ↗</span>
           </Link>
 
           {(activeTab === "attendance" || activeTab === "monthly") && (
             <button
               onClick={() => setIsExportModalOpen(true)}
-              className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 text-xs font-semibold rounded-xl transition-all border border-slate-200 shadow-xs flex items-center gap-1.5 cursor-pointer"
             >
-              <Download className="w-4 h-4" />
+              <Download className="w-3.5 h-3.5 text-slate-500" />
               <span>Export Reports (.csv)</span>
             </button>
           )}
@@ -1384,9 +1383,9 @@ function TeamContent() {
           {activeTab === "profiles" && (
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="px-4 py-2.5 bg-solar-deep hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer"
+              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 text-xs font-semibold rounded-xl transition-all border border-slate-200 shadow-xs flex items-center gap-1.5 cursor-pointer"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5 text-slate-500" />
               <span>Add Staff</span>
             </button>
           )}
@@ -1394,58 +1393,58 @@ function TeamContent() {
       </div>
 
       {/* 4 Clean Subheading Tabs */}
-      <div className="hrm-tabbar bg-white p-1.5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap sm:flex-nowrap gap-1.5 w-full">
+      <div className="hrm-tabbar bg-slate-100/80 p-1 rounded-xl border border-slate-200/70 shadow-xs flex flex-wrap sm:flex-nowrap gap-1 w-full">
         {/* Tab 1: Daily Attendance */}
         <button
           onClick={() => handleTabChange("attendance")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
             activeTab === "attendance"
-              ? "bg-solar-deep text-white shadow-sm"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+              ? "bg-white text-slate-900 shadow-xs border border-slate-200/80 font-bold"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
           }`}
         >
-          <Calendar className="w-4 h-4" />
+          <Calendar className="w-3.5 h-3.5 text-slate-500" />
           <span>Daily Attendance</span>
           <span
-            className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+            className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
               activeTab === "attendance"
-                ? "bg-white/20 text-white"
-                : "bg-emerald-50 text-solar-deep"
+                ? "bg-slate-100 text-slate-800 border border-slate-200"
+                : "bg-slate-200/70 text-slate-600"
             }`}
           >
             {presentCount}
           </span>
         </button>
 
-        {/* Tab 2: Monthly Attendance & Reports (FULL PAGE VIEW) */}
+        {/* Tab 2: Monthly Attendance & Reports */}
         <button
           onClick={() => handleTabChange("monthly")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
             activeTab === "monthly"
-              ? "bg-solar-deep text-white shadow-sm"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+              ? "bg-white text-slate-900 shadow-xs border border-slate-200/80 font-bold"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
           }`}
         >
-          <BarChart3 className="w-4 h-4" />
+          <BarChart3 className="w-3.5 h-3.5 text-slate-500" />
           <span>Monthly Reports & Slips</span>
         </button>
 
         {/* Tab 3: Employee Profiles */}
         <button
           onClick={() => handleTabChange("profiles")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
             activeTab === "profiles"
-              ? "bg-solar-deep text-white shadow-sm"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+              ? "bg-white text-slate-900 shadow-xs border border-slate-200/80 font-bold"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
           }`}
         >
-          <Users className="w-4 h-4" />
+          <Users className="w-3.5 h-3.5 text-slate-500" />
           <span>Employee Profiles</span>
           <span
-            className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+            className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
               activeTab === "profiles"
-                ? "bg-white/20 text-white"
-                : "bg-slate-100 text-slate-600"
+                ? "bg-slate-100 text-slate-800 border border-slate-200"
+                : "bg-slate-200/70 text-slate-600"
             }`}
           >
             {teamList.length}
@@ -1455,13 +1454,13 @@ function TeamContent() {
         {/* Tab 4: Payroll & Wages */}
         <button
           onClick={() => handleTabChange("payroll")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
             activeTab === "payroll"
-              ? "bg-solar-deep text-white shadow-sm"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+              ? "bg-white text-slate-900 shadow-xs border border-slate-200/80 font-bold"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
           }`}
         >
-          <CreditCard className="w-4 h-4" />
+          <CreditCard className="w-3.5 h-3.5 text-slate-500" />
           <span>Payroll & Payment</span>
         </button>
       </div>
@@ -1470,64 +1469,64 @@ function TeamContent() {
       {/* 1. DAILY ATTENDANCE (AUTO-DATE + PUNCH IN/OUT BUTTONS) */}
       {/* ======================================================== */}
       {activeTab === "attendance" && (
-        <div className="space-y-5 animate-in fade-in duration-200">
+        <div className="space-y-4 animate-in fade-in duration-200">
           {/* Simple KPI Summary Bar */}
           <div className="hrm-kpis grid grid-cols-2 sm:grid-cols-5 gap-3 w-full">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+            <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
                 Total Staff
               </span>
-              <div className="text-2xl font-extrabold font-heading text-slate-900 mt-1">
+              <div className="text-2xl font-bold tracking-tight text-slate-900 mt-1">
                 {totalStaff}
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
+            <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
                 Present Today
               </span>
-              <div className="text-2xl font-extrabold font-heading text-solar-deep mt-1">
+              <div className="text-2xl font-bold tracking-tight text-slate-900 mt-1">
                 {presentCount}
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">
+            <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
                 Half Day
               </span>
-              <div className="text-2xl font-extrabold font-heading text-amber-800 mt-1">
+              <div className="text-2xl font-bold tracking-tight text-slate-900 mt-1">
                 {halfDayCount}
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block">
+            <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
                 Absent
               </span>
-              <div className="text-2xl font-extrabold font-heading text-rose-800 mt-1">
+              <div className="text-2xl font-bold tracking-tight text-slate-900 mt-1">
                 {absentCount}
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider block">
+            <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
                 On Leave
               </span>
-              <div className="text-2xl font-extrabold font-heading text-purple-800 mt-1">
+              <div className="text-2xl font-bold tracking-tight text-slate-900 mt-1">
                 {leaveCount}
               </div>
             </div>
           </div>
 
           {/* Auto-Locked Live Date Banner & Search Strip */}
-          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="bg-white rounded-xl p-3.5 border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2 bg-emerald-50/80 border border-emerald-200/80 px-3.5 py-1.5 rounded-xl text-solar-deep">
-                <Calendar className="w-4 h-4 text-solar-emerald" />
-                <span className="text-xs font-extrabold">
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg text-slate-700">
+                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                <span className="text-xs font-semibold">
                   Today: {todayFormatted || "Live Today"}
                 </span>
-                <span className="px-2 py-0.5 bg-solar-deep text-white rounded-md text-[10px] font-bold">
+                <span className="px-1.5 py-0.5 bg-slate-200/70 text-slate-700 rounded text-[10px] font-mono font-medium">
                   {liveClockTime || "LIVE"}
                 </span>
               </div>
@@ -1539,7 +1538,7 @@ function TeamContent() {
                   placeholder="Filter staff by name..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white transition-all"
                 />
               </div>
             </div>
@@ -1547,35 +1546,35 @@ function TeamContent() {
             <div className="flex items-center gap-2">
               <button
                 onClick={handleMarkAllPresent}
-                className="px-3.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-solar-deep text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
-                <CheckCheck className="w-3.5 h-3.5" />
+                <CheckCheck className="w-3.5 h-3.5 text-slate-500" />
                 <span>Mark All Present</span>
               </button>
 
               <button
                 onClick={() => handleTabChange("monthly")}
-                className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer border border-slate-200"
+                className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer border border-slate-200 shadow-xs"
               >
-                <FileText className="w-3.5 h-3.5 text-solar-emerald" />
+                <FileText className="w-3.5 h-3.5 text-slate-500" />
                 <span>Monthly Reports ↗</span>
               </button>
             </div>
           </div>
 
           {/* Clean Read-Only Attendance Table */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden w-full">
+          <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden w-full">
             <div className="overflow-x-auto w-full">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+              <table className="w-full min-w-[960px] text-left text-xs border-collapse">
+                <thead className="bg-slate-50/70 border-b border-slate-200/80 text-slate-500 uppercase tracking-wider font-semibold text-[11px]">
                   <tr>
-                    <th className="px-6 py-3.5">Staff Member</th>
-                    <th className="px-6 py-3.5">Department</th>
-                    <th className="px-6 py-3.5">Attendance Status</th>
-                    <th className="px-6 py-3.5">Check-In Time</th>
-                    <th className="px-6 py-3.5">Check-Out Time</th>
-                    <th className="px-6 py-3.5">Assigned Solar Site</th>
-                    <th className="px-6 py-3.5 text-right min-w-[200px]">Action</th>
+                    <th className="px-5 py-3.5">Staff Member</th>
+                    <th className="px-5 py-3.5">Department</th>
+                    <th className="px-5 py-3.5">Attendance Status</th>
+                    <th className="px-5 py-3.5">Check-In Time</th>
+                    <th className="px-5 py-3.5">Check-Out Time</th>
+                    <th className="px-5 py-3.5">Assigned Solar Site</th>
+                    <th className="px-5 py-3.5 text-right min-w-[160px]">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -1589,17 +1588,17 @@ function TeamContent() {
                     };
 
                     const statusStyles: Record<string, string> = {
-                      Present: "bg-emerald-50 text-emerald-800 border-emerald-200",
-                      "On Survey": "bg-amber-50 text-amber-900 border-amber-200",
-                      "Half Day": "bg-amber-50 text-amber-800 border-amber-200",
-                      Absent: "bg-rose-50 text-rose-800 border-rose-200",
-                      Leave: "bg-purple-50 text-purple-800 border-purple-200",
+                      Present: "bg-emerald-50 text-emerald-700 border-emerald-200/70",
+                      "On Survey": "bg-amber-50 text-amber-800 border-amber-200/70",
+                      "Half Day": "bg-amber-50 text-amber-800 border-amber-200/70",
+                      Absent: "bg-rose-50 text-rose-700 border-rose-200/70",
+                      Leave: "bg-purple-50 text-purple-700 border-purple-200/70",
                     };
 
                     return (
-                      <tr key={member.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="font-bold text-slate-900 text-sm">
+                      <tr key={member.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="px-5 py-3.5 align-middle whitespace-nowrap">
+                          <div className="font-semibold text-slate-900 text-sm">
                             {member.name}
                           </div>
                           <div className="text-[11px] text-slate-400">
@@ -1607,16 +1606,16 @@ function TeamContent() {
                           </div>
                         </td>
 
-                        <td className="px-6 py-4">
-                          <span className="px-2.5 py-1 bg-slate-100 text-slate-700 font-semibold rounded-lg">
+                        <td className="px-5 py-3.5 align-middle whitespace-nowrap">
+                          <span className="px-2.5 py-1 bg-slate-100 text-slate-700 font-medium rounded-md text-xs">
                             {member.category}
                           </span>
                         </td>
 
-                        <td className="px-6 py-4">
+                        <td className="px-5 py-3.5 align-middle whitespace-nowrap">
                           <span
-                            className={`px-3 py-1 rounded-full text-xs font-bold border inline-flex items-center gap-1.5 ${
-                              statusStyles[rec.status] || "bg-slate-100 text-slate-700"
+                            className={`px-2.5 py-1 rounded-full text-xs font-medium border inline-flex items-center gap-1.5 ${
+                              statusStyles[rec.status] || "bg-slate-100 text-slate-600 border-slate-200"
                             }`}
                           >
                             <span
@@ -1629,43 +1628,45 @@ function TeamContent() {
                                   ? "bg-amber-500"
                                   : rec.status === "Absent"
                                   ? "bg-rose-500"
-                                  : "bg-purple-500"
+                                  : rec.status === "Leave"
+                                  ? "bg-purple-500"
+                                  : "bg-slate-400"
                               }`}
                             />
                             <span>{rec.status}</span>
                           </span>
                         </td>
 
-                        <td className="px-6 py-4 font-semibold text-slate-800">
+                        <td className="px-5 py-3.5 align-middle whitespace-nowrap font-medium text-slate-700">
                           {rec.checkIn && rec.checkIn !== "--" ? (
-                            <span className="text-emerald-700 font-bold">{rec.checkIn}</span>
+                            <span className="font-semibold text-slate-900">{rec.checkIn}</span>
                           ) : (
-                            <span className="text-slate-400">Not Punched</span>
+                            <span className="text-slate-400 font-normal">Not Punched</span>
                           )}
                         </td>
 
-                        <td className="px-6 py-4 font-semibold text-slate-800">
+                        <td className="px-5 py-3.5 align-middle whitespace-nowrap font-medium text-slate-700">
                           {rec.checkOut && rec.checkOut !== "--" ? (
-                            <span className="text-amber-800 font-bold">{rec.checkOut}</span>
+                            <span className="font-semibold text-slate-900">{rec.checkOut}</span>
                           ) : (
-                            <span className="text-slate-400">--</span>
+                            <span className="text-slate-400 font-normal">--</span>
                           )}
                         </td>
 
-                        <td className="px-6 py-4 text-slate-700 font-medium">
-                          <span className="flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5 text-solar-emerald shrink-0" />
+                        <td className="px-5 py-3.5 align-middle text-slate-600 text-xs whitespace-nowrap">
+                          <span className="flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                             <span>{rec.assignedSite || `${member.territory} Site`}</span>
                           </span>
                         </td>
 
-                        <td className="px-6 py-4 text-right">
+                        <td className="px-5 py-3.5 align-middle text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               onClick={() => handleOpenUpdateModal(member)}
-                              className="px-3.5 py-1.5 rounded-xl bg-solar-deep hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                              className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-200 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
                             >
-                              <Edit3 className="w-3.5 h-3.5 text-emerald-300" />
+                              <Edit3 className="w-3.5 h-3.5 text-slate-400" />
                               <span>Punch</span>
                             </button>
 
@@ -1675,17 +1676,17 @@ function TeamContent() {
                                 handleTabChange("monthly");
                               }}
                               title={`View Monthly Slip for ${member.name}`}
-                              className="p-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-solar-deep transition-colors cursor-pointer border border-emerald-200"
+                              className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer border border-slate-200"
                             >
-                              <FileText className="w-3.5 h-3.5 text-solar-emerald" />
+                              <FileText className="w-3.5 h-3.5 text-slate-500" />
                             </button>
 
                             <a
                               href={`tel:${member.phone}`}
                               title={`Call ${member.name}`}
-                              className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                              className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors border border-slate-200"
                             >
-                              <Phone className="w-3.5 h-3.5" />
+                              <Phone className="w-3.5 h-3.5 text-slate-500" />
                             </a>
                           </div>
                         </td>
@@ -1708,25 +1709,25 @@ function TeamContent() {
           <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-3">
               {/* Month Selector */}
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl">
-                <Calendar className="w-4 h-4 text-solar-deep" />
-                <label className="text-xs font-bold text-slate-700">Target Month:</label>
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg">
+                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                <label className="text-xs font-semibold text-slate-700">Target Month:</label>
                 <input
                   type="month"
                   value={selectedMonthYear}
                   onChange={(e) => setSelectedMonthYear(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
+                  className="bg-transparent text-xs font-semibold text-slate-900 focus:outline-none cursor-pointer"
                 />
               </div>
 
               {/* Filter Staff Member */}
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl">
-                <Users className="w-4 h-4 text-solar-deep" />
-                <label className="text-xs font-bold text-slate-700">View Staff:</label>
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg">
+                <Users className="w-3.5 h-3.5 text-slate-400" />
+                <label className="text-xs font-semibold text-slate-700">View Staff:</label>
                 <select
                   value={monthlyFilterMemberId}
                   onChange={(e) => setMonthlyFilterMemberId(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
+                  className="bg-transparent text-xs font-semibold text-slate-900 focus:outline-none cursor-pointer"
                 >
                   <option value="ALL">👥 All Team Members (Monthly Matrix)</option>
                   {teamList.map((m) => (
@@ -1742,9 +1743,9 @@ function TeamContent() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsExportModalOpen(true)}
-                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer"
+                className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-900 text-xs font-medium transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
               >
-                <Download className="w-4 h-4" />
+                <Download className="w-3.5 h-3.5 text-slate-400" />
                 <span>Export Month CSV</span>
               </button>
             </div>
@@ -1754,10 +1755,10 @@ function TeamContent() {
           {monthlyFilterMemberId === "ALL" && (
             <div className="space-y-6">
               {/* All Staff Matrix Table */}
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden w-full">
+              <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden w-full">
                 <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
                   <div>
-                    <h3 className="font-bold font-heading text-base text-slate-900">
+                    <h3 className="font-semibold font-heading text-base text-slate-900">
                       Workforce Monthly Attendance Matrix — {monthNameFormatted}
                     </h3>
                     <p className="text-xs text-slate-500">
@@ -1768,7 +1769,7 @@ function TeamContent() {
 
                 <div className="overflow-x-auto w-full">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+                    <thead className="bg-slate-50/70 border-b border-slate-200/80 text-slate-500 uppercase tracking-wider font-semibold text-[11px]">
                       <tr>
                         <th className="px-5 py-3.5 min-w-[180px]">Staff Member</th>
                         <th className="px-3 py-3.5 text-center">Present</th>
@@ -1777,7 +1778,7 @@ function TeamContent() {
                         <th className="px-3 py-3.5 text-center">Absent</th>
                         <th className="px-3 py-3.5 text-center">Leave</th>
                         <th className="px-4 py-3.5 text-center font-bold text-slate-900">Payable Days</th>
-                        <th className="px-4 py-3.5 text-center font-bold text-emerald-700">Score %</th>
+                        <th className="px-4 py-3.5 text-center font-bold text-slate-900">Score %</th>
                         <th className="px-5 py-3.5 text-right min-w-[180px]">Actions</th>
                       </tr>
                     </thead>
@@ -1786,9 +1787,9 @@ function TeamContent() {
                         const stats = getMemberMonthlyStats(member.id, selectedMonthYear);
 
                         return (
-                          <tr key={member.id} className="hover:bg-slate-50/80 transition-colors">
+                          <tr key={member.id} className="hover:bg-slate-50/60 transition-colors">
                             <td className="px-5 py-4">
-                              <div className="font-bold text-slate-900 text-sm">
+                              <div className="font-semibold text-slate-900 text-sm">
                                 {member.name}
                               </div>
                               <div className="text-[11px] text-slate-400">
@@ -1796,41 +1797,41 @@ function TeamContent() {
                               </div>
                             </td>
 
-                            <td className="px-3 py-4 text-center font-bold text-emerald-700">
-                              <span className="px-2.5 py-1 bg-emerald-50 rounded-lg border border-emerald-200">
+                            <td className="px-3 py-4 text-center font-semibold text-slate-900">
+                              <span className="px-2 py-0.5 bg-slate-100 rounded-md border border-slate-200">
                                 {stats.present}
                               </span>
                             </td>
 
-                            <td className="px-3 py-4 text-center font-bold text-amber-700">
-                              <span className="px-2.5 py-1 bg-amber-50 rounded-lg border border-amber-200">
+                            <td className="px-3 py-4 text-center font-semibold text-slate-800">
+                              <span className="px-2 py-0.5 bg-slate-100 rounded-md border border-slate-200">
                                 {stats.onSurvey}
                               </span>
                             </td>
 
-                            <td className="px-3 py-4 text-center font-bold text-amber-800">
-                              <span className="px-2.5 py-1 bg-amber-50 rounded-lg border border-amber-200">
+                            <td className="px-3 py-4 text-center font-semibold text-slate-800">
+                              <span className="px-2 py-0.5 bg-slate-100 rounded-md border border-slate-200">
                                 {stats.halfDay}
                               </span>
                             </td>
 
-                            <td className="px-3 py-4 text-center font-bold text-rose-700">
-                              <span className="px-2.5 py-1 bg-rose-50 rounded-lg border border-rose-200">
+                            <td className="px-3 py-4 text-center font-semibold text-slate-800">
+                              <span className="px-2 py-0.5 bg-slate-100 rounded-md border border-slate-200">
                                 {stats.absent}
                               </span>
                             </td>
 
-                            <td className="px-3 py-4 text-center font-bold text-purple-700">
-                              <span className="px-2.5 py-1 bg-purple-50 rounded-lg border border-purple-200">
+                            <td className="px-3 py-4 text-center font-semibold text-slate-800">
+                              <span className="px-2 py-0.5 bg-slate-100 rounded-md border border-slate-200">
                                 {stats.leave}
                               </span>
                             </td>
 
-                            <td className="px-4 py-4 text-center font-extrabold text-sm text-solar-deep">
+                            <td className="px-4 py-4 text-center font-bold text-sm text-slate-900">
                               {stats.verifiedPayableDays} Days
                             </td>
 
-                            <td className="px-4 py-4 text-center font-bold text-emerald-700">
+                            <td className="px-4 py-4 text-center font-bold text-slate-900">
                               {stats.attendancePercentage}%
                             </td>
 
@@ -1838,9 +1839,9 @@ function TeamContent() {
                               <div className="flex items-center justify-end gap-2">
                                 <button
                                   onClick={() => setMonthlyFilterMemberId(member.id)}
-                                  className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-solar-deep hover:text-white text-slate-800 font-bold text-xs flex items-center gap-1.5 transition-colors border border-slate-200 cursor-pointer"
+                                  className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-900 hover:text-white text-slate-700 font-medium text-xs flex items-center gap-1.5 transition-colors border border-slate-200 cursor-pointer"
                                 >
-                                  <FileText className="w-3.5 h-3.5" />
+                                  <FileText className="w-3.5 h-3.5 text-slate-500" />
                                   <span>View Slip</span>
                                 </button>
 
@@ -1849,9 +1850,9 @@ function TeamContent() {
                                   target="_blank"
                                   rel="noreferrer"
                                   title={`Share Report to ${member.name} on WhatsApp`}
-                                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
+                                  className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-900 font-medium text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
                                 >
-                                  <Share2 className="w-3.5 h-3.5" />
+                                  <Share2 className="w-3.5 h-3.5 text-slate-400" />
                                   <span>WhatsApp</span>
                                 </a>
                               </div>
@@ -1888,12 +1889,12 @@ function TeamContent() {
                     <button
                       onClick={() => handleShareSlipImage(singleMember)}
                       disabled={isGeneratingImage}
-                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                      className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-900 font-medium text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-50"
                     >
                       {isGeneratingImage ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
-                        <Share2 className="w-4 h-4" />
+                        <Share2 className="w-4 h-4 text-slate-400" />
                       )}
                       <span>Share to WhatsApp Web</span>
                     </button>
@@ -1902,12 +1903,12 @@ function TeamContent() {
                     <button
                       onClick={() => handleDownloadSlipImage(singleMember)}
                       disabled={isGeneratingImage}
-                      className="px-4 py-2 rounded-xl bg-solar-deep hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                      className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-900 font-medium text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-50"
                     >
                       {isGeneratingImage ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
-                        <ImageIcon className="w-4 h-4 text-emerald-300" />
+                        <ImageIcon className="w-4 h-4 text-slate-400" />
                       )}
                       <span>Download Image (.png)</span>
                     </button>
@@ -2162,9 +2163,9 @@ function TeamContent() {
               </div>
               <button
                 onClick={() => setIsAddModalOpen(true)}
-                className="px-4 py-2 bg-solar-deep hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                className="px-3.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-900 text-xs font-medium rounded-lg transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5 text-slate-500" />
                 <span>Add Member</span>
               </button>
             </div>
@@ -2177,8 +2178,7 @@ function TeamContent() {
                     <th className="px-6 py-3.5">Designation</th>
                     <th className="px-6 py-3.5">Contact Number</th>
                     <th className="px-6 py-3.5">Territory Hub</th>
-                    <th className="px-6 py-3.5">Skills & Technical Expertise</th>
-                    <th className="px-6 py-3.5 text-right">Actions</th>
+                    <th className="px-3 py-3.5 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -2219,21 +2219,8 @@ function TeamContent() {
                         </span>
                       </td>
 
-                      <td className="px-6 py-4">
-                        <div className="flex flex-wrap gap-1 max-w-xs">
-                          {member.skills.map((skill, sidx) => (
-                            <span
-                              key={sidx}
-                              className="px-2 py-0.5 bg-emerald-50 text-solar-deep text-[10px] font-medium rounded-md border border-emerald-100"
-                            >
-                              {skill}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-4 text-right">
-                        <div className="relative inline-flex justify-end">
+                      <td className="px-3 py-4 text-center">
+                        <div className="relative inline-flex justify-center">
                           <button
                             type="button"
                             onClick={() => setOpenActionMenuMemberId((openId) => openId === member.id ? null : member.id)}

@@ -74,96 +74,116 @@
   }
 }
 
-/* Backwards-compatible fluid-container alias */
-.fluid-container {
-  @apply site-container;
+/* Sleek, subtle modern scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
 }
 
-/* Section Vertical Padding */
-.section-py {
-  @apply py-12 sm:py-16 md:py-20 lg:py-24;
-}
-
-.section-py-sm {
-  @apply py-8 sm:py-12 md:py-16;
-}
-
-.fluid-py {
-  @apply section-py;
-}
-
-.fluid-py-sm {
-  @apply section-py-sm;
-}
-
-/* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
+  height: 6px;
 }
+
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: #0d5c46;
-  border-radius: 4px;
+  background: #cbd5e1;
+  border-radius: 9999px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: #0b4d3c;
+  background: #94a3b8;
 }
 
 /* Team & Field Crew HRM workspace */
 .hrm-workspace {
-  padding: 0.25rem;
+  padding: 0;
 }
 
 .hrm-hero {
   position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  padding: clamp(1.25rem, 3vw, 2rem);
-  border: 1px solid rgb(16 185 129 / 0.25);
-  border-radius: 1.5rem;
-  background:
-    radial-gradient(circle at 88% 8%, rgb(52 211 153 / 0.27), transparent 30%),
-    radial-gradient(circle at 12% 110%, rgb(45 212 191 / 0.18), transparent 34%),
-    linear-gradient(135deg, #063d32 0%, #075845 52%, #0b6b52 100%);
-  box-shadow: 0 18px 40px rgb(6 78 59 / 0.18);
-}
-
-.hrm-hero::after {
-  position: absolute;
-  z-index: -1;
-  top: -8rem;
-  right: -3rem;
-  width: 16rem;
-  height: 16rem;
-  content: "";
-  border: 1px solid rgb(167 243 208 / 0.2);
-  border-radius: 9999px;
-  box-shadow: 0 0 0 2rem rgb(167 243 208 / 0.04), 0 0 0 4rem rgb(167 243 208 / 0.03);
-}
-
-.hrm-hero a,
-.hrm-hero button {
-  box-shadow: 0 8px 18px rgb(2 44 34 / 0.2);
+  padding: 1.5rem 1.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  background: #ffffff;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.03);
 }
 
 .hrm-tabbar {
   position: sticky;
   top: 4.5rem;
   z-index: 8;
-  box-shadow: 0 10px 24px rgb(15 23 42 / 0.06);
 }
 
 .hrm-kpis > div {
   position: relative;
-  overflow: hidden;
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
 .hrm-kpis > div:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 22px rgb(15 23 42 / 0.08);
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgb(15 23 42 / 0.05);
+}
+
+.crm-profile-workspace .from-emerald-400 {
+  --tw-gradient-from: #fbbf24 var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(251 191 36 / 0) var(--tw-gradient-to-position) !important;
+}
+
+.crm-profile-workspace .to-cyan-400 {
+  --tw-gradient-to: #6ee7b7 var(--tw-gradient-to-position) !important;
+}
+
+.crm-profile-workspace .text-slate-950 {
+  color: #062b21 !important;
+}
+
+/* Keep the employee profile sections in balanced CRM rows on wide screens. */
+@media (min-width: 1280px) {
+  .employee-profile-grid > main,
+  .employee-profile-grid > aside {
+    display: contents;
+  }
+
+  .employee-profile-grid > main > section,
+  .employee-profile-grid > aside > section {
+    height: 100%;
+  }
+
+  .employee-profile-grid > main > section:first-child,
+  .employee-profile-grid > main > section:last-child {
+    grid-column: 1;
+  }
+
+  .employee-profile-grid > main > section:first-child {
+    grid-row: 1;
+  }
+
+  .employee-profile-grid > main > section:last-child {
+    grid-row: 2;
+  }
+
+  .employee-profile-grid > aside > section:first-child,
+  .employee-profile-grid > aside > section:nth-child(2) {
+    grid-column: 2;
+  }
+
+  .employee-profile-grid > aside > section:first-child {
+    grid-row: 1;
+  }
+
+  .employee-profile-grid > aside > section:nth-child(2) {
+    grid-row: 2;
+    height: 100%;
+  }
+
+  .employee-profile-grid > aside > section:last-child {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
 }
 
 @media (max-width: 639px) {

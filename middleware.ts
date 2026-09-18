@@ -28,7 +28,10 @@ export async function middleware(request: NextRequest) {
   const password = process.env.ADMIN_PASSWORD;
   const session = request.cookies.get(SESSION_COOKIE)?.value;
   if (!password || !session || session !== (await sessionToken(password))) {
-    return NextResponse.rewrite(new URL("/not-found", request.url));
+    const loginUrl = new URL("/admin/login", request.url);
+    const response = NextResponse.redirect(loginUrl);
+    response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+    return response;
   }
 
   const response = NextResponse.next();

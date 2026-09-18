@@ -8,36 +8,59 @@ import {
   TrendingUp,
   MapPin,
   Phone,
-  Mail,
   Clock,
   RefreshCw,
   ArrowRight,
   ShieldCheck,
   CheckCircle2,
   AlertCircle,
-  Building2,
-  Home,
-  Factory,
-  MessageSquare,
+  CreditCard,
+  Award,
+  Headphones,
+  FolderLock,
+  Plus,
+  ExternalLink,
 } from "lucide-react";
-import { siteConfig } from "@/lib/site-config";
 
 export default function AdminDashboardPage() {
   const [leads, setLeads] = useState<any[]>([]);
-  const [estimates, setEstimates] = useState<any[]>([]);
+  const [customersCount, setCustomersCount] = useState(0);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [subsidiesCount, setSubsidiesCount] = useState(0);
+  const [ticketsCount, setTicketsCount] = useState(0);
+  const [recentLogs, setRecentLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/leads");
-      const data = await res.json();
-      if (data.success) {
-        setLeads(data.leads || []);
-        setEstimates(data.estimates || []);
-      }
+      // Parallel fetch from CRM endpoints
+      const [leadsRes, custRes, prjRes, subRes, tckRes, auditRes] = await Promise.all([
+        fetch("/api/leads"),
+        fetch("/api/v1/admin/customers"),
+        fetch("/api/v1/admin/projects"),
+        fetch("/api/v1/admin/subsidies"),
+        fetch("/api/v1/admin/tickets"),
+        fetch("/api/v1/admin/audit"),
+      ]);
+
+      const [leadsData, custData, prjData, subData, tckData, auditData] = await Promise.all([
+        leadsRes.json(),
+        custRes.json(),
+        prjRes.json(),
+        subRes.json(),
+        tckRes.json(),
+        auditRes.json(),
+      ]);
+
+      if (leadsData.success) setLeads(leadsData.leads || []);
+      if (custData.success) setCustomersCount(custData.customers?.length || 0);
+      if (prjData.success) setProjects(prjData.projects || []);
+      if (subData.success) setSubsidiesCount(subData.subsidies?.length || 0);
+      if (tckData.success) setTicketsCount(tckData.tickets?.length || 0);
+      if (auditData.success) setRecentLogs((auditData.logs || []).slice(0, 5));
     } catch (err) {
-      console.error(err);
+      console.error("Dashboard fetch error:", err);
     } finally {
       setLoading(false);
     }
@@ -47,24 +70,9 @@ export default function AdminDashboardPage() {
     fetchDashboardData();
   }, []);
 
-  const newLeads = leads.filter((l) => l.status === "NEW");
-  const contactedLeads = leads.filter((l) => l.status === "CONTACTED");
-  const completedLeads = leads.filter((l) => l.status === "COMPLETED");
-
-  const residentialCount = leads.filter((l) =>
-    (l.propertyType || "").toLowerCase().includes("res")
+  const activeProjectsCount = projects.filter(
+    (p) => p.projectStatus !== "CANCELLED" && p.projectStatus !== "ENQUIRY"
   ).length;
-  const commercialCount = leads.filter((l) =>
-    (l.propertyType || "").toLowerCase().includes("com")
-  ).length;
-  const industrialCount = leads.filter((l) =>
-    (l.propertyType || "").toLowerCase().includes("ind")
-  ).length;
-
-  const totalCategorized = residentialCount + commercialCount + industrialCount || 1;
-  const resPercent = Math.round((residentialCount / totalCategorized) * 100);
-  const comPercent = Math.round((commercialCount / totalCategorized) * 100);
-  const indPercent = Math.round((industrialCount / totalCategorized) * 100);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -72,10 +80,10 @@ export default function AdminDashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900 tracking-tight">
-            Dashboard Overview
+            Solar CRM Command Dashboard
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Welcome, Rahul. Here is what is happening with Sunlife Solar leads & inquiries.
+            Real-time operations center for installations, customers, PM Surya Ghar subsidies, and mobile telemetry.
           </p>
         </div>
 
@@ -86,275 +94,242 @@ export default function AdminDashboardPage() {
             className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-solar-deep" : ""}`} />
-            <span>Sync</span>
+            <span>Sync All</span>
           </button>
 
           <Link
-            href="/admin/leads"
+            href="/admin/projects"
             className="px-4 py-2 bg-solar-deep hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5"
           >
-            <span>All Leads</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <Zap className="w-3.5 h-3.5 text-sun-amber" />
+            <span>Solar Projects</span>
           </Link>
         </div>
       </div>
 
-      {/* 4 Crisp KPI Stat Cards */}
+      {/* Core Operational KPI Cards Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
-        {/* Card 1 */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <Link
+          href="/admin/customers"
+          className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs hover:border-emerald-500/50 transition-all group"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Total Leads
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Clients</div>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center group-hover:scale-105 transition-transform">
               <Users className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-4">
-            <div className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900">
-              {loading ? "-" : leads.length}
-            </div>
-            <div className="text-[11px] text-emerald-600 font-semibold mt-1">
-              {newLeads.length} new awaiting review
-            </div>
+          <div className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900 mt-2">
+            {customersCount}
           </div>
-        </div>
+          <div className="text-[11px] text-emerald-600 font-semibold mt-1 flex items-center gap-1">
+            <CheckCircle2 className="w-3 h-3" />
+            <span>Registered Customers</span>
+          </div>
+        </Link>
 
-        {/* Card 2 */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <Link
+          href="/admin/projects"
+          className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs hover:border-emerald-500/50 transition-all group"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              New Inquiries
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <AlertCircle className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <div className="text-2xl sm:text-3xl font-extrabold font-heading text-amber-600">
-              {loading ? "-" : newLeads.length}
-            </div>
-            <div className="text-[11px] text-slate-500 mt-1">
-              Direct quote requests
-            </div>
-          </div>
-        </div>
-
-        {/* Card 3 */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Calculations
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-solar-deep flex items-center justify-center">
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Installations</div>
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center group-hover:scale-105 transition-transform">
               <Zap className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-4">
-            <div className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900">
-              {loading ? "-" : estimates.length}
+          <div className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900 mt-2">
+            {activeProjectsCount}
+          </div>
+          <div className="text-[11px] text-amber-700 font-semibold mt-1 flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            <span>Active Plant Workflows</span>
+          </div>
+        </Link>
+
+        <Link
+          href="/admin/subsidies"
+          className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs hover:border-emerald-500/50 transition-all group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Subsidies</div>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center group-hover:scale-105 transition-transform">
+              <Award className="w-4 h-4" />
             </div>
-            <div className="text-[11px] text-solar-deep font-semibold mt-1">
-              Generated on website
+          </div>
+          <div className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900 mt-2">
+            {subsidiesCount}
+          </div>
+          <div className="text-[11px] text-blue-700 font-semibold mt-1 flex items-center gap-1">
+            <span>PM Surya Ghar Portal</span>
+          </div>
+        </Link>
+
+        <Link
+          href="/admin/tickets"
+          className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs hover:border-emerald-500/50 transition-all group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Support</div>
+            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center group-hover:scale-105 transition-transform">
+              <Headphones className="w-4 h-4" />
             </div>
+          </div>
+          <div className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900 mt-2">
+            {ticketsCount}
+          </div>
+          <div className="text-[11px] text-purple-700 font-semibold mt-1 flex items-center gap-1">
+            <span>Maintenance Tickets</span>
+          </div>
+        </Link>
+      </div>
+
+      {/* Quick Launchpad to All 18 CRM Modules */}
+      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold font-heading text-slate-900">CRM Operational Hub</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Quick access to manage all aspects of client solar journeys</p>
           </div>
         </div>
 
-        {/* Card 4 */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Primary Region
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-              <MapPin className="w-4 h-4" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
+          <Link
+            href="/admin/surveys"
+            className="p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50/60 border border-slate-200 text-slate-700 hover:text-solar-deep transition-all flex flex-col items-center text-center gap-2 group"
+          >
+            <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform">
+              📋
             </div>
-          </div>
-          <div className="mt-4">
-            <div className="text-lg sm:text-xl font-bold font-heading text-slate-900 truncate">
-              Narmadapuram
+            <span className="font-bold">Site Surveys</span>
+          </Link>
+
+          <Link
+            href="/admin/quotations"
+            className="p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50/60 border border-slate-200 text-slate-700 hover:text-solar-deep transition-all flex flex-col items-center text-center gap-2 group"
+          >
+            <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform">
+              📑
             </div>
-            <div className="text-[11px] text-slate-500 mt-1 truncate">
-              MP Central Division
+            <span className="font-bold">Quotations</span>
+          </Link>
+
+          <Link
+            href="/admin/documents"
+            className="p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50/60 border border-slate-200 text-slate-700 hover:text-solar-deep transition-all flex flex-col items-center text-center gap-2 group"
+          >
+            <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform">
+              🗂️
             </div>
-          </div>
+            <span className="font-bold">Documents</span>
+          </Link>
+
+          <Link
+            href="/admin/payments"
+            className="p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50/60 border border-slate-200 text-slate-700 hover:text-solar-deep transition-all flex flex-col items-center text-center gap-2 group"
+          >
+            <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform">
+              💳
+            </div>
+            <span className="font-bold">Payments</span>
+          </Link>
+
+          <Link
+            href="/admin/monitoring"
+            className="p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50/60 border border-slate-200 text-slate-700 hover:text-solar-deep transition-all flex flex-col items-center text-center gap-2 group"
+          >
+            <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform">
+              ⚡
+            </div>
+            <span className="font-bold">Monitoring</span>
+          </Link>
+
+          <Link
+            href="/admin/referrals"
+            className="p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50/60 border border-slate-200 text-slate-700 hover:text-solar-deep transition-all flex flex-col items-center text-center gap-2 group"
+          >
+            <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform">
+              🎁
+            </div>
+            <span className="font-bold">Referrals</span>
+          </Link>
         </div>
       </div>
 
-      {/* Main 2-Column Split */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
-        {/* Left Column: Recent Lead Submissions (8 Cols) */}
-        <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
-            <div>
-              <h2 className="text-sm sm:text-base font-bold text-slate-900 font-heading">
-                Recent Inquiries
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Latest customer quote & consultation submissions
-              </p>
-            </div>
-
-            <Link
-              href="/admin/leads"
-              className="text-xs font-bold text-solar-deep hover:underline inline-flex items-center gap-1"
-            >
-              <span>View All ({leads.length})</span>
-              <ArrowRight className="w-3 h-3" />
+      {/* Two Columns: Recent Projects & Security Audit Log */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left: Active Solar Projects */}
+        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-slate-900 text-sm">Active Solar Projects</h3>
+            <Link href="/admin/projects" className="text-xs font-bold text-solar-deep hover:underline">
+              View All →
             </Link>
           </div>
 
-          {loading ? (
-            <div className="py-14 text-center text-xs text-slate-400">
-              <RefreshCw className="w-5 h-5 animate-spin mx-auto text-solar-deep mb-2" />
-              Loading database records...
-            </div>
-          ) : leads.length === 0 ? (
-            <div className="py-14 text-center text-xs text-slate-400 space-y-1">
-              <Users className="w-7 h-7 text-slate-300 mx-auto mb-1" />
-              <p className="font-semibold text-slate-600">No leads recorded in database yet.</p>
-              <p>When customers fill out the quote or contact forms, they will show up here.</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-100">
-              {leads.slice(0, 5).map((lead) => (
-                <div
-                  key={lead.id}
-                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900 text-sm">
-                        {lead.name}
-                      </span>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          lead.status === "NEW"
-                            ? "bg-amber-100 text-amber-800"
-                            : lead.status === "CONTACTED"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-emerald-100 text-emerald-800"
-                        }`}
-                      >
-                        {lead.status}
-                      </span>
-                    </div>
-
-                    <div className="text-xs text-slate-500 flex flex-wrap items-center gap-2.5">
-                      <span className="flex items-center gap-1 text-slate-700 font-medium">
-                        <MapPin className="w-3 h-3 text-slate-400" />
-                        {lead.city || "Narmadapuram"}
-                      </span>
-                      <span>•</span>
-                      <span>{lead.propertyType || "Residential"}</span>
-                      <span>•</span>
-                      <span>Bill: {lead.monthlyBill || "N/A"}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <a
-                      href={`tel:${lead.phone}`}
-                      className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-emerald-50 hover:text-solar-deep text-slate-700 font-semibold text-xs flex items-center gap-1.5 transition-colors"
-                    >
-                      <Phone className="w-3.5 h-3.5 text-solar-deep" />
-                      <span>{lead.phone}</span>
-                    </a>
-                    <a
-                      href={`https://wa.me/91${lead.phone.replace(/[^0-9]/g, "")}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="p-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors"
-                      title="WhatsApp"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                    </a>
+          <div className="space-y-3 text-xs">
+            {projects.slice(0, 4).map((p) => (
+              <div
+                key={p.id}
+                className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between"
+              >
+                <div>
+                  <div className="font-bold text-slate-900">{p.projectName}</div>
+                  <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                    {p.projectId} • {p.customer?.fullName}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+
+                <div className="text-right">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-blue-100 text-blue-800">
+                    {p.projectStatus.replace(/_/g, " ")}
+                  </span>
+                  <div className="text-[11px] font-bold text-solar-deep mt-1">
+                    {p.plantCapacityKw} kW
+                  </div>
+                </div>
+              </div>
+            ))}
+            {projects.length === 0 && (
+              <div className="text-center py-6 text-slate-400">No projects recorded yet.</div>
+            )}
+          </div>
         </div>
 
-        {/* Right Column: Category Distribution & Quick Links (4 Cols) */}
-        <div className="lg:col-span-4 space-y-6">
-          {/* Solution Mix Card */}
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
-            <h3 className="font-bold font-heading text-sm text-slate-900">
-              Inquiry Categories
-            </h3>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <div className="flex justify-between text-slate-700 font-medium mb-1">
-                  <span>Residential Rooftop</span>
-                  <span className="font-bold text-slate-900">{residentialCount}</span>
-                </div>
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-solar-emerald rounded-full transition-all"
-                    style={{ width: `${resPercent || 15}%` }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-slate-700 font-medium mb-1">
-                  <span>Commercial Systems</span>
-                  <span className="font-bold text-slate-900">{commercialCount}</span>
-                </div>
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-blue-500 rounded-full transition-all"
-                    style={{ width: `${comPercent || 10}%` }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-slate-700 font-medium mb-1">
-                  <span>Industrial & Shed EPC</span>
-                  <span className="font-bold text-slate-900">{industrialCount}</span>
-                </div>
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-amber-500 rounded-full transition-all"
-                    style={{ width: `${indPercent || 5}%` }}
-                  />
-                </div>
-              </div>
-            </div>
+        {/* Right: Security & Audit Activity Trail */}
+        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-slate-900 text-sm">Immutable Audit Trail</h3>
+            <Link href="/admin/audit" className="text-xs font-bold text-solar-deep hover:underline">
+              Full Logs →
+            </Link>
           </div>
 
-          {/* Service Area Card */}
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-3">
-            <h3 className="font-bold font-heading text-sm text-slate-900">
-              Service Network
-            </h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Target operational districts for site surveys and rooftop installations:
-            </p>
-            <div className="flex flex-wrap gap-1.5 pt-1 text-[11px]">
-              <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-solar-deep font-semibold border border-emerald-200/60">
-                Narmadapuram (HQ)
-              </span>
-              <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium">
-                Itarsi
-              </span>
-              <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium">
-                Pipariya
-              </span>
-              <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium">
-                Babai
-              </span>
-              <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium">
-                Seoni Malwa
-              </span>
-              <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium">
-                Bhopal Region
-              </span>
-            </div>
+          <div className="space-y-3 text-xs">
+            {recentLogs.map((log) => (
+              <div
+                key={log.id}
+                className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between"
+              >
+                <div>
+                  <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                    <span className="font-mono text-emerald-700">{log.entityType}</span>
+                    <span className="text-slate-400">•</span>
+                    <span>{log.action}</span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    {log.fieldChanged}: <span className="font-medium text-slate-700">{log.newValue || "Modified"}</span>
+                  </div>
+                </div>
+
+                <div className="text-[10px] text-slate-400 whitespace-nowrap">
+                  {new Date(log.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </div>
+              </div>
+            ))}
+            {recentLogs.length === 0 && (
+              <div className="text-center py-6 text-slate-400">No audit activity logged yet.</div>
+            )}
           </div>
         </div>
       </div>

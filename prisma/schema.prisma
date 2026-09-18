@@ -10,25 +10,530 @@ datasource db {
   schemas  = ["sunlife"]
 }
 
+// -------------------------------------------------------------
+// 1. Customer Module
+// -------------------------------------------------------------
+model Customer {
+  id                      String          @id @default(cuid())
+  customerId              String          @unique // e.g. SL-CUST-1001
+  fullName                String
+  primaryMobile           String          @unique // Used for OTP login
+  alternateMobile         String?
+  email                   String?
+  customerStatus          String          @default("ACTIVE") // ACTIVE, INACTIVE, BLACKLISTED
+  installationAddress     String
+  billingAddress          String?
+  propertyType            String          @default("RESIDENTIAL") // RESIDENTIAL, COMMERCIAL
+  preferredLanguage       String          @default("hi") // hi, en
+  profilePhoto            String?
+  assignedSalesExecutiveId String?
+  assignedSalesExecutive  TeamMember?     @relation(fields: [assignedSalesExecutiveId], references: [id])
+  appAccessEnabled        Boolean         @default(true)
+  mobileVerified          Boolean         @default(false)
+  lastAppLogin            DateTime?
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  leads                   Lead[]
+  projects                SolarProject[]
+  surveys                 SiteSurvey[]
+  documents               Document[]
+  payments                Payment[]
+  subsidies               SubsidyRecord[]
+  tickets                 ServiceTicket[]
+  notifications           Notification[]
+  referralsSent           Referral[]      @relation("CustomerReferralsSent")
+
+  @@index([primaryMobile])
+  @@index([customerStatus])
+  @@schema("sunlife")
+}
+
+// -------------------------------------------------------------
+// 2. Lead & Enquiry Module
+// -------------------------------------------------------------
 model Lead {
-  id                 String   @id @default(cuid())
-  name               String
-  phone              String
-  email              String?
-  city               String?  @default("Narmadapuram")
-  propertyType       String?  @default("Residential")
-  monthlyBill        String?
-  interestedSolution String?
-  rooftopArea        String?
-  message            String?
-  source             String?  @default("Website Quote Form")
-  status             String   @default("NEW") // NEW, CONTACTED, SITE_SURVEY_SCHEDULED, QUOTED, WON, LOST
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                      String          @id @default(cuid())
+  leadId                  String?         @unique // e.g. SL-LEAD-2026-001
+  customerId              String?
+  customer                Customer?       @relation(fields: [customerId], references: [id])
+  name                    String
+  phone                   String
+  email                   String?
+  city                    String?         @default("Narmadapuram")
+  propertyType            String?         @default("Residential")
+  monthlyBill             String?
+  interestedSolution      String?
+  rooftopArea             String?
+  roofSize                String?
+  location                String?
+  requestedCapacity       Float?
+  recommendedCapacity     Float?
+  leadSource              String?         @default("Website Quote Form")
+  source                  String?         @default("Website Quote Form") // legacy alias
+  referralCode            String?
+  enquiryDate             DateTime        @default(now())
+  status                  String          @default("NEW") // NEW, CONTACTED, SURVEY_SCHEDULED, SURVEY_COMPLETED, QUOTATION_SENT, NEGOTIATION, CONVERTED, LOST
+  assignedSalesExecutiveId String?
+  surveyRequestedDate     DateTime?
+  notes                   String?
+  message                 String?
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  referral                Referral?
+
+  @@index([phone])
+  @@index([status])
+  @@schema("sunlife")
+}
+
+// -------------------------------------------------------------
+// 3. Solar Project Module
+// -------------------------------------------------------------
+model SolarProject {
+  id                           String             @id @default(cuid())
+  projectId                    String             @unique // e.g. SL-PRJ-1001
+  customerId                   String
+  customer                     Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  projectName                  String
+  plantCapacityKw              Float
+  solarType                    String             @default("ON_GRID") // ON_GRID, OFF_GRID, HYBRID
+  propertyType                 String             @default("RESIDENTIAL") // RESIDENTIAL, COMMERCIAL
+  projectStatus                String             @default("ENQUIRY")
+  // Allowed statuses:
+  // ENQUIRY, SURVEY_SCHEDULED, SURVEY_COMPLETED, DESIGN_PREPARED, QUOTATION_PENDING,
+  // QUOTATION_APPROVED, ORDER_CONFIRMED, DOCUMENTS_PENDING, DOCUMENTS_SUBMITTED,
+  // MATERIAL_PENDING, MATERIAL_DISPATCHED, INSTALLATION_SCHEDULED, INSTALLATION_IN_PROGRESS,
+  // INSTALLATION_COMPLETED, NET_METERING_PENDING, NET_METER_INSTALLED, SUBSIDY_PROCESSING,
+  // ACTIVE, ON_HOLD, CANCELLED
+  installationAddress          String
+  discom                       String             @default("MPMKVVCL")
+  consumerNumber               String?
+  assignedEngineerId           String?
+  assignedEngineer             TeamMember?        @relation("AssignedEngineer", fields: [assignedEngineerId], references: [id])
+  assignedSalesExecutiveId     String?
+  assignedSalesExecutive       TeamMember?        @relation("AssignedSales", fields: [assignedSalesExecutiveId], references: [id])
+  expectedCompletionDate       DateTime?
+  installationDate             DateTime?
+  commissioningDate            DateTime?
+  panelBrandModel              String?
+  panelQuantity                Int?
+  inverterBrandModel           String?
+  inverterSerialNumber         String?
+  warrantyStartDate            DateTime?
+  warrantyEndDate              DateTime?
+  estimatedMonthlyGenerationKwh Float?
+  estimatedMonthlySavingsInr   Float?
+  lastStatusUpdate             DateTime           @default(now())
+  customerActionRequired       String?
+  createdAt                    DateTime           @default(now())
+  updatedAt                    DateTime           @updatedAt
+
+  timeline                     ProjectTimeline[]
+  surveys                      SiteSurvey[]
+  quotations                   Quotation[]
+  documents                    Document[]
+  payments                     Payment[]
+  subsidy                      SubsidyRecord?
+  monitoring                   PlantMonitoring?
+  tickets                      ServiceTicket[]
+  notifications                Notification[]
+
+  @@index([customerId, projectStatus])
+  @@index([projectId])
+  @@schema("sunlife")
+}
+
+// -------------------------------------------------------------
+// 4. Project Timeline / Activity Module
+// -------------------------------------------------------------
+model ProjectTimeline {
+  id                  String       @id @default(cuid())
+  projectId           String
+  project             SolarProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  eventType           String // SURVEY_COMPLETED, QUOTATION_UPLOADED, ADVANCE_RECEIVED, MATERIAL_DISPATCHED, INSTALLATION_COMPLETED, etc.
+  eventTitle          String
+  customerDescription String // Clean customer facing copy
+  internalDescription String? // Private internal CRM notes
+  eventDateTime       DateTime     @default(now())
+  status              String?
+  createdBy           String       @default("SYSTEM") // Employee ID or SYSTEM
+  visibleToCustomer   Boolean      @default(true) // Crucial privacy boundary
+  notificationSent    Boolean      @default(false)
+  createdAt           DateTime     @default(now())
+
+  @@index([projectId, visibleToCustomer])
+  @@index([eventDateTime])
+  @@schema("sunlife")
+}
+
+// -------------------------------------------------------------
+// 5. Site Survey Module
+// -------------------------------------------------------------
+model SiteSurvey {
+  id                     String        @id @default(cuid())
+  surveyId               String        @unique // e.g. SL-SRV-1001
+  projectId              String?
+  project                SolarProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  customerId             String
+  customer               Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  scheduledDateTime      DateTime
+  surveyEngineerId       String?
+  surveyEngineer         TeamMember?   @relation(fields: [surveyEngineerId], references: [id])
+  surveyStatus           String        @default("REQUESTED") // REQUESTED, SCHEDULED, IN_PROGRESS, COMPLETED, RESCHEDULE_REQUIRED, CANCELLED
+  roofType               String? // Concrete flat, RCC, Tin shed, Tile, Asbestos
+  availableRoofAreaSqFt  Float?
+  roofOrientation        String? // South, South-West, East-West, etc.
+  shadowInfo             String?
+  recommendedCapacityKw  Float?
+  existingElectricityLoadKw Float?
+  meterType              String? // Single Phase, 3 Phase
+  discomConsumerNumber   String?
+  gpsLatitude            Float?
+  gpsLongitude           Float?
+  sitePhotographs        Json          @default("[]") // Array of secure storage keys / URLs
+  surveyReportUrl        String?
+  engineerNotes          String?
+  customerVisibleRemarks String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  @@index([customerId])
+  @@index([surveyStatus])
+  @@schema("sunlife")
+}
+
+// -------------------------------------------------------------
+// 6. Quotation Module
+// -------------------------------------------------------------
+model Quotation {
+  id                 String       @id @default(cuid())
+  quotationId        String       @unique // e.g. SL-QT-1001-V1
+  projectId          String
+  project            SolarProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  versionNumber      Int          @default(1)
+  capacityKw         Float
+  baseAmount         Float
+  taxAmount          Float
+  discountAmount     Float        @default(0)
+  grossProjectCost   Float
+  expectedSubsidy    Float        @default(0)
+  customerNetCost    Float
+  validUntilDate     DateTime
+  paymentSchedule    Json         @default("[]") // [{ stage: 'Advance', percent: 20, amount: 40000 }]
+  pdfDocumentUrl     String?
+  approvalStatus     String       @default("DRAFT") // DRAFT, SENT, VIEWED, REVISION_REQUESTED, APPROVED, REJECTED, EXPIRED
+  approvedDate       DateTime?
+  customerRemarks    String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@unique([projectId, versionNumber])
+  @@index([approvalStatus])
+  @@schema("sunlife")
+}
+
+// -------------------------------------------------------------
+// 7. Central Documents Module
+// -------------------------------------------------------------
+model Document {
+  id                 String        @id @default(cuid())
+  documentId         String        @unique // e.g. SL-DOC-1001
+  customerId         String
+  customer           Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  projectId          String?
+  project            SolarProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  documentCategory   String // QUOTATION, INVOICE, PAYMENT_RECEIPT, SITE_SURVEY_REPORT, PLANT_DESIGN, PURCHASE_AGREEMENT, CUSTOMER_KYC, ELECTRICITY_BILL, AADHAAR_PAN, CANCELLED_CHEQUE, PANEL_WARRANTY, INVERTER_WARRANTY, INSTALLATION_CERTIFICATE, NET_METERING_DOCUMENT, DISCOM_APPROVAL, SUBSIDY_DOCUMENT, OTHER
+  documentName       String
+  fileLocation       String // S3/Object storage key or local safe reference
+  mimeType           String
+  fileSizeBytes      Int?
+  version            Int           @default(1)
+  uploadedBy         String
+  uploadedDate       DateTime      @default(now())
+  verificationStatus String        @default("PENDING") // PENDING, VERIFIED, REJECTED
+  verifiedBy         String?
+  customerCanView    Boolean       @default(true)
+  customerCanDownload Boolean      @default(true)
+  expiryDate         DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([customerId, documentCategory])
+  @@index([projectId])
+  @@schema("sunlife")
+}
+
+// -------------------------------------------------------------
+// 8. Payment Module
+// -------------------------------------------------------------
+model Payment {
+  id                      String        @id @default(cuid())
+  paymentId               String        @unique // e.g. SL-PAY-1001
+  projectId               String
+  project                 SolarProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  customerId              String
+  customer                Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  invoiceId               String?
+  paymentStage            String // BOOKING, ADVANCE, MATERIAL, INSTALLATION, FINAL
+  amountDue               Float
+  amountPaid              Float         @default(0)
+  balanceRemaining        Float
+  dueDate                 DateTime?
+  paymentStatus           String        @default("PENDING") // PENDING, INITIATED, PAID, FAILED, PARTIALLY_PAID, OVERDUE, REFUNDED
+  paymentMethod           String? // UPI, Bank Transfer, Cheque, Cash, Gateway
+  transactionReference    String?
+  paymentGatewayReference String?
+  receivedDate            DateTime?
+  receiptDocumentId       String?
+  verifiedBy              String?
+  refundStatus            String?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+
+  @@index([projectId, paymentStatus])
+  @@index([customerId])
+  @@schema("sunlife")
+}
+
+// -------------------------------------------------------------
+// 9. Subsidy & Subsidy History Module
+// -------------------------------------------------------------
+model SubsidyRecord {
+  id                      String          @id @default(cuid())
+  subsidyRecordId         String          @unique // e.g. SL-SUB-1001
+  projectId               String          @unique
+  project                 SolarProject    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  customerId              String
+  customer                Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  subsidyScheme           String          @default("PM Surya Ghar Muft Bijli Yojana")
+  portalRegistrationNumber String?
+  expectedSubsidy         Float
+  approvedSubsidy         Float?
+  applicationDate         DateTime?
+  currentStatus           String          @default("NOT_STARTED")
+  // NOT_STARTED, PORTAL_REGISTRATION, DISCOM_APPLICATION, FEASIBILITY_APPROVAL,
+  // INSTALLATION, INSPECTION, NET_METER_INSTALLED, SUBSIDY_PROCESSING,
+  // SUBSIDY_APPROVED, SUBSIDY_CREDITED, REJECTED
+  lastUpdatedDate         DateTime        @default(now())
+  bankAccountMasked       String? // e.g. XXXX-XXXX-1234
+  bankVerificationStatus  String?
+  failureRejectionReason  String?
+  requiredCustomerAction  String?
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  history                 SubsidyHistory[]
 
   @@schema("sunlife")
 }
 
+model SubsidyHistory {
+  id              String         @id @default(cuid())
+  subsidyRecordId String
+  subsidyRecord   SubsidyRecord  @relation(fields: [subsidyRecordId], references: [id], onDelete: Cascade)
+  fromStatus      String
+  toStatus        String
+  changedBy       String
+  changeRemarks   String?
+  timestamp       DateTime       @default(now())
+
+  @@index([subsidyRecordId, timestamp])
+  @@schema("sunlife")
+}
+
+// -------------------------------------------------------------
+// 10. Solar Generation & Monitoring Module
+// -------------------------------------------------------------
+model PlantMonitoring {
+  id                      String               @id @default(cuid())
+  plantId                 String               @unique // e.g. SL-PLANT-1001
+  projectId               String               @unique
+  project                 SolarProject         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inverterProvider        String               @default("Growatt")
+  externalDeviceId        String?
+  inverterSerialNumber    String?
+  connectionStatus        String               @default("CONNECTED") // CONNECTED, OFFLINE, ERROR
+  lastSynchronizedTime    DateTime?
+  totalGeneratedEnergyKwh Float                @default(0)
+  totalConsumedEnergyKwh  Float                @default(0)
+  totalExportedEnergyKwh  Float                @default(0)
+  totalImportedEnergyKwh  Float                @default(0)
+  systemHealth            String               @default("NORMAL") // NORMAL, WARNING, FAULT
+  activeAlerts            Json                 @default("[]")
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+
+  readings                GenerationReading[]
+  maintenanceRecords      MaintenanceRecord[]
+
+  @@schema("sunlife")
+}
+
+model GenerationReading {
+  id           String          @id @default(cuid())
+  plantId      String
+  plant        PlantMonitoring @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  timestamp    DateTime
+  generatedKwh Float
+  consumedKwh  Float           @default(0)
+  exportedKwh  Float           @default(0)
+  importedKwh  Float           @default(0)
+  dataSource   String          @default("INVERTER_API")
+
+  @@index([plantId, timestamp])
+  @@schema("sunlife")
+}
+
+// -------------------------------------------------------------
+// 11. Maintenance Module
+// -------------------------------------------------------------
+model MaintenanceRecord {
+  id                          String          @id @default(cuid())
+  plantId                     String
+  plant                       PlantMonitoring @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  lastServiceDate             DateTime?
+  nextInspectionDate          DateTime?
+  lastPanelCleaningDate       DateTime?
+  nextRecommendedCleaningDate DateTime?
+  inverterHealth              String          @default("GOOD")
+  panelHealth                 String          @default("GOOD")
+  gridConnectionStatus        String          @default("STABLE")
+  performanceScore            Float           @default(100.0)
+  maintenanceRecommendation   String?
+  openAlert                   String?
+  lastCheckedDate             DateTime        @default(now())
+  createdAt                   DateTime        @default(now())
+  updatedAt                   DateTime        @updatedAt
+
+  @@index([plantId])
+  @@schema("sunlife")
+}
+
+// -------------------------------------------------------------
+// 12. Service Ticket Module
+// -------------------------------------------------------------
+model ServiceTicket {
+  id                   String             @id @default(cuid())
+  ticketId             String             @unique // e.g. SL-TCK-1001
+  customerId           String
+  customer             Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  projectId            String?
+  project              SolarProject?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  issueCategory        String // LOW_GENERATION, INVERTER_ISSUE, PANEL_CLEANING, ELECTRICAL_ISSUE, NET_METER_ISSUE, APP_MONITORING_ISSUE, OTHER
+  description          String
+  priority             String             @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  status               String             @default("SUBMITTED") // SUBMITTED, UNDER_REVIEW, ASSIGNED, VISIT_SCHEDULED, TECHNICIAN_VISITING, WORK_COMPLETED, RESOLVED, REOPENED, CANCELLED
+  submittedDate        DateTime           @default(now())
+  assignedTechnicianId String?
+  assignedTechnician   TeamMember?        @relation(fields: [assignedTechnicianId], references: [id])
+  scheduledVisit       DateTime?
+  visitTimeRange       String?
+  resolutionDetails    String?
+  resolvedDate         DateTime?
+  customerRating       Int?
+  customerVisibleNotes String?
+  internalNotes        String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  attachments          TicketAttachment[]
+
+  @@index([customerId, status])
+  @@index([ticketId])
+  @@schema("sunlife")
+}
+
+model TicketAttachment {
+  id         String        @id @default(cuid())
+  ticketId   String
+  ticket     ServiceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  fileUrl    String
+  fileType   String        @default("IMAGE") // IMAGE, VIDEO, DOCUMENT
+  uploadedBy String
+  uploadedAt DateTime      @default(now())
+
+  @@schema("sunlife")
+}
+
+// -------------------------------------------------------------
+// 13. Notification Module
+// -------------------------------------------------------------
+model Notification {
+  id                   String        @id @default(cuid())
+  customerId           String
+  customer             Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  projectId            String?
+  project              SolarProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  notificationType     String // SURVEY_SCHEDULED, QUOTATION_READY, PAYMENT_REMINDER, INSTALLATION_UPDATE, SUBSIDY_STATUS_CHANGED, etc.
+  title                String
+  message              String
+  deliveryChannel      String        @default("IN_APP") // IN_APP, PUSH, SMS, WHATSAPP, EMAIL
+  deliveryStatus       String        @default("SENT") // PENDING, SENT, DELIVERED, FAILED
+  createdTime          DateTime      @default(now())
+  sentTime             DateTime?     @default(now())
+  readTime             DateTime?
+  relatedScreenDeepLink String? // e.g. /project/timeline, /quotes/view, /subsidies
+  createdAt            DateTime      @default(now())
+
+  @@index([customerId, readTime])
+  @@schema("sunlife")
+}
+
+// -------------------------------------------------------------
+// 14. Referral Module
+// -------------------------------------------------------------
+model Referral {
+  id                     String    @id @default(cuid())
+  referralId             String    @unique // e.g. SL-REF-1001
+  referringCustomerId    String
+  referringCustomer      Customer  @relation("CustomerReferralsSent", fields: [referringCustomerId], references: [id], onDelete: Cascade)
+  referralCode           String
+  referredPersonName     String
+  referredMobileNumber   String
+  leadId                 String?   @unique
+  lead                   Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  referralStatus         String    @default("REFERRAL_SENT")
+  // REFERRAL_SENT, LEAD_CREATED, LEAD_CONTACTED, SURVEY_COMPLETED,
+  // ORDER_CONFIRMED, INSTALLATION_COMPLETED, REWARD_ELIGIBLE, REWARD_PAID
+  eligibleRewardAmount   Float     @default(0)
+  rewardStatus           String    @default("PENDING")
+  rewardPaymentReference String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@index([referringCustomerId])
+  @@index([referralCode])
+  @@schema("sunlife")
+}
+
+// -------------------------------------------------------------
+// 15. Audit Log System
+// -------------------------------------------------------------
+model AuditLog {
+  id            String   @id @default(cuid())
+  entityType    String // SolarProject, Payment, Quotation, SubsidyRecord, Customer, Lead
+  entityId      String
+  fieldChanged  String
+  previousValue String?
+  newValue      String?
+  action        String // CREATE, UPDATE, DELETE, STATUS_CHANGE
+  actorId       String // Employee ID, Customer ID, or SYSTEM
+  actorType     String   @default("SYSTEM") // ADMIN, EMPLOYEE, CUSTOMER, SYSTEM
+  source        String   @default("CRM") // CRM, APP, API, WEBHOOK, IMPORT
+  ipAddress     String?
+  userAgent     String?
+  timestamp     DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([timestamp])
+  @@schema("sunlife")
+}
+
+// -------------------------------------------------------------
+// Existing Models (Preserved & Enhanced)
+// -------------------------------------------------------------
 model ContactInquiry {
   id          String   @id @default(cuid())
   fullName    String
@@ -64,7 +569,7 @@ model Project {
   id            String   @id @default(cuid())
   title         String
   slug          String   @unique
-  category      String   // Residential, Commercial, Industrial, Rooftop
+  category      String // Residential, Commercial, Industrial, Rooftop
   location      String
   capacityKw    Float
   description   String
@@ -94,58 +599,69 @@ model BlogPost {
 }
 
 model TeamMember {
-  id               String       @id
-  name             String
-  role             String
-  category         String
-  phone            String
-  territory        String
-  status           String       @default("Available")
-  skills           Json         @default("[]")
-  joinedYear       String
-  monthlySalary    Float?
-  email            String?
-  dob              String?
-  address          String?
-  department       String?
-  joiningDate      String?
-  employmentType   String?
-  reportingManager String?
-  bankAccountHolder String?
-  bankName         String?
-  bankAccountNumber String?
-  bankIFSC         String?
-  bankBranch       String?
-  bankAccountType  String?
-  upiId            String?
-  emailVerifiedAt  DateTime?
-  verificationCodeHash String?
+  id                    String            @id
+  employeeId            String?           @unique // e.g. SL-EMP-001
+  name                  String
+  role                  String
+  category              String
+  phone                 String
+  territory             String
+  serviceArea           String?
+  status                String            @default("Available")
+  activeStatus          Boolean           @default(true)
+  customerContactVisibility Boolean       @default(false)
+  skills                Json              @default("[]")
+  joinedYear            String
+  monthlySalary         Float?
+  email                 String?
+  dob                   String?
+  address               String?
+  department            String?
+  joiningDate           String?
+  employmentType        String?
+  reportingManager      String?
+  bankAccountHolder     String?
+  bankName              String?
+  bankAccountNumber     String?
+  bankIFSC              String?
+  bankBranch            String?
+  bankAccountType       String?
+  upiId                 String?
+  emailVerifiedAt       DateTime?
+  verificationCodeHash  String?
   verificationExpiresAt DateTime?
-  employeeAccessEnabled Boolean @default(false)
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  attendance       Attendance[]
-  payrollProfile   PayrollProfile?
-  advances         EmployeeAdvance[]
-  monthlyPayroll   MonthlyPayroll[]
-  leaveRequests    LeaveRequest[]
+  employeeAccessEnabled Boolean           @default(false)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  attendance            Attendance[]
+  payrollProfile        PayrollProfile?
+  advances              EmployeeAdvance[]
+  monthlyPayroll        MonthlyPayroll[]
+  leaveRequests         LeaveRequest[]
+
+  assignedCustomers     Customer[]
+  assignedProjectsAsEngineer SolarProject[] @relation("AssignedEngineer")
+  assignedProjectsAsSales    SolarProject[] @relation("AssignedSales")
+  surveys               SiteSurvey[]
+  assignedTickets       ServiceTicket[]
 
   @@schema("sunlife")
 }
 
 model Attendance {
-  id           String     @id @default(cuid())
-  memberId     String
-  date         DateTime   @db.Date
-  status       String     @default("Present")
-  checkIn      String     @default("--")
-  checkOut     String     @default("--")
-  workingMinutes Int       @default(0)
-  assignedSite String
-  remarks      String?
-  updatedAt    DateTime   @updatedAt
-  createdAt    DateTime   @default(now())
-  member       TeamMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  id             String     @id @default(cuid())
+  memberId       String
+  date           DateTime   @db.Date
+  status         String     @default("Present")
+  checkIn        String     @default("--")
+  checkOut       String     @default("--")
+  workingMinutes Int        @default(0)
+  assignedSite   String
+  remarks        String?
+  updatedAt      DateTime   @updatedAt
+  createdAt      DateTime   @default(now())
+  member         TeamMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@unique([memberId, date])
   @@index([date])
@@ -153,15 +669,15 @@ model Attendance {
 }
 
 model PayrollProfile {
-  id              String     @id @default(cuid())
-  memberId        String     @unique
-  baseAmount      Float
-  fieldAllowance  Float      @default(0)
-  paymentStatus   String     @default("PENDING")
-  paymentMode     String     @default("Bank Transfer")
-  member          TeamMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  id             String     @id @default(cuid())
+  memberId       String     @unique
+  baseAmount     Float
+  fieldAllowance Float      @default(0)
+  paymentStatus  String     @default("PENDING")
+  paymentMode    String     @default("Bank Transfer")
+  member         TeamMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   @@schema("sunlife")
 }
@@ -189,47 +705,47 @@ model EmployeeAdvance {
 }
 
 model MonthlyPayroll {
-  id                         String     @id
-  memberId                   String
-  month                      String
-  monthlySalary              Float
-  totalDaysInMonth           Int
-  payableDays                Float
-  payableSalary              Float
-  fieldAllowance             Float
-  advanceOutstanding         Float
-  scheduledAdvanceDeduction  Float
-  otherDeductions            Float
-  otherDeductionNote         String?
-  netPayable                 Float
-  advanceSettlementType      String?
-  advanceSettlementAmount    Float?
-  advanceNotSettledReason    String?
-  paymentStatus              String     @default("PENDING")
-  paymentDate                String?
-  paymentMode                String?
-  paidAt                     String?
-  member                     TeamMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  createdAt                  DateTime   @default(now())
-  updatedAt                  DateTime   @updatedAt
+  id                        String     @id
+  memberId                  String
+  month                     String
+  monthlySalary             Float
+  totalDaysInMonth          Int
+  payableDays               Float
+  payableSalary             Float
+  fieldAllowance            Float
+  advanceOutstanding        Float
+  scheduledAdvanceDeduction Float
+  otherDeductions           Float
+  otherDeductionNote        String?
+  netPayable                Float
+  advanceSettlementType     String?
+  advanceSettlementAmount   Float?
+  advanceNotSettledReason   String?
+  paymentStatus             String     @default("PENDING")
+  paymentDate               String?
+  paymentMode               String?
+  paidAt                    String?
+  member                    TeamMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  createdAt                 DateTime   @default(now())
+  updatedAt                 DateTime   @updatedAt
 
   @@unique([memberId, month])
   @@schema("sunlife")
 }
 
 model LeaveRequest {
-  id          String     @id @default(cuid())
-  memberId    String
-  startDate   String
-  endDate     String
-  leaveType   String
-  reason      String
-  status      String     @default("PENDING")
-  reviewedBy  String?
-  reviewedAt  DateTime?
-  member      TeamMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id         String     @id @default(cuid())
+  memberId   String
+  startDate  String
+  endDate    String
+  leaveType  String
+  reason     String
+  status     String     @default("PENDING")
+  reviewedBy String?
+  reviewedAt DateTime?
+  member     TeamMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
   @@index([memberId, status])
   @@schema("sunlife")

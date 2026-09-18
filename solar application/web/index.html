@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Track your Sunlife Solar project, documents, payments, subsidy and support requests.">
+  <meta name="theme-color" content="#075B43">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Sunlife Solar">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Sunlife Solar</title>
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    :root {
+      color-scheme: light;
+      --sunlife-ink: #103b30;
+      --sunlife-muted: #64746e;
+      --sunlife-yellow: #159a65;
+      --sunlife-orange: #075b43;
+      --sunlife-blue: #2b7a61;
+      --sunlife-canvas: #f4f8f5;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      background: var(--sunlife-canvas);
+      font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+
+    #sunlife-loader {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      padding: 28px;
+      background:
+        radial-gradient(circle at 86% 13%, rgba(21, 154, 101, .16), transparent 26%),
+        radial-gradient(circle at 9% 90%, rgba(7, 91, 67, .1), transparent 30%),
+        var(--sunlife-canvas);
+      opacity: 1;
+      visibility: visible;
+      transition: opacity .36s ease, visibility .36s ease;
+    }
+
+    #sunlife-loader::before {
+      content: "";
+      position: absolute;
+      width: min(72vw, 560px);
+      aspect-ratio: 1;
+      border: 1px solid rgba(21, 154, 101, .18);
+      border-radius: 50%;
+      transform: translate(42vw, -38vh);
+    }
+
+    #sunlife-loader.ready {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .loader-card {
+      position: relative;
+      width: min(100%, 420px);
+      padding: 34px 30px 28px;
+      text-align: center;
+      background: rgba(255, 255, 255, .92);
+      border: 1px solid rgba(21, 26, 32, .06);
+      border-radius: 30px;
+      box-shadow: 0 24px 80px rgba(21, 26, 32, .10);
+      backdrop-filter: blur(14px);
+      transform-origin: center;
+      transition: opacity .52s ease, transform .52s cubic-bezier(.4, 0, .2, 1);
+      animation: card-arrive .55s ease-out both;
+    }
+
+    .brand-logo {
+      display: block;
+      width: 154px;
+      height: 154px;
+      margin: 0 auto 24px;
+      object-fit: contain;
+      transform-origin: center;
+      filter: drop-shadow(0 14px 22px rgba(7, 91, 67, .16));
+      animation:
+        logo-zoom-intro 1.75s cubic-bezier(.22, 1, .36, 1) both,
+        logo-breathe 1.65s ease-in-out 1.75s infinite alternate;
+    }
+
+    #sunlife-loader.ready .loader-card {
+      opacity: 0;
+      transform: scale(1.035) translateY(-5px);
+    }
+
+    .brand-fallback {
+      display: none;
+      margin: 18px 0 26px;
+      font-size: 25px;
+      font-weight: 900;
+      letter-spacing: .04em;
+      color: var(--sunlife-orange);
+    }
+
+    .brand-fallback span {
+      display: block;
+      margin-top: 4px;
+      font-size: 12px;
+      letter-spacing: .18em;
+      color: var(--sunlife-blue);
+    }
+
+    .loader-title {
+      margin: 0;
+      color: var(--sunlife-ink);
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -.02em;
+      animation: copy-arrive .55s ease-out .72s both;
+    }
+
+    .loader-message {
+      min-height: 20px;
+      margin: 8px 0 22px;
+      color: var(--sunlife-muted);
+      font-size: 13px;
+      line-height: 1.5;
+      animation: copy-arrive .55s ease-out .84s both;
+    }
+
+    .loader-track {
+      position: relative;
+      height: 6px;
+      overflow: hidden;
+      background: #e9ebe7;
+      border-radius: 999px;
+      animation: copy-arrive .55s ease-out .96s both;
+    }
+
+    .loader-track::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      width: 42%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--sunlife-yellow), var(--sunlife-orange));
+      animation: sunlife-progress 1.25s cubic-bezier(.45, 0, .55, 1) infinite;
+    }
+
+    .loader-note {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      margin-top: 17px;
+      color: #159a65;
+      font-size: 11px;
+      font-weight: 700;
+      animation: copy-arrive .55s ease-out 1.06s both;
+    }
+
+    .loader-note::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #159a65;
+      box-shadow: 0 0 0 4px rgba(21, 154, 101, .10);
+    }
+
+    #loader-retry {
+      display: none;
+      width: 100%;
+      margin-top: 18px;
+      padding: 13px 18px;
+      border: 0;
+      border-radius: 15px;
+      color: white;
+      background: var(--sunlife-ink);
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    #loader-retry:focus-visible {
+      outline: 3px solid rgba(21, 154, 101, .45);
+      outline-offset: 3px;
+    }
+
+    @keyframes sunlife-progress {
+      0% { transform: translateX(-110%); }
+      100% { transform: translateX(240%); }
+    }
+
+    @keyframes card-arrive {
+      from { opacity: 0; transform: translateY(14px) scale(.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes logo-zoom-intro {
+      0% { opacity: 0; transform: scale(.28) rotate(-5deg); }
+      28% { opacity: 1; transform: scale(.72) rotate(-2deg); }
+      52% { transform: scale(1.16) rotate(1deg); }
+      68% { transform: scale(.92) rotate(0); }
+      84% { transform: scale(1.07); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes logo-breathe {
+      from { transform: scale(1); filter: drop-shadow(0 14px 22px rgba(7, 91, 67, .16)); }
+      to { transform: scale(1.055); filter: drop-shadow(0 18px 28px rgba(21, 154, 101, .24)); }
+    }
+
+    @keyframes copy-arrive {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 480px) {
+      .loader-card { padding: 28px 22px 24px; border-radius: 25px; }
+      .brand-logo { width: 132px; height: 132px; margin-bottom: 20px; }
+      .loader-title { font-size: 18px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #sunlife-loader { transition: none; }
+      .loader-card, .brand-logo, .loader-title, .loader-message, .loader-track, .loader-note {
+        animation: none;
+      }
+      .loader-track::after { animation: sunlife-progress 2.5s linear infinite; }
+    }
+  </style>
+</head>
+<body>
+  <div id="sunlife-loader" role="status" aria-live="polite" aria-label="Loading Sunlife Solar">
+    <main class="loader-card">
+      <img
+        class="brand-logo"
+        src="assets/logo/icon.svg"
+        alt="Sunlife Solar Energy Solution"
+        onerror="this.style.display='none'; document.getElementById('brand-fallback').style.display='block';"
+      >
+      <div id="brand-fallback" class="brand-fallback" aria-hidden="true">
+        SUNLIFE SOLAR<span>ENERGY SOLUTION</span>
+      </div>
+      <h1 class="loader-title">Powering your solar experience</h1>
+      <p id="loader-message" class="loader-message">Preparing your project dashboard…</p>
+      <div class="loader-track" aria-hidden="true"></div>
+      <div class="loader-note">Secure customer portal</div>
+      <button id="loader-retry" type="button" onclick="window.location.reload()">Reload application</button>
+    </main>
+  </div>
+
+  <noscript>This application requires JavaScript. Please enable it and reload the page.</noscript>
+
+  <!--
+    You can customize the "flutter_bootstrap.js" script.
+    This is useful to provide a custom configuration to the Flutter loader
+    or to give the user feedback during the initialization process.
+
+    For more details:
+    * https://docs.flutter.dev/platform-integration/web/initialization
+  -->
+  <script>
+    (() => {
+      const loader = document.getElementById('sunlife-loader');
+      const message = document.getElementById('loader-message');
+      const retry = document.getElementById('loader-retry');
+      const startedAt = performance.now();
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const minimumIntroTime = reducedMotion ? 150 : 1900;
+
+      window.addEventListener('flutter-first-frame', () => {
+        const elapsed = performance.now() - startedAt;
+        const remaining = Math.max(0, minimumIntroTime - elapsed);
+        window.setTimeout(() => {
+          loader.classList.add('ready');
+          window.setTimeout(() => loader.remove(), reducedMotion ? 0 : 560);
+        }, remaining);
+      }, { once: true });
+
+      window.setTimeout(() => {
+        if (!document.body.contains(loader)) return;
+        message.textContent = 'This is taking longer than expected. Check your connection and try again.';
+        retry.style.display = 'block';
+      }, 12000);
+    })();
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

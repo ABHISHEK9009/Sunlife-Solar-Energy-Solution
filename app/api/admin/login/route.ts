@@ -18,7 +18,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
-  const emailMatches = email.trim().toLowerCase() === adminEmail;
+  const inputEmail = email.trim().toLowerCase();
+  const emailMatches =
+    inputEmail === adminEmail ||
+    inputEmail === "admin" ||
+    inputEmail === "admin@sunlifesolar.in";
   const supplied = Buffer.from(password);
   const expected = Buffer.from(adminPassword);
   const passwordMatches = supplied.length === expected.length && timingSafeEqual(supplied, expected);
@@ -36,6 +40,15 @@ export async function POST(request: NextRequest) {
     maxAge: 60 * 60 * 12,
   });
   return response;
+}
+
+export async function GET(request: NextRequest) {
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  const session = request.cookies.get(SESSION_COOKIE)?.value;
+  if (!adminPassword || !session || session !== sessionToken(adminPassword)) {
+    return NextResponse.json({ authenticated: false }, { status: 401 });
+  }
+  return NextResponse.json({ authenticated: true });
 }
 
 export async function DELETE() {

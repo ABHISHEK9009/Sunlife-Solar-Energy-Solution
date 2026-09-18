@@ -25,12 +25,14 @@ export async function PUT(request: Request) {
         }
 
         const data = {
+          employeeId: member.employeeId || null,
           name: member.name,
           role: member.role,
           category: member.category || "Management",
           phone: member.phone,
           territory: member.territory || "",
           status: member.status || "Available",
+          activeStatus: member.activeStatus ?? true,
           skills: Array.isArray(member.skills) ? member.skills : [],
           joinedYear: member.joinedYear || new Date().getFullYear().toString(),
           monthlySalary: member.monthlySalary ?? null,
