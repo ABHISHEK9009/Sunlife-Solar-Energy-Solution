@@ -224,7 +224,7 @@ export async function DELETE(req: Request) {
       entityType: "TeamMember",
       entityId: id,
       fieldChanged: "activeStatus",
-      action: "DEACTIVATE",
+      action: "STATUS_CHANGE",
       actorId: "ADMIN",
       actorType: "ADMIN",
       source: "CRM",

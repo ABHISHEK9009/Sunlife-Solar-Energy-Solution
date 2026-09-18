@@ -75,18 +75,18 @@ export async function POST(req: Request) {
 
     // 2. Create Initial Solar Project
     const projectCount = await prisma.solarProject.count();
-    const projectCode = `SL-PRJ-${1000 + projectCount + 1}`;
-    const cleanCapacity = typeof capacityKw === "number" ? capacityKw : parseInt(capacityKw, 10) || 5;
+    const projectId = `SL-PRJ-${1000 + projectCount + 1}`;
+    const cleanCapacity = typeof capacityKw === "number" ? capacityKw : parseFloat(capacityKw) || 5;
 
     const project = await prisma.solarProject.create({
       data: {
-        projectCode,
+        projectId,
         customerId: customer.id,
-        capacityKw: cleanCapacity,
-        projectType: propertyType.toUpperCase(),
-        systemType: "ON_GRID",
-        status: "IN_PROGRESS",
-        currentStage: "Site survey",
+        projectName: `${customer.fullName}'s Solar Plant`,
+        plantCapacityKw: cleanCapacity,
+        propertyType: (propertyType || "RESIDENTIAL").toUpperCase(),
+        solarType: "ON_GRID",
+        projectStatus: "IN_PROGRESS",
         installationAddress: customer.installationAddress,
         assignedSalesExecutiveId: agent.id,
         assignedEngineerId: agent.id,
@@ -94,15 +94,18 @@ export async function POST(req: Request) {
     });
 
     // 3. Create Initial Site Survey
+    const surveyCount = await prisma.siteSurvey.count();
+    const surveyId = `SL-SRV-${1000 + surveyCount + 1}`;
     const scheduledTomorrow = new Date();
     scheduledTomorrow.setDate(scheduledTomorrow.getDate() + 1);
     scheduledTomorrow.setHours(11, 0, 0, 0);
 
     const survey = await prisma.siteSurvey.create({
       data: {
+        surveyId,
         customerId: customer.id,
         projectId: project.id,
-        surveyStatus: "PENDING",
+        surveyStatus: "SCHEDULED",
         scheduledDateTime: scheduledTomorrow,
         surveyEngineerId: agent.id,
         roofType: "RCC Rooftop",
@@ -139,7 +142,7 @@ export async function POST(req: Request) {
       actorId: agent.employeeId || agent.id,
       actorType: "EMPLOYEE",
       source: "APP",
-      newValue: `Agent ${agent.name} enrolled customer ${customer.customerId} (${customer.fullName}) with project ${project.projectCode}`,
+      newValue: `Agent ${agent.name} enrolled customer ${customer.customerId} (${customer.fullName}) with project ${project.projectId}`,
     });
 
     return NextResponse.json(
@@ -155,12 +158,14 @@ export async function POST(req: Request) {
         },
         project: {
           id: project.id,
-          projectCode: project.projectCode,
-          capacityKw: project.capacityKw,
-          currentStage: project.currentStage,
+          projectId: project.projectId,
+          projectCode: project.projectId,
+          capacityKw: project.plantCapacityKw,
+          currentStage: project.projectStatus,
         },
         survey: {
           id: survey.id,
+          surveyId: survey.surveyId,
           scheduledDateTime: survey.scheduledDateTime,
         },
         initialPin,

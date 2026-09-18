@@ -100,17 +100,17 @@ export async function POST(req: Request) {
 
     // 1. Create Solar Project for new client
     const projectCount = await prisma.solarProject.count();
-    const projectCode = `SL-PRJ-${1000 + projectCount + 1}`;
+    const projectId = `SL-PRJ-${1000 + projectCount + 1}`;
 
     const project = await prisma.solarProject.create({
       data: {
-        projectCode,
+        projectId,
         customerId: customer.id,
-        capacityKw: 5,
-        projectType: propertyType || "RESIDENTIAL",
-        systemType: "ON_GRID",
-        status: "IN_PROGRESS",
-        currentStage: "Site survey",
+        projectName: `${customer.fullName}'s Solar Plant`,
+        plantCapacityKw: 5,
+        propertyType: propertyType || "RESIDENTIAL",
+        solarType: "ON_GRID",
+        projectStatus: "IN_PROGRESS",
         installationAddress: customer.installationAddress,
         assignedSalesExecutiveId: assignedSalesExecutiveId || null,
       },
@@ -128,7 +128,7 @@ export async function POST(req: Request) {
       actorId: "ADMIN",
       actorType: "ADMIN",
       source: "CRM",
-      newValue: `Admin created customer ${customer.customerId} (${customer.fullName}) with project ${projectCode}`,
+      newValue: `Admin created customer ${customer.customerId} (${customer.fullName}) with project ${projectId}`,
     });
 
     return NextResponse.json({
@@ -136,8 +136,9 @@ export async function POST(req: Request) {
       customer,
       project: {
         id: project.id,
-        projectCode: project.projectCode,
-        capacityKw: project.capacityKw,
+        projectId: project.projectId,
+        projectCode: project.projectId,
+        capacityKw: project.plantCapacityKw,
       },
       initialPin,
       loginInstructions: `Client can log in using mobile (+91 ${cleanPhone}) and 6-digit PIN: ${initialPin}`,

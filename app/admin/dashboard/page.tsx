@@ -18,6 +18,9 @@ import {
   Award,
   Headphones,
   FolderLock,
+  ClipboardCheck,
+  FileText,
+  Gift,
   Plus,
   ExternalLink,
 } from "lucide-react";
@@ -199,7 +202,7 @@ export default function AdminDashboardPage() {
             className="p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50/60 border border-slate-200 text-slate-700 hover:text-solar-deep transition-all flex flex-col items-center text-center gap-2 group"
           >
             <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform">
-              📋
+              <ClipboardCheck className="w-4 h-4" aria-hidden="true" />
             </div>
             <span className="font-bold">Site Surveys</span>
           </Link>
@@ -209,7 +212,7 @@ export default function AdminDashboardPage() {
             className="p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50/60 border border-slate-200 text-slate-700 hover:text-solar-deep transition-all flex flex-col items-center text-center gap-2 group"
           >
             <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform">
-              📑
+              <FileText className="w-4 h-4" aria-hidden="true" />
             </div>
             <span className="font-bold">Quotations</span>
           </Link>
@@ -219,7 +222,7 @@ export default function AdminDashboardPage() {
             className="p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50/60 border border-slate-200 text-slate-700 hover:text-solar-deep transition-all flex flex-col items-center text-center gap-2 group"
           >
             <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform">
-              🗂️
+              <FolderLock className="w-4 h-4" aria-hidden="true" />
             </div>
             <span className="font-bold">Documents</span>
           </Link>
@@ -229,7 +232,7 @@ export default function AdminDashboardPage() {
             className="p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50/60 border border-slate-200 text-slate-700 hover:text-solar-deep transition-all flex flex-col items-center text-center gap-2 group"
           >
             <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform">
-              💳
+              <CreditCard className="w-4 h-4" aria-hidden="true" />
             </div>
             <span className="font-bold">Payments</span>
           </Link>
@@ -239,7 +242,7 @@ export default function AdminDashboardPage() {
             className="p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50/60 border border-slate-200 text-slate-700 hover:text-solar-deep transition-all flex flex-col items-center text-center gap-2 group"
           >
             <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform">
-              ⚡
+              <Zap className="w-4 h-4" aria-hidden="true" />
             </div>
             <span className="font-bold">Monitoring</span>
           </Link>
@@ -249,7 +252,7 @@ export default function AdminDashboardPage() {
             className="p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50/60 border border-slate-200 text-slate-700 hover:text-solar-deep transition-all flex flex-col items-center text-center gap-2 group"
           >
             <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform">
-              🎁
+              <Gift className="w-4 h-4" aria-hidden="true" />
             </div>
             <span className="font-bold">Referrals</span>
           </Link>
