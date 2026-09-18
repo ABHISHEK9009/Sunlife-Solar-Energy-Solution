@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
+import { adminFetch as fetch } from "@/lib/admin-live";
+
+import React, { useRef, useEffect, useState } from "react";
 import { ClipboardCheck, Search, RefreshCw, Calendar, MapPin, CheckCircle2, Clock, Plus, X } from "lucide-react";
 
 export default function AdminSurveysPage() {
@@ -8,22 +11,27 @@ export default function AdminSurveysPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  const fetchSurveys = async () => {
-    setLoading(true);
+  const loadRequest = useRef(0);
+  const fetchSurveys = async (background = false) => {
+    const request = ++loadRequest.current;
+    if (!background) setLoading(true);
     try {
       const res = await fetch("/api/v1/admin/surveys");
       const data = await res.json();
+      if (request !== loadRequest.current) return;
       if (data.success) setSurveys(data.surveys || []);
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (request === loadRequest.current) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchSurveys();
   }, []);
+
+  useLiveRefresh(() => fetchSurveys(true), !loading);
 
   const filteredSurveys = surveys.filter((s) => {
     const q = search.toLowerCase();
@@ -48,7 +56,7 @@ export default function AdminSurveysPage() {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={fetchSurveys}
+            onClick={() => fetchSurveys()}
             disabled={loading}
             className="px-4 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
           >

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { usePathname } from "next/navigation";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { DatabaseStatus } from "@/components/admin/DatabaseStatus";
 import { Menu, ChevronRight } from "lucide-react";
 
 export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) {
@@ -54,6 +55,7 @@ export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) 
 
         {/* Page Content - Full Width Fluid Canvas */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full">
+          <DatabaseStatus />
           {children}
         </main>
       </div>

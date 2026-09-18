@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -64,13 +66,14 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Attendance records are required." }, { status: 400 });
     }
 
-    const operations = await Promise.all(
-      records.map(async (record) => {
+    const saved = await prisma.$transaction(async (tx) => {
+      const results = [];
+      for (const record of records) {
         if (!record.memberId || !allowedStatuses.has(record.status)) {
           throw new Error("Each attendance record needs a member and valid status.");
         }
         const date = toDate(record.date);
-        const existing = await prisma.attendance.findUnique({
+        const existing = await tx.attendance.findUnique({
           where: { memberId_date: { memberId: record.memberId, date } },
         });
         const data = {
@@ -87,14 +90,14 @@ export async function PUT(request: Request) {
         if (existing && existing.checkOut !== "--" && data.checkOut !== existing.checkOut) {
           throw new Error("Check-out is already recorded and cannot be changed.");
         }
-        return prisma.attendance.upsert({
+        results.push(await tx.attendance.upsert({
           where: { memberId_date: { memberId: record.memberId, date } },
           create: { memberId: record.memberId, date, ...data },
           update: data,
-        });
-      })
-    );
-    const saved = await Promise.all(operations);
+        }));
+      }
+      return results;
+    });
     return NextResponse.json({ records: saved.map(toRecord) });
   } catch (error) {
     console.error("Unable to save attendance:", error);

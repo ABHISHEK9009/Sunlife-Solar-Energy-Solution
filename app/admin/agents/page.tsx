@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
+import { adminFetch as fetch } from "@/lib/admin-live";
+
+import React, { useRef, useEffect, useState } from "react";
 import {
   UserCog,
   Search,
@@ -87,25 +90,30 @@ export default function AdminAgentsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const fetchAgents = async () => {
-    setLoading(true);
+  const loadRequest = useRef(0);
+  const fetchAgents = async (background = false) => {
+    const request = ++loadRequest.current;
+    if (!background) setLoading(true);
     try {
       const url = `/api/v1/admin/agents${includeInactive ? "?all=true" : ""}`;
       const res = await fetch(url);
       const data = await res.json();
+      if (request !== loadRequest.current) return;
       if (data.success) {
         setAgents(data.agents || []);
       }
     } catch (err) {
       console.error("Failed to load agents", err);
     } finally {
-      setLoading(false);
+      if (request === loadRequest.current) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchAgents();
   }, [includeInactive]);
+
+  useLiveRefresh(() => fetchAgents(true), !loading);
 
   const handleRegisterAgent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -325,7 +333,7 @@ export default function AdminAgentsPage() {
 
         <div className="flex items-center gap-2.5">
           <button
-            onClick={fetchAgents}
+            onClick={() => fetchAgents()}
             disabled={loading}
             className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
           >

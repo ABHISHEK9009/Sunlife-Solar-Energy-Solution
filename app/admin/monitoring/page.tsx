@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
+import { adminFetch as fetch } from "@/lib/admin-live";
+
+import React, { useRef, useEffect, useState } from "react";
 import { Activity, Search, RefreshCw, Zap, Wifi, AlertTriangle, CheckCircle2 } from "lucide-react";
 
 export default function AdminMonitoringPage() {
@@ -8,22 +11,27 @@ export default function AdminMonitoringPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  const fetchPlants = async () => {
-    setLoading(true);
+  const loadRequest = useRef(0);
+  const fetchPlants = async (background = false) => {
+    const request = ++loadRequest.current;
+    if (!background) setLoading(true);
     try {
       const res = await fetch("/api/v1/admin/monitoring");
       const data = await res.json();
+      if (request !== loadRequest.current) return;
       if (data.success) setPlants(data.plants || []);
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (request === loadRequest.current) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchPlants();
   }, []);
+
+  useLiveRefresh(() => fetchPlants(true), !loading);
 
   const filtered = plants.filter((p) => {
     const q = search.toLowerCase();
@@ -49,7 +57,7 @@ export default function AdminMonitoringPage() {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={fetchPlants}
+            onClick={() => fetchPlants()}
             disabled={loading}
             className="px-4 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
           >

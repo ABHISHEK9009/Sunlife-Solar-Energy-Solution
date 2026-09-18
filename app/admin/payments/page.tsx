@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
+import { adminFetch as fetch } from "@/lib/admin-live";
+
+import React, { useRef, useEffect, useState } from "react";
 import { CreditCard, Search, RefreshCw, CheckCircle2, Clock, Plus, X } from "lucide-react";
 
 export default function AdminPaymentsPage() {
@@ -8,22 +11,27 @@ export default function AdminPaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  const fetchPayments = async () => {
-    setLoading(true);
+  const loadRequest = useRef(0);
+  const fetchPayments = async (background = false) => {
+    const request = ++loadRequest.current;
+    if (!background) setLoading(true);
     try {
       const res = await fetch("/api/v1/admin/payments");
       const data = await res.json();
+      if (request !== loadRequest.current) return;
       if (data.success) setPayments(data.payments || []);
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (request === loadRequest.current) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchPayments();
   }, []);
+
+  useLiveRefresh(() => fetchPayments(true), !loading);
 
   const handleMarkPaid = async (id: string, dueAmount: number) => {
     try {
@@ -70,7 +78,7 @@ export default function AdminPaymentsPage() {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={fetchPayments}
+            onClick={() => fetchPayments()}
             disabled={loading}
             className="px-4 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
           >

@@ -1,5 +1,8 @@
 'use client';
 
+import { useLiveRefresh } from "@/lib/use-live-refresh";
+import { adminFetch as fetch } from '@/lib/admin-live';
+
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -168,8 +171,7 @@ export default function EmployeeProfilePage() {
   const [skillMenuOpen, setSkillMenuOpen] = useState(false);
   const [skillSearch, setSkillSearch] = useState('');
 
-  useEffect(() => {
-    fetch('/api/team')
+  const loadMember = () => fetch('/api/team')
       .then(async (response) => {
         const data = await response.json();
         const roster = (data.members || []) as Member[];
@@ -191,7 +193,9 @@ export default function EmployeeProfilePage() {
         );
       })
       .catch(() => setNotice('Unable to load employee information.'));
-  }, [memberId]);
+
+  useEffect(() => { void loadMember(); }, [memberId]);
+  useLiveRefresh(loadMember, !editing && !saving && !verifying);
 
   const update = (key: keyof Member, value: string) =>
     setMember((current) =>
@@ -218,9 +222,7 @@ export default function EmployeeProfilePage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          members: members.map((item) =>
-            item.id === member.id ? member : item,
-          ),
+          members: [member],
         }),
       });
       if (!response.ok) throw new Error();

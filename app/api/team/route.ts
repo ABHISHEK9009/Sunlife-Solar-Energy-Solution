@@ -1,9 +1,11 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    const members = await prisma.teamMember.findMany({ orderBy: { name: "asc" } });
+    const members = await prisma.teamMember.findMany({ where: { activeStatus: true }, orderBy: { name: "asc" } });
     return NextResponse.json({ members });
   } catch (error) {
     console.error("Unable to load team members:", error);
@@ -58,7 +60,7 @@ export async function PUT(request: Request) {
       })
     );
 
-    const savedMembers = await prisma.teamMember.findMany({ orderBy: { name: "asc" } });
+    const savedMembers = await prisma.teamMember.findMany({ where: { activeStatus: true }, orderBy: { name: "asc" } });
     return NextResponse.json({ members: savedMembers });
   } catch (error) {
     console.error("Unable to save team members:", error);

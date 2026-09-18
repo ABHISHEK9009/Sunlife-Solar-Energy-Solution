@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
+import { adminFetch as fetch } from "@/lib/admin-live";
+
+import React, { useRef, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -99,17 +102,20 @@ export default function ClientProfilePage() {
   });
   const [convertingLead, setConvertingLead] = useState(false);
 
-  const fetchProfile = async () => {
+  const loadRequest = useRef(0);
+  const fetchProfile = async (background = false) => {
+    const request = ++loadRequest.current;
     if (!id) return;
-    setLoading(true);
+    if (!background) setLoading(true);
     try {
       const res = await fetch(`/api/v1/admin/client-profile/${id}`);
       const data = await res.json();
+      if (request !== loadRequest.current) return;
       if (data.success) {
         setClient(data.client);
         setTimeline(data.timeline || []);
         setActiveProject(data.activeProject || null);
-        setEditForm({
+        if (!background) setEditForm({
           fullName: data.client.fullName || "",
           primaryMobile: data.client.primaryMobile || "",
           alternateMobile: data.client.alternateMobile || "",
@@ -128,13 +134,15 @@ export default function ClientProfilePage() {
       console.error(err);
       showToast("Network error fetching client profile.");
     } finally {
-      setLoading(false);
+      if (request === loadRequest.current) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchProfile();
   }, [id]);
+
+  useLiveRefresh(() => fetchProfile(true), !loading);
 
   const showToast = (msg: string) => {
     setNotification(msg);
@@ -360,7 +368,7 @@ export default function ClientProfilePage() {
 
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={fetchProfile}
+            onClick={() => fetchProfile()}
             className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
             title="Refresh profile data"
           >

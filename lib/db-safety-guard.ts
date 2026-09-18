@@ -33,13 +33,14 @@ export function assertSunlifeDatabase(): void {
     }
   }
 
-  // Optional: warn if not connecting to a known Sunlife host
-  const isKnownHost = ALLOWED_HOSTS.some(host => databaseUrl.includes(host));
-  if (!isKnownHost && databaseUrl) {
-    console.warn(
-      `⚠️  WARNING: DATABASE_URL does not match any known Sunlife Solar database.\n` +
-      `   Please verify the connection is correct before proceeding.`
-    );
+  for (const [name, value] of [["DATABASE_URL", databaseUrl], ["DIRECT_URL", directUrl]]) {
+    if (!value) continue;
+    let url: URL;
+    try { url = new URL(value); }
+    catch { throw new Error(`${name} is invalid. Database connection blocked.`); }
+    if (!["postgres:", "postgresql:"].includes(url.protocol) || !ALLOWED_HOSTS.includes(url.hostname)) {
+      throw new Error(`${name} is not the approved Sunlife database. Connection blocked.`);
+    }
   }
 }
 

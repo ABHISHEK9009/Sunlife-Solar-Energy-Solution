@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
+import { adminFetch as fetch } from "@/lib/admin-live";
+
+import React, { useRef, useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Users,
@@ -34,8 +37,10 @@ export default function AdminDashboardPage() {
   const [recentLogs, setRecentLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchDashboardData = async () => {
-    setLoading(true);
+  const loadRequest = useRef(0);
+  const fetchDashboardData = async (background = false) => {
+    const request = ++loadRequest.current;
+    if (!background) setLoading(true);
     try {
       // Parallel fetch from CRM endpoints
       const [leadsRes, custRes, prjRes, subRes, tckRes, auditRes] = await Promise.all([
@@ -56,6 +61,7 @@ export default function AdminDashboardPage() {
         auditRes.json(),
       ]);
 
+      if (request !== loadRequest.current) return;
       if (leadsData.success) setLeads(leadsData.leads || []);
       if (custData.success) setCustomersCount(custData.customers?.length || 0);
       if (prjData.success) setProjects(prjData.projects || []);
@@ -65,13 +71,15 @@ export default function AdminDashboardPage() {
     } catch (err) {
       console.error("Dashboard fetch error:", err);
     } finally {
-      setLoading(false);
+      if (request === loadRequest.current) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  useLiveRefresh(() => fetchDashboardData(true), !loading);
 
   const activeProjectsCount = projects.filter(
     (p) => p.projectStatus !== "CANCELLED" && p.projectStatus !== "ENQUIRY"
@@ -92,7 +100,7 @@ export default function AdminDashboardPage() {
 
         <div className="flex items-center gap-2.5 shrink-0">
           <button
-            onClick={fetchDashboardData}
+            onClick={() => fetchDashboardData()}
             disabled={loading}
             className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
           >

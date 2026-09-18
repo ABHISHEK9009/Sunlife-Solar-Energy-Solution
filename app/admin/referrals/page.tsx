@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
+import { adminFetch as fetch } from "@/lib/admin-live";
+
+import React, { useRef, useEffect, useState } from "react";
 import { Gift, Search, RefreshCw, CheckCircle2, Clock, Award, Phone } from "lucide-react";
 
 export default function AdminReferralsPage() {
@@ -8,22 +11,27 @@ export default function AdminReferralsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  const fetchReferrals = async () => {
-    setLoading(true);
+  const loadRequest = useRef(0);
+  const fetchReferrals = async (background = false) => {
+    const request = ++loadRequest.current;
+    if (!background) setLoading(true);
     try {
       const res = await fetch("/api/v1/admin/referrals");
       const data = await res.json();
+      if (request !== loadRequest.current) return;
       if (data.success) setReferrals(data.referrals || []);
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (request === loadRequest.current) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchReferrals();
   }, []);
+
+  useLiveRefresh(() => fetchReferrals(true), !loading);
 
   const handleMarkRewardPaid = async (id: string) => {
     try {
@@ -62,7 +70,7 @@ export default function AdminReferralsPage() {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={fetchReferrals}
+            onClick={() => fetchReferrals()}
             disabled={loading}
             className="px-4 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
           >

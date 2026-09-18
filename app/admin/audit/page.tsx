@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
+import { adminFetch as fetch } from "@/lib/admin-live";
+
+import React, { useRef, useEffect, useState } from "react";
 import { ShieldAlert, Search, RefreshCw, Clock, Filter, User, ArrowRight } from "lucide-react";
 
 export default function AdminAuditPage() {
@@ -9,23 +12,28 @@ export default function AdminAuditPage() {
   const [search, setSearch] = useState("");
   const [entityFilter, setEntityFilter] = useState("ALL");
 
-  const fetchLogs = async () => {
-    setLoading(true);
+  const loadRequest = useRef(0);
+  const fetchLogs = async (background = false) => {
+    const request = ++loadRequest.current;
+    if (!background) setLoading(true);
     try {
       const url = entityFilter !== "ALL" ? `/api/v1/admin/audit?entityType=${entityFilter}` : "/api/v1/admin/audit";
       const res = await fetch(url);
       const data = await res.json();
+      if (request !== loadRequest.current) return;
       if (data.success) setLogs(data.logs || []);
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (request === loadRequest.current) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchLogs();
   }, [entityFilter]);
+
+  useLiveRefresh(() => fetchLogs(true), !loading);
 
   const filtered = logs.filter((l) => {
     const q = search.toLowerCase();
@@ -51,7 +59,7 @@ export default function AdminAuditPage() {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={fetchLogs}
+            onClick={() => fetchLogs()}
             disabled={loading}
             className="px-4 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
           >

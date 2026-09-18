@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
+import { adminFetch as fetch } from "@/lib/admin-live";
+
+import React, { useRef, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Users,
@@ -35,24 +38,29 @@ export default function AdminCustomersPage() {
     propertyType: "RESIDENTIAL",
   });
 
-  const fetchCustomers = async () => {
-    setLoading(true);
+  const loadRequest = useRef(0);
+  const fetchCustomers = async (background = false) => {
+    const request = ++loadRequest.current;
+    if (!background) setLoading(true);
     try {
       const res = await fetch("/api/v1/admin/customers");
       const data = await res.json();
+      if (request !== loadRequest.current) return;
       if (data.success) {
         setCustomers(data.customers || []);
       }
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (request === loadRequest.current) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchCustomers();
   }, []);
+
+  useLiveRefresh(() => fetchCustomers(true), !loading);
 
   const handleCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,7 +137,7 @@ export default function AdminCustomersPage() {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={fetchCustomers}
+            onClick={() => fetchCustomers()}
             disabled={loading}
             className="px-4 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
           >

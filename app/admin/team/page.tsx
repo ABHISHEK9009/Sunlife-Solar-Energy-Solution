@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
+import { adminFetch as fetch } from "@/lib/admin-live";
+
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
@@ -325,180 +328,85 @@ function TeamContent() {
     return () => clearInterval(interval);
   }, []);
 
-  // Load the roster and attendance from the shared database. Legacy local data is
-  // imported only once when the database has no corresponding records yet.
-  useEffect(() => {
-    const loadWorkforceData = async () => {
-      try {
-      const [teamResponse, attendanceResponse, hrResponse] = await Promise.all([
-        fetch("/api/team"),
-        fetch("/api/attendance"),
-        fetch("/api/hr"),
+  const savingRef = useRef(false);
+  const loadVersion = useRef(0);
+  const [savingWorkforce, setSavingWorkforce] = useState(false);
+  const [workforceError, setWorkforceError] = useState("");
+
+  const loadWorkforceData = async () => {
+    if (savingRef.current) return;
+    const version = ++loadVersion.current;
+    try {
+      const responses = await Promise.all([
+        fetch("/api/team"), fetch("/api/attendance"), fetch("/api/hr"),
       ]);
-      const teamData = teamResponse.ok ? await teamResponse.json() : { members: [] };
-      const attendanceData = attendanceResponse.ok ? await attendanceResponse.json() : { records: [] };
-      const hrData: HrResponse = hrResponse.ok
-        ? await hrResponse.json()
-        : { payrollProfiles: [], advances: [], monthlyPayroll: [] };
-      let initialList: TeamMember[] = teamData.members || [];
-
-      if (initialList.length === 0 && typeof window !== "undefined") {
-        const savedTeam = localStorage.getItem("sunlife_admin_team_roster");
-        if (savedTeam) {
-          try {
-            initialList = JSON.parse(savedTeam);
-          } catch {
-            initialList = [];
-          }
-        }
-      }
-      if (initialList.length === 0) {
-        initialList = [
-          {
-            id: "owner-1",
-            name: siteConfig.owner.name,
-            role: "Founder & Lead Solar Specialist",
-            category: "Management",
-            phone: siteConfig.contact.phoneClean,
-            territory: `${siteConfig.contact.address.city}, MP`,
-            status: "Available",
-            skills: [],
-            joinedYear: "2021",
-            monthlySalary: 75000,
-          },
-        ];
-      }
-      if ((teamData.members || []).length === 0) {
-        await fetch("/api/team", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ members: initialList }),
-        });
-      }
-      setTeamList(initialList);
-
-      let records: Array<AttendanceRecord & { date: string }> = attendanceData.records || [];
-      if (records.length === 0 && typeof window !== "undefined") {
-        const savedAtt = localStorage.getItem("sunlife_attendance_database_v3");
-        if (savedAtt) {
-          try {
-            const legacyHistory = JSON.parse(savedAtt) as Record<string, Record<string, AttendanceRecord>>;
-            records = Object.entries(legacyHistory).flatMap(([date, dayRecords]) =>
-              Object.values(dayRecords).map((record) => ({ ...record, date }))
-            );
-            if (records.length > 0) {
-              await fetch("/api/attendance", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ records }),
-              });
-            }
-          } catch {
-            records = [];
-          }
-        }
-      }
-
-      const history = records.reduce<Record<string, Record<string, AttendanceRecord>>>((all, record) => {
+      const [teamData, attendanceData, hrData]: [
+        { members: TeamMember[] }, { records: Array<AttendanceRecord & { date: string }> }, HrResponse
+      ] = await Promise.all([responses[0].json(), responses[1].json(), responses[2].json()]);
+      if (version !== loadVersion.current || savingRef.current) return;
+      setTeamList(teamData.members);
+      setAttendanceHistory(attendanceData.records.reduce<Record<string, Record<string, AttendanceRecord>>>((all, record) => {
         const { date, ...attendance } = record;
         all[date] = { ...(all[date] || {}), [record.memberId]: attendance };
         return all;
-      }, {});
-      setAttendanceHistory(history);
-
-      const payroll = hrData.payrollProfiles.reduce<Record<string, PayrollRecord>>(
-        (all: Record<string, PayrollRecord>, record: PayrollRecord) => ({ ...all, [record.memberId]: record }),
-        {}
-      );
-      if (Object.keys(payroll).length > 0) setPayrollRecords(payroll);
-      else initializeDefaultPayroll(initialList);
+      }, {}));
+      // Unsaved payroll defaults are pending; reading a page never creates payments.
+      const payroll: Record<string, PayrollRecord> = {};
+      teamData.members.forEach((member) => {
+        payroll[member.id] = { memberId: member.id, baseAmount: member.monthlySalary ?? 0,
+          fieldAllowance: 0, paymentStatus: "PENDING", paymentMode: "Bank Transfer" };
+      });
+      hrData.payrollProfiles.forEach((record) => { payroll[record.memberId] = record; });
+      setPayrollRecords(payroll);
       setAdvances(hrData.advances);
-      const monthlyRecords = hrData.monthlyPayroll.reduce<Record<string, MonthlyPayrollRecord>>(
-        (all: Record<string, MonthlyPayrollRecord>, record: MonthlyPayrollRecord) => ({
-          ...all,
-          [`${record.memberId}_${record.month}`]: record,
-        }),
-        {}
-      );
-      setMonthlyPayrollRecords(monthlyRecords);
+      setMonthlyPayrollRecords(Object.fromEntries(hrData.monthlyPayroll.map((record) => [`${record.memberId}_${record.month}`, record])));
       setIsLoaded(true);
-      } catch (error) {
-        console.error("Unable to load workforce data:", error);
-        setIsLoaded(true);
-      }
-    };
-    loadWorkforceData();
-  }, []);
-
-  const initializeDefaultPayroll = (members: TeamMember[]) => {
-    const records: Record<string, PayrollRecord> = {};
-    members.forEach((m) => {
-      records[m.id] = {
-        memberId: m.id,
-        baseAmount: m.monthlySalary || 18000,
-        fieldAllowance: 2500,
-        paymentStatus: "PAID",
-        paymentMode: "UPI",
-      };
-    });
-    setPayrollRecords(records);
-    void fetch("/api/hr", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ payrollRecords: records }),
-    });
+    } catch (error) {
+      console.error("Unable to load workforce data:", error);
+    }
   };
 
-  // Save Helpers
-  const saveTeamList = (updated: TeamMember[]) => {
-    setTeamList(updated);
-    void fetch("/api/team", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ members: updated }),
-    });
+  useEffect(() => { void loadWorkforceData(); return () => { loadVersion.current++; }; }, []);
+  useLiveRefresh(loadWorkforceData, !savingWorkforce);
+
+  const persistWorkforce = async (url: string, body: unknown, onSaved: () => void, method = "PUT") => {
+    if (savingRef.current || !isLoaded) return false;
+    savingRef.current = true;
+    loadVersion.current++;
+    setSavingWorkforce(true);
+    setWorkforceError("");
+    try {
+      await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      onSaved();
+      return true;
+    } catch (error) {
+      setWorkforceError(error instanceof Error ? error.message : "Unable to save changes. Please retry.");
+      return false;
+    } finally {
+      savingRef.current = false;
+      setSavingWorkforce(false);
+      void loadWorkforceData();
+    }
   };
 
-  const saveAttendanceHistory = (
-    updated: Record<string, Record<string, AttendanceRecord>>
-  ) => {
-    setAttendanceHistory(updated);
-    const records = Object.entries(updated).flatMap(([date, dayRecords]) =>
-      Object.values(dayRecords).map((record) => ({ ...record, date }))
-    );
-    void fetch("/api/attendance", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ records }),
-    });
-  };
+  const changed = <T,>(next: T, previous: T) => JSON.stringify(next) !== JSON.stringify(previous);
+  const saveTeamList = (updated: TeamMember[]) => persistWorkforce("/api/team", {
+    members: updated.filter((record) => changed(record, teamList.find((old) => old.id === record.id)!)),
+  }, () => setTeamList(updated));
 
-  const savePayroll = (updated: Record<string, PayrollRecord>) => {
-    setPayrollRecords(updated);
-    void fetch("/api/hr", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ payrollRecords: updated }),
-    });
-  };
+  const saveAttendanceHistory = (updated: Record<string, Record<string, AttendanceRecord>>) => persistWorkforce("/api/attendance", {
+    records: Object.entries(updated).flatMap(([date, records]) => Object.values(records)
+      .filter((record) => changed(record, attendanceHistory[date]?.[record.memberId]))
+      .map((record) => ({ ...record, date }))),
+  }, () => setAttendanceHistory(updated));
 
-  const saveAdvances = (updated: AdvanceRecord[]) => {
-    setAdvances(updated);
-    void fetch("/api/hr", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ advances: updated }),
-    });
-  };
+  const savePayroll = (updated: Record<string, PayrollRecord>) => persistWorkforce("/api/hr", {
+    payrollRecords: Object.fromEntries(Object.entries(updated).filter(([id, record]) => changed(record, payrollRecords[id]))),
+  }, () => setPayrollRecords(updated));
 
-  const saveMonthlyPayroll = (updated: Record<string, MonthlyPayrollRecord>) => {
-    setMonthlyPayrollRecords(updated);
-    void fetch("/api/hr", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ monthlyPayrollRecords: updated }),
-    });
-  };
+  const saveAdvances = (updated: AdvanceRecord[]) => persistWorkforce("/api/hr", {
+    advances: updated.filter((record) => changed(record, advances.find((old) => old.id === record.id)!)),
+  }, () => setAdvances(updated));
 
   // ── Advance Business Logic ──
 
@@ -517,7 +425,7 @@ function TeamContent() {
   };
 
   // Create a new advance
-  const handleCreateAdvance = (e: React.FormEvent) => {
+  const handleCreateAdvance = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAdvance.memberId || newAdvance.advanceAmount <= 0 || newAdvance.monthlyDeduction <= 0) return;
 
@@ -543,13 +451,13 @@ function TeamContent() {
       createdAt: new Date().toISOString(),
     };
 
-    saveAdvances([advance, ...advances]);
+    if (!await saveAdvances([advance, ...advances])) return;
     setIsCreateAdvanceOpen(false);
     setNewAdvance({ memberId: "", advanceAmount: 0, advanceDate: todayISO, reason: "", monthlyDeduction: 0, startMonth: "", notes: "" });
   };
 
   // Toggle advance pause/resume
-  const handleToggleAdvancePause = (advanceId: string) => {
+  const handleToggleAdvancePause = async (advanceId: string) => {
     const updated = advances.map((a) => {
       if (a.id === advanceId) {
         return {
@@ -559,7 +467,7 @@ function TeamContent() {
       }
       return a;
     });
-    saveAdvances(updated);
+    await saveAdvances(updated);
   };
 
   // State for Toast Notification
@@ -663,11 +571,11 @@ function TeamContent() {
     const stats = getMemberMonthlyStats(memberId, month);
     const [y, m] = month.split("-").map(Number);
     const totalDays = new Date(y, m, 0).getDate();
-    const salary = member.monthlySalary || 18000;
+    const salary = member.monthlySalary ?? 0;
     const payableDays = stats.verifiedPayableDays;
     const payableSalary = Math.round((salary / totalDays) * payableDays);
     const record = payrollRecords[memberId];
-    const fieldAllowance = record?.fieldAllowance || 2500;
+    const fieldAllowance = record?.fieldAllowance ?? 0;
     const advanceOutstanding = getEmployeeAdvanceOutstanding(memberId);
     const scheduledDeduction = getEmployeeMonthlyDeduction(memberId);
     const existingMonthlyRecord = monthlyPayrollRecords[`${memberId}_${month}`];
@@ -707,7 +615,7 @@ function TeamContent() {
     setPayrollSubTab("payment");
   };
 
-  const handleConfirmPayment = () => {
+  const handleConfirmPayment = async () => {
     if (!processingMemberId) return;
 
     const payroll = computePayrollForMember(processingMemberId, payrollMonth);
@@ -717,6 +625,7 @@ function TeamContent() {
       : settlementType === "Fully Settled" ? payroll.advanceOutstanding
       : settlementAmount;
 
+    let settledAdvances = advances;
     // Update advances with settlement
     if (actualSettlement > 0) {
       let remainingSettlement = actualSettlement;
@@ -745,7 +654,7 @@ function TeamContent() {
           settlements: [...adv.settlements, settlement],
         };
       });
-      saveAdvances(updatedAdvances);
+      settledAdvances = updatedAdvances;
     } else if (settlementType === "Not Settled") {
       // Log the "Not Settled" reason without changing balances
       const updatedAdvances = advances.map((adv) => {
@@ -761,7 +670,7 @@ function TeamContent() {
         };
         return { ...adv, settlements: [...adv.settlements, settlement] };
       });
-      saveAdvances(updatedAdvances);
+      settledAdvances = updatedAdvances;
     }
 
     // Save monthly payroll record
@@ -787,7 +696,13 @@ function TeamContent() {
       paymentMode,
       paidAt: new Date().toISOString(),
     };
-    saveMonthlyPayroll({ ...monthlyPayrollRecords, [`${processingMemberId}_${payrollMonth}`]: monthlyRecord });
+    if (!await persistWorkforce("/api/hr", {
+      advances: settledAdvances.filter((record) => changed(record, advances.find((old) => old.id === record.id)!)),
+      monthlyPayrollRecords: { [`${processingMemberId}_${payrollMonth}`]: monthlyRecord },
+    }, () => {
+      setAdvances(settledAdvances);
+      setMonthlyPayrollRecords((previous) => ({ ...previous, [`${processingMemberId}_${payrollMonth}`]: monthlyRecord }));
+    })) return;
 
     setToastMessage(`✅ Payment of ₹${Math.max(0, netPay).toLocaleString("en-IN")} confirmed and recorded.`);
     setTimeout(() => setToastMessage(null), 5000);
@@ -801,13 +716,13 @@ function TeamContent() {
     router.push(`/admin/team/${memberId}/edit`);
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editProfileMemberId) return;
     const updated = teamList.map((m) =>
       m.id === editProfileMemberId ? { ...m, ...editProfileForm } : m
     );
-    saveTeamList(updated);
+    if (!await saveTeamList(updated)) return;
     setIsEditProfileOpen(false);
     setToastMessage("✅ Employee profile updated successfully.");
     setTimeout(() => setToastMessage(null), 4000);
@@ -873,7 +788,7 @@ function TeamContent() {
   };
 
   // Save Attendance from Modal Card
-  const handleSaveModalAttendance = (e: React.FormEvent) => {
+  const handleSaveModalAttendance = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedMemberForUpdate) return;
 
@@ -899,12 +814,12 @@ function TeamContent() {
       },
     };
 
-    saveAttendanceHistory(updatedHistory);
+    if (!await saveAttendanceHistory(updatedHistory)) return;
     setIsUpdateModalOpen(false);
   };
 
   // Quick Action: Mark All Present for Today
-  const handleMarkAllPresent = () => {
+  const handleMarkAllPresent = async () => {
     const timeNow = new Date().toLocaleTimeString("en-IN", {
       hour: "2-digit",
       minute: "2-digit",
@@ -926,7 +841,7 @@ function TeamContent() {
       };
     });
 
-    saveAttendanceHistory({
+    await saveAttendanceHistory({
       ...attendanceHistory,
       [todayISO]: updatedDay,
     });
@@ -1193,18 +1108,18 @@ function TeamContent() {
   };
 
   // Toggle Payment Status
-  const handleTogglePayment = (memberId: string) => {
+  const handleTogglePayment = async (memberId: string) => {
     const current = payrollRecords[memberId];
     if (!current) return;
     const newStatus = current.paymentStatus === "PAID" ? "PENDING" : "PAID";
-    savePayroll({
+    await savePayroll({
       ...payrollRecords,
       [memberId]: { ...current, paymentStatus: newStatus },
     });
   };
 
   // Add Member
-  const handleAddMember = (e: React.FormEvent) => {
+  const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMember.name.trim() || !newMember.phone.trim()) return;
 
@@ -1222,33 +1137,7 @@ function TeamContent() {
     };
 
     const updatedList = [created, ...teamList];
-    saveTeamList(updatedList);
-
-    const todayRecords = attendanceHistory[todayISO] || {};
-    saveAttendanceHistory({
-      ...attendanceHistory,
-      [todayISO]: {
-        ...todayRecords,
-        [created.id]: {
-          memberId: created.id,
-          status: "Present",
-          checkIn: "--",
-          checkOut: "--",
-          assignedSite: `${created.territory} Site`,
-        },
-      },
-    });
-
-    savePayroll({
-      ...payrollRecords,
-      [created.id]: {
-        memberId: created.id,
-        baseAmount: Number(newMember.monthlySalary) || 18000,
-        fieldAllowance: 2000,
-        paymentStatus: "PENDING",
-        paymentMode: "UPI",
-      },
-    });
+    if (!await saveTeamList(updatedList)) return;
 
     setIsAddModalOpen(false);
     setNewMember({
@@ -1262,10 +1151,11 @@ function TeamContent() {
     setSelectedSkills([]);
   };
 
-  const handleDeleteMember = (id: string) => {
+  const handleDeleteMember = async (id: string) => {
     if (id === "owner-1") return;
-    const updated = teamList.filter((m) => m.id !== id);
-    saveTeamList(updated);
+    if (!confirm("Deactivate this team member? Their attendance and payroll history will be retained.")) return;
+    await persistWorkforce("/api/v1/admin/agents", { id, activeStatus: false, employeeAccessEnabled: false },
+      () => setTeamList((previous) => previous.filter((member) => member.id !== id)), "PATCH");
   };
 
   // Aggregate monthly attendance count across all logged dates
@@ -1327,7 +1217,10 @@ function TeamContent() {
   });
 
   return (
-    <div className="hrm-workspace w-full space-y-6 relative">
+    <div className="hrm-workspace w-full space-y-6 relative" aria-busy={savingWorkforce}>
+      {workforceError && <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{workforceError}</div>}
+      {savingWorkforce && <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-white/60"><span className="rounded-xl bg-white p-5 shadow">Saving to database…</span></div>}
+      {!isLoaded && <p className="text-sm text-slate-500">Loading workforce data from the database…</p>}
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-20 right-6 z-[9999] bg-emerald-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-emerald-700 flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200 max-w-md">

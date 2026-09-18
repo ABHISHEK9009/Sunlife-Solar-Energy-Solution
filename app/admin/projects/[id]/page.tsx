@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
+import { adminFetch as fetch } from "@/lib/admin-live";
+
+import React, { useRef, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
@@ -76,15 +79,18 @@ export default function ProjectDetailPage() {
     consumerNumber: "",
   });
 
-  const fetchProject = async () => {
+  const loadRequest = useRef(0);
+  const fetchProject = async (background = false) => {
+    const request = ++loadRequest.current;
     if (!id) return;
-    setLoading(true);
+    if (!background) setLoading(true);
     try {
       const res = await fetch(`/api/v1/admin/projects/${id}`);
       const data = await res.json();
+      if (request !== loadRequest.current) return;
       if (data.success) {
         setProject(data.project);
-        setHardwareForm({
+        if (!background) setHardwareForm({
           panelBrandModel: data.project.panelBrandModel || "",
           panelQuantity: data.project.panelQuantity ? String(data.project.panelQuantity) : "",
           inverterBrandModel: data.project.inverterBrandModel || "",
@@ -98,13 +104,15 @@ export default function ProjectDetailPage() {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (request === loadRequest.current) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchProject();
   }, [id]);
+
+  useLiveRefresh(() => fetchProject(true), !loading);
 
   const handleAddTimeline = async (e: React.FormEvent) => {
     e.preventDefault();

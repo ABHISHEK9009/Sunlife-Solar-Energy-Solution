@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
+import { adminFetch as fetch } from "@/lib/admin-live";
+
+import React, { useRef, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Users,
@@ -33,24 +36,29 @@ export default function AdminLeadsPage() {
   const [conversionNotes, setConversionNotes] = useState("");
   const [converting, setConverting] = useState(false);
 
-  const fetchLeads = async () => {
-    setLoading(true);
+  const loadRequest = useRef(0);
+  const fetchLeads = async (background = false) => {
+    const request = ++loadRequest.current;
+    if (!background) setLoading(true);
     try {
       const res = await fetch("/api/leads");
       const data = await res.json();
+      if (request !== loadRequest.current) return;
       if (data.success) {
         setLeads(data.leads || []);
       }
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (request === loadRequest.current) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchLeads();
   }, []);
+
+  useLiveRefresh(() => fetchLeads(true), !loading);
 
   const handleConvertLead = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,7 +119,7 @@ export default function AdminLeadsPage() {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={fetchLeads}
+            onClick={() => fetchLeads()}
             disabled={loading}
             className="px-4 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
           >
