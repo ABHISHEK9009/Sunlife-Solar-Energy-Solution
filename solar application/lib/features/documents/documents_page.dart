@@ -114,9 +114,11 @@ class _DocumentsPageState extends State<DocumentsPage> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () {
-                        Share.share(
-                          'Sunlife Solar Document: ${doc.title} (${doc.type.toUpperCase()})\nVerified record for project SS-2026-00452',
-                          subject: doc.title,
+                        SharePlus.instance.share(
+                          ShareParams(
+                            text: 'Sunlife Solar Document: ${doc.title} (${doc.type.toUpperCase()})\nVerified record for project SS-2026-00452',
+                            subject: doc.title,
+                          ),
                         );
                       },
                       icon: const Icon(Icons.share_rounded),

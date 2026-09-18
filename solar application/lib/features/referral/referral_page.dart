@@ -19,9 +19,11 @@ class ReferralPage extends StatelessWidget {
 
   void _shareReferral(BuildContext context) {
     final code = _referralCode;
-    Share.share(
-      'Go solar with Sunlife Solar! Use my referral code $code to save up to ₹78,000 with government subsidy: https://sunlifesolar.in/referral/$code',
-      subject: 'Switch to Solar with Sunlife',
+    SharePlus.instance.share(
+      ShareParams(
+        text: 'Go solar with Sunlife Solar! Use my referral code $code to save up to ₹78,000 with government subsidy: https://sunlifesolar.in/referral/$code',
+        subject: 'Switch to Solar with Sunlife',
+      ),
     );
   }
 

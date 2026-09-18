@@ -49,17 +49,18 @@ class _DocumentsHomePageState extends State<DocumentsHomePage> {
     setState(() => _isUploading = true);
 
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final files = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
       );
 
-      if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
+      if (files.isNotEmpty) {
+        final file = files.first;
+        final sizeBytes = file.lengthSync() ?? await file.length() ?? 0;
         final uploaded = await DocumentRepository.instance.uploadDocument(
           title: 'Cancelled cheque',
-          filePath: file.path ?? 'cancelled_cheque.pdf',
-          fileSize: '${(file.size / 1024).toStringAsFixed(0)} KB',
+          filePath: file.path ?? file.name,
+          fileSize: '${(sizeBytes / 1024).toStringAsFixed(0)} KB',
         );
 
         if (mounted) {
