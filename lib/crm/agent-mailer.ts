@@ -1,4 +1,4 @@
-import { Resend } from "resend";
+import { sendMail, fromAddress, maskEmail as _maskEmail } from "./mailer";
 
 interface SendAgentOtpEmailParams {
   to: string;
@@ -10,16 +10,7 @@ interface SendAgentOtpEmailParams {
   territory?: string | null;
 }
 
-export function maskEmail(email: string): string {
-  const [localPart, domain] = email.split("@");
-  if (!domain) return email;
-  if (localPart.length <= 3) {
-    return `${localPart[0]}***@${domain}`;
-  }
-  const visibleStart = localPart.slice(0, 3);
-  const visibleEnd = localPart.slice(-2);
-  return `${visibleStart}***${visibleEnd}@${domain}`;
-}
+export { maskEmail } from "./mailer";
 
 const escapeHtml = (value: string) =>
   value.replace(
@@ -179,53 +170,23 @@ export async function sendAgentOtpEmail(params: SendAgentOtpEmailParams): Promis
   maskedEmail: string;
   error?: string;
 }> {
-  const maskedEmail = maskEmail(params.to);
+  const maskedEmail = _maskEmail(params.to);
 
-  try {
-    const apiKey = process.env.RESEND_API_KEY;
-    const from = process.env.RESEND_FROM || "Sunlife Solar <infosses24@gmail.com>";
+  const html = generateAgentOtpHtml(params);
+  const text = `Hello ${params.name},\n\nYour Sunlife Solar Agent Portal login OTP is: ${params.otp}\nThis code is valid for 10 minutes.\n\nEmployee ID: ${params.employeeId || "N/A"}\nDo not share this code with anyone.\n\n© Sunlife Solar Energy Solution\nhttps://sunlifesolar.in`;
 
-    if (!apiKey) {
-      console.warn("[Agent Mailer]: RESEND_API_KEY is not configured. Email skipped.");
-      return {
-        sent: false,
-        maskedEmail,
-        error: "Email delivery service is currently not configured.",
-      };
-    }
+  const result = await sendMail({
+    to: params.to,
+    subject: `${params.otp} is your Sunlife Agent Portal login OTP`,
+    html,
+    text,
+  });
 
-    const resend = new Resend(apiKey);
-    const html = generateAgentOtpHtml(params);
-    const text = `Hello ${params.name},\n\nYour Sunlife Solar Agent Portal login OTP is: ${params.otp}\nThis code is valid for 10 minutes.\n\nEmployee ID: ${params.employeeId || "N/A"}\nDo not share this code with anyone.\n\n© Sunlife Solar Energy Solution\nhttps://sunlifesolar.in`;
-
-    const { error } = await resend.emails.send({
-      from,
-      to: params.to,
-      subject: `${params.otp} is your Sunlife Agent Portal login OTP`,
-      html,
-      text,
-    });
-
-    if (error) {
-      console.error("[Agent Mailer Resend Error]:", error);
-      return {
-        sent: false,
-        maskedEmail,
-        error: "Failed to dispatch email via delivery service.",
-      };
-    }
-
-    console.log(`[Agent Mailer]: Successfully sent OTP email to ${maskedEmail} (${params.name})`);
-    return {
-      sent: true,
-      maskedEmail,
-    };
-  } catch (err: any) {
-    console.error("[Agent Mailer Exception]:", err);
-    return {
-      sent: false,
-      maskedEmail,
-      error: "Unexpected error during email delivery.",
-    };
+  if (!result.sent) {
+    console.error("[Agent Mailer Error]:", result.error);
+    return { sent: false, maskedEmail, error: result.error };
   }
+
+  console.log(`[Agent Mailer]: OTP email sent to ${maskedEmail} (${params.name})`);
+  return { sent: true, maskedEmail };
 }

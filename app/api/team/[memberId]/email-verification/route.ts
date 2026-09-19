@@ -1,7 +1,7 @@
 import { createHash, randomInt } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
+import { sendMail } from "@/lib/crm/mailer";
 
 const hashCode = (code: string) =>
   createHash("sha256").update(code).digest("hex");
@@ -48,7 +48,7 @@ export async function POST(
       );
     }
 
-    // Direct Administrator Instant Activation (Bypasses email roundtrip)
+    // ── Direct Administrator Instant Activation (no email needed) ────────────
     if (action === "admin-activate" || action === "quick-verify") {
       await prisma.teamMember.update({
         where: { id: member.id },
@@ -68,7 +68,7 @@ export async function POST(
       });
     }
 
-    // Require email for verification code flows
+    // ── Require email for code-based flows ────────────────────────────────────
     if (!member.email) {
       return NextResponse.json(
         { error: "Please add an email address to this employee profile first." },
@@ -77,21 +77,6 @@ export async function POST(
     }
 
     if (action === "send") {
-      const apiKey = process.env.RESEND_API_KEY;
-      const from =
-        process.env.RESEND_FROM ||
-        "Sunlife Solar <infosses24@gmail.com>";
-
-      if (!apiKey) {
-        return NextResponse.json(
-          {
-            error:
-              "Email delivery service is not configured. Use 'Quick Activate' to verify instantly.",
-          },
-          { status: 503 }
-        );
-      }
-
       const verificationCode = String(randomInt(100000, 1000000));
 
       await prisma.teamMember.update({
@@ -103,24 +88,23 @@ export async function POST(
         },
       });
 
-      const resend = new Resend(apiKey);
       const name = escapeHtml(member.name);
+      const year = new Date().getFullYear();
 
-      const { error } = await resend.emails.send({
-        from,
+      const result = await sendMail({
         to: member.email,
         subject: `${verificationCode} is your Sunlife Solar verification code`,
-        html: `<!doctype html><html><body style="margin:0;background:#f1f5f9;font-family:Arial,sans-serif;color:#0f172a"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:32px 16px"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,.10)"><tr><td style="background:linear-gradient(135deg,#052e2b,#08765c);padding:26px 36px;color:#fff"><table role="presentation" width="100%"><tr><td><img src="https://sunlifesolar.in/logo/logo.png" width="150" alt="Sunlife Solar" style="display:block;height:auto;max-width:150px"></td><td align="right" style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#a7f3d0">SECURE EMPLOYEE ACCESS</td></tr></table><div style="font-size:25px;font-weight:800;margin-top:24px">Verify your employee email</div><div style="font-size:14px;line-height:22px;color:#d1fae5;margin-top:8px">One quick step to activate your Sunlife Solar employee portal.</div></td></tr><tr><td style="padding:36px"><p style="font-size:16px;font-weight:700;margin:0 0 12px">Hello ${name},</p><p style="font-size:15px;line-height:24px;color:#475569;margin:0">An administrator requested verification of this email address. Use the secure code below in the employee profile to confirm access.</p><div style="margin:28px 0;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:14px;padding:22px;text-align:center"><div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#047857">YOUR VERIFICATION CODE</div><div style="font-family:monospace;font-size:34px;font-weight:800;letter-spacing:9px;color:#064e3b;margin-top:10px">${verificationCode}</div><div style="margin-top:18px"><span style="display:inline-block;border:1px solid #86efac;border-radius:7px;background:#ffffff;padding:8px 14px;font-size:12px;font-weight:700;color:#047857">📋 COPY CODE</span></div></div><p style="font-size:14px;line-height:22px;color:#64748b;margin:0">This code expires in <strong>10 minutes</strong>. For your security, never share this code with anyone.</p><div style="margin-top:24px;border-radius:12px;background:#f8fafc;padding:16px;font-size:13px;line-height:20px;color:#475569"><strong style="color:#0f172a">Power your future with solar energy.</strong><br>Sunlife Solar provides trusted rooftop solar solutions for homes, businesses and industries across Madhya Pradesh.</div><div style="border-top:1px solid #e2e8f0;margin-top:28px;padding-top:20px;font-size:12px;line-height:18px;color:#94a3b8">If you did not expect this request, you can safely ignore this email.<br>© ${new Date().getFullYear()} Sunlife Solar Energy Solution · <a href="https://sunlifesolar.in" style="color:#047857;text-decoration:none">sunlifesolar.in</a></div></td></tr></table></td></tr></table></body></html>`,
-        text: `Hello ${member.name}, your Sunlife Solar verification code is ${verificationCode}. It expires in 10 minutes. Visit sunlifesolar.in for rooftop solar solutions. Do not share this code.`,
+        html: `<!doctype html><html><body style="margin:0;background:#f1f5f9;font-family:Arial,sans-serif;color:#0f172a"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:32px 16px"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,.10)"><tr><td style="background:linear-gradient(135deg,#052e2b,#08765c);padding:26px 36px;color:#fff"><table role="presentation" width="100%"><tr><td><img src="https://sunlifesolar.in/logo/logo.png" width="150" alt="Sunlife Solar" style="display:block;height:auto;max-width:150px"></td><td align="right" style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#a7f3d0">SECURE EMPLOYEE ACCESS</td></tr></table><div style="font-size:25px;font-weight:800;margin-top:24px">Verify your employee email</div><div style="font-size:14px;line-height:22px;color:#d1fae5;margin-top:8px">One quick step to activate your Sunlife Solar employee portal.</div></td></tr><tr><td style="padding:36px"><p style="font-size:16px;font-weight:700;margin:0 0 12px">Hello ${name},</p><p style="font-size:15px;line-height:24px;color:#475569;margin:0">An administrator requested verification of this email address. Use the secure code below to confirm access.</p><div style="margin:28px 0;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:14px;padding:22px;text-align:center"><div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#047857">YOUR VERIFICATION CODE</div><div style="font-family:monospace;font-size:34px;font-weight:800;letter-spacing:9px;color:#064e3b;margin-top:10px">${verificationCode}</div></div><p style="font-size:14px;line-height:22px;color:#64748b;margin:0">This code expires in <strong>10 minutes</strong>. Never share this code with anyone.</p><div style="border-top:1px solid #e2e8f0;margin-top:28px;padding-top:20px;font-size:12px;color:#94a3b8">© ${year} Sunlife Solar Energy Solution · <a href="https://sunlifesolar.in" style="color:#047857;text-decoration:none">sunlifesolar.in</a></div></td></tr></table></td></tr></table></body></html>`,
+        text: `Hello ${member.name}, your Sunlife Solar verification code is ${verificationCode}. It expires in 10 minutes. Do not share this code.`,
       });
 
-      if (error) {
-        console.error("[Email Verification Resend Error]:", error);
+      if (!result.sent) {
+        console.error("[Email Verification Send Error]:", result.error);
         return NextResponse.json(
           {
             error:
-              error.message ||
-              "Unable to dispatch email. You can use 'Quick Activate' to verify directly.",
+              result.error ||
+              "Unable to send email. Use 'Quick Activate' to verify the employee instantly.",
           },
           { status: 502 }
         );
@@ -128,7 +112,7 @@ export async function POST(
 
       return NextResponse.json({
         ok: true,
-        message: `Verification code successfully sent to ${member.email}.`,
+        message: `Verification code sent to ${member.email}.`,
       });
     }
 
@@ -160,18 +144,18 @@ export async function POST(
       return NextResponse.json({
         ok: true,
         verified: true,
-        message: "Email successfully verified and portal access enabled.",
+        message: "Email verified and portal access enabled.",
       });
     }
 
     return NextResponse.json(
-      { error: "Invalid verification action requested." },
+      { error: "Invalid verification action." },
       { status: 400 }
     );
   } catch (err: any) {
     console.error("[Email Verification API Error]:", err);
     return NextResponse.json(
-      { error: err?.message || "Internal server error occurred." },
+      { error: err?.message || "Internal server error." },
       { status: 500 }
     );
   }
