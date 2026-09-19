@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 
-// ─── Mask email for safe display ────────────────────────────────────────────
+// ─── Mask email for safe display ─────────────────────────────────────────────
 
 export function maskEmail(email: string): string {
   const [localPart, domain] = email.split("@");
@@ -9,27 +9,36 @@ export function maskEmail(email: string): string {
   return `${localPart.slice(0, 3)}***${localPart.slice(-2)}@${domain}`;
 }
 
-// ─── Shared Gmail SMTP transport ─────────────────────────────────────────────
+// ─── Create SMTP transporter ──────────────────────────────────────────────────
 
 function createTransport() {
-  const user = process.env.GMAIL_USER;
-  const pass = process.env.GMAIL_APP_PASSWORD;
+  const host = process.env.SMTP_HOST;
+  const port = parseInt(process.env.SMTP_PORT || "587", 10);
+  const secure = process.env.SMTP_SECURE === "true";
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
 
-  if (!user || !pass) {
-    throw new Error("Gmail credentials not configured (GMAIL_USER / GMAIL_APP_PASSWORD).");
+  if (!host || !user || !pass) {
+    throw new Error(
+      "SMTP not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS in environment variables."
+    );
   }
 
   return nodemailer.createTransport({
-    service: "gmail",
+    host,
+    port,
+    secure,
     auth: { user, pass },
   });
 }
 
-export const senderName = "Sunlife Solar";
-export const senderEmail = () => process.env.GMAIL_USER || "infosses24@gmail.com";
-export const fromAddress = () => `${senderName} <${senderEmail()}>`;
+// ─── From address ─────────────────────────────────────────────────────────────
 
-// ─── Send a generic email ────────────────────────────────────────────────────
+export const fromAddress = () =>
+  process.env.SMTP_FROM ||
+  `Sunlife Solar <${process.env.SMTP_USER || "infosses24@gmail.com"}>`;
+
+// ─── Send a generic email ─────────────────────────────────────────────────────
 
 export async function sendMail(options: {
   to: string;
@@ -46,6 +55,7 @@ export async function sendMail(options: {
       html: options.html,
       text: options.text,
     });
+    console.log(`[Mailer]: Email sent to ${maskEmail(options.to)} — "${options.subject}"`);
     return { sent: true };
   } catch (err: any) {
     console.error("[Mailer Error]:", err?.message || err);
