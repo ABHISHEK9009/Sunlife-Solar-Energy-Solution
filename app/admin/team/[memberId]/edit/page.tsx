@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
+  AlertCircle,
   ArrowLeft,
   BadgeCheck,
   Building2,
@@ -165,9 +166,10 @@ export default function EmployeeProfilePage() {
   const [member, setMember] = useState<Member | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [code, setCode] = useState('');
   const [verifying, setVerifying] = useState(false);
+  const [activating, setActivating] = useState(false);
   const [skillMenuOpen, setSkillMenuOpen] = useState(false);
   const [skillSearch, setSkillSearch] = useState('');
 
@@ -192,7 +194,7 @@ export default function EmployeeProfilePage() {
             : null,
         );
       })
-      .catch(() => setNotice('Unable to load employee information.'));
+      .catch(() => setNotice({ text: 'Unable to load employee information.', type: 'error' }));
 
   useEffect(() => { void loadMember(); }, [memberId]);
   useEffect(() => {
@@ -203,7 +205,7 @@ export default function EmployeeProfilePage() {
       setEditing(true);
     }
   }, []);
-  useLiveRefresh(loadMember, !editing && !saving && !verifying);
+  useLiveRefresh(loadMember, !editing && !saving && !verifying && !activating);
 
   const update = (key: keyof Member, value: string) =>
     setMember((current) =>
@@ -235,16 +237,20 @@ export default function EmployeeProfilePage() {
       });
       if (!response.ok) throw new Error();
       setEditing(false);
-      setNotice('Profile changes saved successfully.');
+      setNotice({ text: 'Profile changes saved successfully.', type: 'success' });
     } catch {
-      setNotice('Unable to save profile changes.');
+      setNotice({ text: 'Unable to save profile changes.', type: 'error' });
     } finally {
       setSaving(false);
     }
   };
-  const verify = async (action: 'send' | 'verify') => {
+  const verify = async (action: 'send' | 'verify' | 'admin-activate') => {
     if (!member) return;
-    setVerifying(true);
+    if (action === 'admin-activate') {
+      setActivating(true);
+    } else {
+      setVerifying(true);
+    }
     try {
       const response = await fetch(
         `/api/team/${member.id}/email-verification`,
@@ -255,19 +261,26 @@ export default function EmployeeProfilePage() {
         },
       );
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
-      if (action === 'verify')
+      if (!response.ok) throw new Error(data.error || 'Request failed.');
+      if (action === 'verify' || action === 'admin-activate')
         setMember({ ...member, emailVerifiedAt: new Date().toISOString() });
-      setNotice(
-        action === 'send'
-          ? 'Verification code sent to the employee email.'
-          : 'Email verified and employee access enabled.',
-      );
-    } catch (error) {
+      setNotice({
+        text:
+          data.message ||
+          (action === 'send'
+            ? 'Verification code sent to the employee email.'
+            : 'Email verified and employee access enabled.'),
+        type: 'success',
+      });
+    } catch (error: any) {
       console.error("[Email Verification Error]:", error);
-      setNotice('Unable to complete the request right now. Please try again.');
+      setNotice({
+        text: error?.message || 'Unable to complete the request right now. Please try again.',
+        type: 'error',
+      });
     } finally {
       setVerifying(false);
+      setActivating(false);
     }
   };
 
@@ -319,12 +332,22 @@ export default function EmployeeProfilePage() {
         </span>
       </div>
       {notice && (
-        <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+        <div
+          className={`flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+            notice.type === 'error'
+              ? 'border-rose-200 bg-rose-50 text-rose-800'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+          }`}
+        >
           <span className="inline-flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4" />
-            {notice}
+            {notice.type === 'error' ? (
+              <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+            )}
+            {notice.text}
           </span>
-          <button aria-label="Dismiss message" onClick={() => setNotice('')}>
+          <button aria-label="Dismiss message" onClick={() => setNotice(null)}>
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -645,7 +668,7 @@ export default function EmployeeProfilePage() {
                         Verified and active
                       </p>
                       <p className="mt-0.5 text-xs text-emerald-700">
-                        This employee can sign in using their verified email.
+                        This employee can sign in using their verified credentials.
                       </p>
                     </div>
                   </div>
@@ -656,17 +679,28 @@ export default function EmployeeProfilePage() {
                     <div>
                       <p className={label}>Step 1</p>
                       <p className="mt-1 text-sm font-extrabold text-slate-800">
-                        Send the verification code
+                        Verification & Activation
                       </p>
                     </div>
-                    <button
-                      disabled={!member.email || verifying}
-                      onClick={() => void verify('send')}
-                      className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-solar-deep px-4 py-2.5 text-sm font-bold text-white transition hover:bg-solar-dark disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <Send className="h-4 w-4" />
-                      {verifying ? 'Sending...' : 'Send code'}
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        disabled={activating || verifying}
+                        onClick={() => void verify('admin-activate')}
+                        className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
+                        title="Instant admin bypass to activate account without waiting for email OTP"
+                      >
+                        <Check className="h-4 w-4" />
+                        {activating ? 'Activating...' : 'Quick Activate'}
+                      </button>
+                      <button
+                        disabled={!member.email || verifying || activating}
+                        onClick={() => void verify('send')}
+                        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-solar-deep px-3.5 py-2.5 text-xs font-bold text-white transition hover:bg-solar-dark disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Send className="h-4 w-4" />
+                        {verifying ? 'Sending...' : 'Send code'}
+                      </button>
+                    </div>
                   </div>
                   <div className="pt-4">
                     <p className={label}>Step 2 · Enter received code</p>
@@ -682,7 +716,7 @@ export default function EmployeeProfilePage() {
                         className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold tracking-[0.15em] outline-none placeholder:font-medium placeholder:tracking-normal focus:border-solar-emerald focus:ring-2 focus:ring-emerald-100"
                       />
                       <button
-                        disabled={code.length !== 6 || verifying}
+                        disabled={code.length !== 6 || verifying || activating}
                         onClick={() => void verify('verify')}
                         className="rounded-lg bg-emerald-100 px-5 py-2.5 text-sm font-extrabold text-solar-deep transition hover:bg-emerald-200 disabled:opacity-50"
                       >
