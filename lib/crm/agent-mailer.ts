@@ -183,7 +183,7 @@ export async function sendAgentOtpEmail(params: SendAgentOtpEmailParams): Promis
 
   try {
     const apiKey = process.env.RESEND_API_KEY;
-    const from = process.env.RESEND_FROM || "Sunlife Solar <notifications@sunlifesolar.in>";
+    const from = process.env.RESEND_FROM || "Sunlife Solar <infosses24@gmail.com>";
 
     if (!apiKey) {
       console.warn("[Agent Mailer]: RESEND_API_KEY is not configured. Email skipped.");

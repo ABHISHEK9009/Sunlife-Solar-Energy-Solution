@@ -80,7 +80,7 @@ export async function POST(
       const apiKey = process.env.RESEND_API_KEY;
       const from =
         process.env.RESEND_FROM ||
-        "Sunlife Solar <notifications@sunlifesolar.in>";
+        "Sunlife Solar <infosses24@gmail.com>";
 
       if (!apiKey) {
         return NextResponse.json(
