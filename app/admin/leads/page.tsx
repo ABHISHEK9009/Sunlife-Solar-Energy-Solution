@@ -648,58 +648,77 @@ export default function AdminLeadsPage() {
 
       {/* Detailed Lead Creation Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div>
-                <h3 className="text-xl font-bold font-heading text-slate-900 flex items-center gap-2">
-                  <Plus className="w-5 h-5 text-emerald-600" />
-                  <span>Create New Customer Lead</span>
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  Add full client enquiry details to CRM database and optionally assign to a field agent.
-                </p>
+        <div
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-6 overflow-hidden animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowAddModal(false);
+          }}
+        >
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-3xl flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* FIXED MODAL HEADER */}
+            <div className="px-6 py-5 sm:px-8 sm:py-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100/80 text-solar-deep flex items-center justify-center shrink-0">
+                  <Plus className="w-5 h-5 text-emerald-700" />
+                </div>
+                <div>
+                  <h3 className="text-lg sm:text-xl font-bold font-heading text-slate-900 leading-tight">
+                    Add New Customer Lead
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Capture requirement details, assign field agents, and sync with CRM database.
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
+                className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors cursor-pointer"
+                title="Close"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleAddLead} className="space-y-6 text-xs sm:text-sm">
+            {/* SCROLLABLE FORM BODY */}
+            <form
+              id="add-lead-form"
+              onSubmit={handleAddLead}
+              className="flex-1 overflow-y-auto overscroll-contain p-6 sm:p-8 space-y-6 text-xs sm:text-sm"
+            >
               {/* SECTION 1: CUSTOMER DETAILS */}
-              <div className="space-y-3 bg-slate-50/70 p-4 rounded-2xl border border-slate-200/80">
-                <div className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-solar-deep" />
-                  <span>1. Customer Details</span>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold">
+                    <Users className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>1. Customer Details</span>
+                  </div>
+                  <span className="text-[11px] text-slate-400 font-medium">Primary Contact</span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
-                      Customer Name *
+                    <label className="font-semibold text-slate-700 block mb-1.5">
+                      Customer Full Name <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Ramesh Verma"
+                      placeholder="e.g. Ramesh Chandra Verma"
                       value={addForm.name}
                       onChange={(e) =>
                         setAddForm({ ...addForm, name: e.target.value })
                       }
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-slate-900"
+                      className="w-full px-3.5 py-2.5 bg-slate-50/60 hover:bg-white focus:bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-600 transition-all font-medium"
                     />
                   </div>
 
                   <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
-                      Mobile Number (10 digits) *
+                    <label className="font-semibold text-slate-700 block mb-1.5">
+                      Mobile Number <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-slate-400 font-semibold">
+                      <span className="absolute left-3.5 top-2.5 text-slate-400 font-bold">
                         +91
                       </span>
                       <input
@@ -714,31 +733,31 @@ export default function AdminLeadsPage() {
                             phone: e.target.value.replace(/\D/g, ""),
                           })
                         }
-                        className="w-full pl-11 pr-3 p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-slate-900 font-mono font-medium"
+                        className="w-full pl-12 pr-3.5 py-2.5 bg-slate-50/60 hover:bg-white focus:bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-600 transition-all font-mono font-semibold text-sm"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
-                      City / Village *
+                    <label className="font-semibold text-slate-700 block mb-1.5">
+                      City / Village <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Itarsi"
+                      placeholder="e.g. Itarsi / Babai"
                       value={addForm.city}
                       onChange={(e) =>
                         setAddForm({ ...addForm, city: e.target.value })
                       }
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-slate-900"
+                      className="w-full px-3.5 py-2.5 bg-slate-50/60 hover:bg-white focus:bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-600 transition-all font-medium"
                     />
                   </div>
 
                   <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
+                    <label className="font-semibold text-slate-700 block mb-1.5">
                       District
                     </label>
                     <input
@@ -748,13 +767,13 @@ export default function AdminLeadsPage() {
                       onChange={(e) =>
                         setAddForm({ ...addForm, district: e.target.value })
                       }
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-slate-900"
+                      className="w-full px-3.5 py-2.5 bg-slate-50/60 hover:bg-white focus:bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-600 transition-all font-medium"
                     />
                   </div>
 
                   <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
-                      Email Address (Optional)
+                    <label className="font-semibold text-slate-700 block mb-1.5">
+                      Email Address <span className="text-slate-400 font-normal">(Optional)</span>
                     </label>
                     <input
                       type="email"
@@ -763,100 +782,117 @@ export default function AdminLeadsPage() {
                       onChange={(e) =>
                         setAddForm({ ...addForm, email: e.target.value })
                       }
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-slate-900"
+                      className="w-full px-3.5 py-2.5 bg-slate-50/60 hover:bg-white focus:bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-600 transition-all"
                     />
                   </div>
                 </div>
               </div>
 
               {/* SECTION 2: SOLAR REQUIREMENT */}
-              <div className="space-y-3 bg-slate-50/70 p-4 rounded-2xl border border-slate-200/80">
-                <div className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5 text-solar-deep" />
-                  <span>2. Solar Requirement</span>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-5">
+                <div className="flex items-center justify-between">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 text-amber-800 text-xs font-bold">
+                    <Zap className="w-3.5 h-3.5 text-amber-600" />
+                    <span>2. Solar Requirement & System Specs</span>
+                  </div>
+                  <span className="text-[11px] text-slate-400 font-medium">Installation Profile</span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
-                      Requirement Type
-                    </label>
-                    <select
-                      value={addForm.propertyType}
-                      onChange={(e) =>
-                        setAddForm({ ...addForm, propertyType: e.target.value })
-                      }
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                    >
-                      <option value="Residential">Residential</option>
-                      <option value="Commercial">Commercial</option>
-                      <option value="Industrial">Industrial</option>
-                      <option value="Agriculture">Agriculture</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
-                      Solar Requirement
-                    </label>
-                    <select
-                      value={addForm.solarRequirement}
-                      onChange={(e) =>
-                        setAddForm({ ...addForm, solarRequirement: e.target.value })
-                      }
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                    >
-                      <option value="On-Grid">On-Grid (Net Metering)</option>
-                      <option value="Off-Grid">Off-Grid (Battery Storage)</option>
-                      <option value="Hybrid">Hybrid (Grid + Battery)</option>
-                      <option value="Solar Pump">Solar Water Pump</option>
-                      <option value="Not Sure">Not Sure</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
-                      Approx. Capacity
-                    </label>
-                    <select
-                      value={addForm.approxCapacity}
-                      onChange={(e) =>
-                        setAddForm({ ...addForm, approxCapacity: e.target.value })
-                      }
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                    >
-                      <option value="3 kW">3 kW (Subsidy eligible)</option>
-                      <option value="5 kW">5 kW (Standard home)</option>
-                      <option value="10 kW">10 kW (Large villa/office)</option>
-                      <option value="15 kW">15 kW</option>
-                      <option value="25 kW">25 kW</option>
-                      <option value="50 kW">50 kW+</option>
-                      <option value="Not Sure">Not Sure</option>
-                      <option value="Custom">Custom...</option>
-                    </select>
+                {/* Requirement Type Pills */}
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-2">
+                    Requirement Type
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {["Residential", "Commercial", "Industrial", "Agriculture"].map((type) => (
+                      <button
+                        type="button"
+                        key={type}
+                        onClick={() => setAddForm({ ...addForm, propertyType: type })}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          addForm.propertyType === type
+                            ? "bg-solar-deep text-white shadow-xs"
+                            : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200/80"
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {addForm.approxCapacity === "Custom" && (
-                  <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
-                      Specify Custom Capacity (kW)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      placeholder="e.g. 7.5"
-                      value={addForm.customCapacity}
-                      onChange={(e) =>
-                        setAddForm({ ...addForm, customCapacity: e.target.value })
-                      }
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                    />
+                {/* Solar System Type Pills */}
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-2">
+                    Solar System Type
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { id: "On-Grid", label: "On-Grid (Net Metering)" },
+                      { id: "Off-Grid", label: "Off-Grid (Battery Storage)" },
+                      { id: "Hybrid", label: "Hybrid (Grid + Battery)" },
+                      { id: "Solar Pump", label: "Solar Pump" },
+                      { id: "Not Sure", label: "Not Sure" },
+                    ].map((sys) => (
+                      <button
+                        type="button"
+                        key={sys.id}
+                        onClick={() => setAddForm({ ...addForm, solarRequirement: sys.id })}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          addForm.solarRequirement === sys.id
+                            ? "bg-emerald-700 text-white shadow-xs"
+                            : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200/80"
+                        }`}
+                      >
+                        {sys.label}
+                      </button>
+                    ))}
                   </div>
-                )}
+                </div>
+
+                {/* Approx Capacity Pills */}
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-2">
+                    Approx. Capacity
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {["3 kW", "5 kW", "10 kW", "15 kW", "25 kW", "50 kW+", "Not Sure", "Custom"].map((cap) => (
+                      <button
+                        type="button"
+                        key={cap}
+                        onClick={() => setAddForm({ ...addForm, approxCapacity: cap })}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          addForm.approxCapacity === cap
+                            ? "bg-slate-900 text-white shadow-xs"
+                            : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200/80"
+                        }`}
+                      >
+                        {cap}
+                      </button>
+                    ))}
+                  </div>
+
+                  {addForm.approxCapacity === "Custom" && (
+                    <div className="mt-3">
+                      <label className="font-semibold text-slate-700 block mb-1">
+                        Enter Custom Capacity (kW)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        placeholder="e.g. 7.5"
+                        value={addForm.customCapacity}
+                        onChange={(e) =>
+                          setAddForm({ ...addForm, customCapacity: e.target.value })
+                        }
+                        className="w-full sm:w-48 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-600 font-bold"
+                      />
+                    </div>
+                  )}
+                </div>
 
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">
+                  <label className="font-semibold text-slate-700 block mb-1.5">
                     Monthly Electricity Bill
                   </label>
                   <select
@@ -864,27 +900,30 @@ export default function AdminLeadsPage() {
                     onChange={(e) =>
                       setAddForm({ ...addForm, monthlyBill: e.target.value })
                     }
-                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full px-3.5 py-2.5 bg-slate-50/60 hover:bg-white focus:bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-600 transition-all font-medium"
                   >
                     <option value="< ₹1,500">&lt; ₹1,500 / month</option>
                     <option value="₹1,500 - ₹3,000">₹1,500 - ₹3,000 / month</option>
-                    <option value="₹3,000 - ₹5,000">₹3,000 - ₹5,000 / month</option>
+                    <option value="₹3,000 - ₹5,000">₹3,000 - ₹5,000 / month (Standard)</option>
                     <option value="₹5,000 - ₹10,000">₹5,000 - ₹10,000 / month</option>
                     <option value="> ₹10,000">&gt; ₹10,000 / month</option>
                   </select>
                 </div>
               </div>
 
-              {/* SECTION 3: LEAD & ASSIGNMENT */}
-              <div className="space-y-3 bg-slate-50/70 p-4 rounded-2xl border border-slate-200/80">
-                <div className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-solar-deep" />
-                  <span>3. Lead Source & Agent Assignment</span>
+              {/* SECTION 3: LEAD SOURCE & ASSIGNMENT */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-800 text-xs font-bold">
+                    <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                    <span>3. Lead Source & Field Agent Assignment</span>
+                  </div>
+                  <span className="text-[11px] text-slate-400 font-medium">CRM Operations</span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
+                    <label className="font-semibold text-slate-700 block mb-1.5">
                       Lead Source
                     </label>
                     <select
@@ -892,21 +931,21 @@ export default function AdminLeadsPage() {
                       onChange={(e) =>
                         setAddForm({ ...addForm, leadSource: e.target.value })
                       }
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      className="w-full px-3.5 py-2.5 bg-slate-50/60 hover:bg-white focus:bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-600 transition-all font-medium"
                     >
                       <option value="Website">Website</option>
-                      <option value="Call">Call</option>
-                      <option value="Referral">Referral</option>
-                      <option value="Field Visit">Field Visit</option>
-                      <option value="Social Media">Social Media</option>
+                      <option value="Call">Phone Call</option>
+                      <option value="Referral">Referral Program</option>
+                      <option value="Field Visit">Field Visit / Direct Survey</option>
+                      <option value="Social Media">Social Media (FB / IG / WhatsApp)</option>
                       <option value="Existing Customer">Existing Customer</option>
                       <option value="Other">Other</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
-                      Assigned Agent / Sales Person
+                    <label className="font-semibold text-slate-700 block mb-1.5">
+                      Assign to Agent / Sales Person
                     </label>
                     <select
                       value={addForm.assignedSalesExecutiveId}
@@ -916,7 +955,7 @@ export default function AdminLeadsPage() {
                           assignedSalesExecutiveId: e.target.value,
                         })
                       }
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium"
+                      className="w-full px-3.5 py-2.5 bg-emerald-50/50 hover:bg-white focus:bg-white border border-emerald-300 hover:border-emerald-400 rounded-xl text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-600 transition-all font-semibold"
                     >
                       <option value="">-- Unassigned (General Pool) --</option>
                       {teamMembers.map((m) => (
@@ -928,21 +967,21 @@ export default function AdminLeadsPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
-                      Lead Status
+                    <label className="font-semibold text-slate-700 block mb-1.5">
+                      Initial Lead Status
                     </label>
                     <select
                       value={addForm.status}
                       onChange={(e) =>
                         setAddForm({ ...addForm, status: e.target.value })
                       }
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-semibold text-amber-800"
+                      className="w-full px-3.5 py-2.5 bg-slate-50/60 hover:bg-white focus:bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-amber-800 font-bold focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-600 transition-all"
                     >
-                      <option value="NEW">New</option>
+                      <option value="NEW">New Lead</option>
                       <option value="CONTACTED">Contacted</option>
-                      <option value="SURVEY_SCHEDULED">Survey Scheduled</option>
+                      <option value="SURVEY_SCHEDULED">Site Survey Scheduled</option>
                       <option value="QUOTATION_SENT">Quotation Sent</option>
                       <option value="CONVERTED">Converted</option>
                       <option value="LOST">Lost</option>
@@ -950,7 +989,7 @@ export default function AdminLeadsPage() {
                   </div>
 
                   <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
+                    <label className="font-semibold text-slate-700 block mb-1.5">
                       Next Follow-up Date
                     </label>
                     <input
@@ -959,47 +998,54 @@ export default function AdminLeadsPage() {
                       onChange={(e) =>
                         setAddForm({ ...addForm, nextFollowUpDate: e.target.value })
                       }
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-slate-900"
+                      className="w-full px-3.5 py-2.5 bg-slate-50/60 hover:bg-white focus:bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-600 transition-all font-medium"
                     />
                   </div>
                 </div>
               </div>
 
               {/* SECTION 4: REMARKS / CUSTOMER REQUIREMENT */}
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">
-                  Remark / Customer Requirement
-                </label>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-3">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">
+                  <MessageSquare className="w-3.5 h-3.5 text-slate-500" />
+                  <span>4. Remark / Customer Requirement</span>
+                </div>
                 <textarea
                   rows={3}
                   value={addForm.notes}
                   onChange={(e) =>
                     setAddForm({ ...addForm, notes: e.target.value })
                   }
-                  placeholder="e.g. Rooftop is RCC 1,200 sq.ft, 3-Phase connection available, interested in subsidy scheme..."
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-slate-900"
+                  placeholder="e.g. Rooftop is RCC ~1,200 sq.ft, 3-Phase meter available, interested in Central Subsidy scheme, prefers Saturday site visit..."
+                  className="w-full p-3 bg-slate-50/60 hover:bg-white focus:bg-white border border-slate-200 hover:border-slate-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-600 text-slate-900 transition-all"
                 />
               </div>
+            </form>
 
-              {/* MODAL ACTIONS */}
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
+            {/* FIXED MODAL FOOTER */}
+            <div className="px-6 py-4 sm:px-8 sm:py-4.5 border-t border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/90">
+              <span className="text-xs text-slate-500 hidden sm:inline font-medium">
+                Fields marked with <span className="text-rose-500 font-bold">*</span> are required
+              </span>
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-5 py-2.5 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 font-semibold cursor-pointer transition-colors"
+                  className="px-5 py-2.5 border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 rounded-xl font-bold cursor-pointer transition-colors text-xs sm:text-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
+                  form="add-lead-form"
                   disabled={submittingAdd}
-                  className="px-6 py-2.5 bg-solar-deep text-white font-bold rounded-xl hover:bg-slate-900 shadow-md flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md shadow-emerald-600/20 hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 text-xs sm:text-sm"
                 >
-                  <Plus className="w-4 h-4 text-sun-amber" />
+                  <Plus className="w-4 h-4 text-emerald-200" />
                   <span>{submittingAdd ? "Saving Lead..." : "Save Lead to CRM"}</span>
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
