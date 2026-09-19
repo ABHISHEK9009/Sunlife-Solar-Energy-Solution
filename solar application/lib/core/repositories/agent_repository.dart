@@ -48,19 +48,41 @@ class AgentRepository extends ChangeNotifier {
     required String name,
     required String phone,
     required String location,
+    String? city,
+    String? district,
+    String? leadSource,
+    String? requirementType,
+    String? solarRequirement,
+    String? approxCapacity,
+    String? assignedAgent,
+    String? leadStatus,
+    DateTime? nextFollowUpDate,
     String? monthlyBill,
     String? notes,
   }) async {
+    final payload = <String, dynamic>{
+      'name': name,
+      'phone': phone,
+      'location': location,
+      'leadSource': leadSource ?? 'Field Visit',
+      'propertyType': requirementType ?? 'Residential',
+      'solarRequirement': solarRequirement ?? 'On-Grid',
+      'approxCapacity': approxCapacity ?? '5 kW',
+      'status': leadStatus ?? 'NEW',
+      'monthlyBill': monthlyBill ?? '5000',
+      'notes': notes,
+    };
+    if (city != null) payload['city'] = city;
+    if (district != null) payload['district'] = district;
+    if (assignedAgent != null) payload['assignedAgent'] = assignedAgent;
+    if (nextFollowUpDate != null) {
+      payload['nextFollowUpDate'] = nextFollowUpDate.toIso8601String();
+    }
+
     try {
       final res = await ApiClient.instance.post(
         ApiConstants.agentLeads,
-        data: {
-          'name': name,
-          'phone': phone,
-          'location': location,
-          'monthlyBill': monthlyBill ?? '5000',
-          'notes': notes,
-        },
+        data: payload,
       );
 
       if ((res.statusCode == 200 || res.statusCode == 201) &&
@@ -80,8 +102,17 @@ class AgentRepository extends ChangeNotifier {
       name: name,
       phone: phone,
       location: location,
-      monthlyBill: monthlyBill ?? '₹5,000/month',
-      stage: 'New lead',
+      city: city,
+      district: district,
+      stage: leadStatus ?? 'New lead',
+      monthlyBill: monthlyBill != null ? '₹$monthlyBill/month' : '₹5,000/month',
+      propertyType: requirementType ?? 'Residential',
+      solarRequirement: solarRequirement ?? 'On-Grid',
+      approxCapacity: approxCapacity ?? '5 kW',
+      preferredSystem: '${approxCapacity ?? "5 kW"} ${solarRequirement ?? "On-Grid"}',
+      leadSource: leadSource ?? 'Field Visit',
+      assignedAgent: assignedAgent,
+      nextFollowUpDate: nextFollowUpDate,
       notes: notes,
       createdAt: DateTime.now(),
     );

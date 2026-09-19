@@ -132,6 +132,7 @@ class _AgentLeadsPageState extends State<AgentLeadsPage> {
                           phone: lead.phone,
                           bill: lead.monthlyBill,
                           initialStage: lead.stage,
+                          lead: lead,
                         ),
                       );
                       _loadLeads();

@@ -11,6 +11,8 @@ import '../../core/widgets/sub_page.dart';
 import '../documents/agent_documents_page.dart';
 import '../visits/agent_visit_detail_page.dart';
 
+import '../../core/models/agent_lead.dart';
+
 class AgentLeadDetailPage extends StatefulWidget {
   const AgentLeadDetailPage({
     super.key,
@@ -19,9 +21,11 @@ class AgentLeadDetailPage extends StatefulWidget {
     required this.phone,
     required this.bill,
     required this.initialStage,
+    this.lead,
   });
 
   final String name, location, phone, bill, initialStage;
+  final AgentLead? lead;
 
   @override
   State<AgentLeadDetailPage> createState() => _AgentLeadDetailPageState();
@@ -154,9 +158,19 @@ class _AgentLeadDetailPageState extends State<AgentLeadDetailPage> {
           CardBox(
             child: Column(
               children: [
-                const Info('Property', 'Residential rooftop'),
-                Info('Monthly bill', widget.bill),
-                const Info('Preferred system', '5 kW on-grid', last: true),
+                Info('Requirement Type', widget.lead?.propertyType ?? 'Residential'),
+                Info('Solar Requirement', widget.lead?.solarRequirement ?? 'On-Grid'),
+                Info('Approx Capacity', widget.lead?.approxCapacity ?? '5 kW'),
+                Info('Lead Source', widget.lead?.leadSource ?? 'Field Visit'),
+                if (widget.lead?.nextFollowUpDate != null)
+                  Info(
+                    'Next Follow-up',
+                    '${widget.lead!.nextFollowUpDate!.day}/${widget.lead!.nextFollowUpDate!.month}/${widget.lead!.nextFollowUpDate!.year}',
+                  ),
+                if (widget.lead?.notes != null && widget.lead!.notes!.isNotEmpty)
+                  Info('Remark / Notes', widget.lead!.notes!, last: true)
+                else
+                  Info('Monthly bill', widget.bill, last: true),
               ],
             ),
           ),
