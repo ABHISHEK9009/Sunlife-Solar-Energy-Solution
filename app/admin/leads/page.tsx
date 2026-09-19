@@ -60,6 +60,7 @@ export default function AdminLeadsPage() {
     notes: "",
   });
 
+  const modalBodyScrollRef = useRef<HTMLDivElement>(null);
   const loadRequest = useRef(0);
   const fetchLeads = async (background = false) => {
     const request = ++loadRequest.current;
@@ -649,14 +650,22 @@ export default function AdminLeadsPage() {
       {/* Detailed Lead Creation Modal */}
       {showAddModal && (
         <div
-          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-6 overflow-hidden animate-in fade-in duration-200"
+          className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-6 overflow-hidden animate-in fade-in duration-200"
           onClick={(e) => {
             if (e.target === e.currentTarget) setShowAddModal(false);
           }}
         >
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-3xl flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-200">
+          <div
+            className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-3xl h-[88vh] max-h-[850px] min-h-[420px] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+            onWheel={(e) => {
+              if (modalBodyScrollRef.current && !modalBodyScrollRef.current.contains(e.target as Node)) {
+                modalBodyScrollRef.current.scrollTop += e.deltaY;
+              }
+            }}
+          >
             {/* FIXED MODAL HEADER */}
-            <div className="px-6 py-5 sm:px-8 sm:py-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
+            <div className="px-6 py-4.5 sm:px-8 sm:py-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white z-10">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-emerald-100/80 text-solar-deep flex items-center justify-center shrink-0">
                   <Plus className="w-5 h-5 text-emerald-700" />
@@ -680,12 +689,21 @@ export default function AdminLeadsPage() {
               </button>
             </div>
 
-            {/* SCROLLABLE FORM BODY */}
-            <form
-              id="add-lead-form"
-              onSubmit={handleAddLead}
-              className="flex-1 overflow-y-auto overscroll-contain p-6 sm:p-8 space-y-6 text-xs sm:text-sm"
+            {/* DEDICATED SCROLLABLE FORM BODY */}
+            <div
+              ref={modalBodyScrollRef}
+              className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-7 md:p-8 space-y-6 focus:outline-none"
+              style={{
+                scrollbarWidth: "thin",
+                scrollbarColor: "#94a3b8 #f1f5f9",
+              }}
+              tabIndex={0}
             >
+              <form
+                id="add-lead-form"
+                onSubmit={handleAddLead}
+                className="space-y-6 text-xs sm:text-sm"
+              >
               {/* SECTION 1: CUSTOMER DETAILS */}
               <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
                 <div className="flex items-center justify-between">
@@ -1021,33 +1039,34 @@ export default function AdminLeadsPage() {
                 />
               </div>
             </form>
+          </div>
 
-            {/* FIXED MODAL FOOTER */}
-            <div className="px-6 py-4 sm:px-8 sm:py-4.5 border-t border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/90">
-              <span className="text-xs text-slate-500 hidden sm:inline font-medium">
-                Fields marked with <span className="text-rose-500 font-bold">*</span> are required
-              </span>
-              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-5 py-2.5 border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 rounded-xl font-bold cursor-pointer transition-colors text-xs sm:text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  form="add-lead-form"
-                  disabled={submittingAdd}
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md shadow-emerald-600/20 hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 text-xs sm:text-sm"
-                >
-                  <Plus className="w-4 h-4 text-emerald-200" />
-                  <span>{submittingAdd ? "Saving Lead..." : "Save Lead to CRM"}</span>
-                </button>
-              </div>
+          {/* FIXED MODAL FOOTER */}
+          <div className="px-6 py-4 sm:px-8 sm:py-4.5 border-t border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/95 z-10">
+            <span className="text-xs text-slate-500 hidden sm:inline font-medium">
+              Fields marked with <span className="text-rose-500 font-bold">*</span> are required
+            </span>
+            <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="px-5 py-2.5 border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 rounded-xl font-bold cursor-pointer transition-colors text-xs sm:text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="add-lead-form"
+                disabled={submittingAdd}
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md shadow-emerald-600/20 hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 text-xs sm:text-sm"
+              >
+                <Plus className="w-4 h-4 text-emerald-200" />
+                <span>{submittingAdd ? "Saving Lead..." : "Save Lead to CRM"}</span>
+              </button>
             </div>
           </div>
         </div>
+      </div>
       )}
     </div>
   );
