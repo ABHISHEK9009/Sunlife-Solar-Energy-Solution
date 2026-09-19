@@ -1,6 +1,15 @@
 import nodemailer from "nodemailer";
 
-// ─── Shared Gmail SMTP transport ────────────────────────────────────────────
+// ─── Mask email for safe display ────────────────────────────────────────────
+
+export function maskEmail(email: string): string {
+  const [localPart, domain] = email.split("@");
+  if (!domain) return email;
+  if (localPart.length <= 3) return `${localPart[0]}***@${domain}`;
+  return `${localPart.slice(0, 3)}***${localPart.slice(-2)}@${domain}`;
+}
+
+// ─── Shared Gmail SMTP transport ─────────────────────────────────────────────
 
 function createTransport() {
   const user = process.env.GMAIL_USER;

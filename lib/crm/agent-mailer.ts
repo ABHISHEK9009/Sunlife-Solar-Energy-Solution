@@ -1,4 +1,4 @@
-import { sendMail, fromAddress, maskEmail as _maskEmail } from "./mailer";
+import { sendMail, maskEmail as _maskEmail } from "./mailer";
 
 interface SendAgentOtpEmailParams {
   to: string;
