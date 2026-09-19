@@ -15,6 +15,9 @@ class ApiException implements Exception {
 }
 
 class ApiClient {
+  String? _cachedToken;
+  final Map<String, Future<Response<dynamic>>> _inFlightGetRequests = {};
+
   ApiClient._internal() {
     _dio = Dio(
       BaseOptions(
@@ -32,7 +35,12 @@ class ApiClient {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          final token = await SecureStorageService.getAccessToken();
+          // Fast in-memory token check first (0ms synchronous)
+          var token = _cachedToken;
+          if (token == null || token.isEmpty) {
+            token = await SecureStorageService.getAccessToken();
+            _cachedToken = token;
+          }
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
@@ -43,6 +51,7 @@ class ApiClient {
             final refreshed = await _refreshToken();
             if (refreshed) {
               final token = await SecureStorageService.getAccessToken();
+              _cachedToken = token;
               final opts = error.requestOptions;
               opts.headers['Authorization'] = 'Bearer $token';
               try {
@@ -68,6 +77,7 @@ class ApiClient {
   Dio get dio => _dio;
 
   void setAuthToken(String? token) {
+    _cachedToken = token;
     if (token != null && token.isNotEmpty) {
       _dio.options.headers['Authorization'] = 'Bearer $token';
     } else {
@@ -91,6 +101,7 @@ class ApiClient {
         final newAccess = res.data['access_token'] as String?;
         final newRefresh = res.data['refresh_token'] as String?;
         if (newAccess != null) {
+          _cachedToken = newAccess;
           await SecureStorageService.saveTokens(
             accessToken: newAccess,
             refreshToken: newRefresh ?? refreshToken,
@@ -99,6 +110,7 @@ class ApiClient {
         }
       }
     } catch (_) {
+      _cachedToken = null;
       await SecureStorageService.clearSession();
     }
     return false;
@@ -109,14 +121,27 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
+    // In-flight request deduplication for identical concurrent GET requests
+    final cacheKey = '$path?${queryParameters?.toString() ?? ''}';
+    if (_inFlightGetRequests.containsKey(cacheKey)) {
+      final existing = await _inFlightGetRequests[cacheKey]!;
+      return existing as Response<T>;
+    }
+
+    final future = _dio.get<T>(
+      path,
+      queryParameters: queryParameters,
+      options: options,
+    );
+
+    _inFlightGetRequests[cacheKey] = future;
     try {
-      return await _dio.get<T>(
-        path,
-        queryParameters: queryParameters,
-        options: options,
-      );
+      final res = await future;
+      return res;
     } on DioException catch (e) {
       throw _handleDioError(e);
+    } finally {
+      _inFlightGetRequests.remove(cacheKey);
     }
   }
 

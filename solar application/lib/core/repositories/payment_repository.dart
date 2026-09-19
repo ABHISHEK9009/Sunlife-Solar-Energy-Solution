@@ -50,8 +50,6 @@ class PaymentRepository extends ChangeNotifier {
     required int amount,
     required String method,
   }) async {
-    await Future.delayed(const Duration(seconds: 1));
-
     final newHistory = List<PaymentMilestone>.from(_summary.history)
       ..insert(
         0,

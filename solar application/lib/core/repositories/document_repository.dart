@@ -83,8 +83,6 @@ class DocumentRepository extends ChangeNotifier {
     required String filePath,
     required String fileSize,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 700));
-
     final newDoc = ProjectDocument(
       id: 'doc_${DateTime.now().millisecondsSinceEpoch}',
       title: title,

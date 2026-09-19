@@ -8,12 +8,14 @@ class Frame extends StatelessWidget {
     super.key,
     this.action,
     this.onRefresh,
+    this.sliverBody,
   });
 
   final String title;
   final List<Widget> children;
   final Widget? action;
   final Future<void> Function()? onRefresh;
+  final Widget? sliverBody;
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +23,7 @@ class Frame extends StatelessWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 30),
+          padding: EdgeInsets.fromLTRB(20, 16, 20, sliverBody != null ? 12 : 30),
           sliver: SliverList.list(
             children: [
               Row(
@@ -40,6 +42,11 @@ class Frame extends StatelessWidget {
             ],
           ),
         ),
+        if (sliverBody != null)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 30),
+            sliver: sliverBody!,
+          ),
       ],
     );
 

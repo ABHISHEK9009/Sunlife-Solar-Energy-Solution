@@ -22,8 +22,9 @@ class AgentDashboard extends StatefulWidget {
 }
 
 class _AgentDashboardState extends State<AgentDashboard> {
-  List<AgentLead> _leads = [];
-  List<FieldVisit> _visits = [];
+  late List<AgentLead> _leads = AgentRepository.instance.currentLeads;
+  late List<FieldVisit> _visits = AgentRepository.instance.currentVisits;
+  bool _isFetching = false;
 
   @override
   void initState() {
@@ -39,17 +40,31 @@ class _AgentDashboardState extends State<AgentDashboard> {
   }
 
   void _onRepoChanged() {
-    _loadData();
-  }
-
-  Future<void> _loadData() async {
-    final leads = await AgentRepository.instance.getAssignedLeads();
-    final visits = await AgentRepository.instance.getTodayVisits();
     if (mounted) {
       setState(() {
-        _leads = leads;
-        _visits = visits;
+        _leads = AgentRepository.instance.currentLeads;
+        _visits = AgentRepository.instance.currentVisits;
       });
+    }
+  }
+
+  Future<void> _loadData({bool force = false}) async {
+    if (_isFetching) return;
+    _isFetching = true;
+    try {
+      // Parallelize independent CRM requests for zero-latency dashboard loading
+      final results = await Future.wait([
+        AgentRepository.instance.getAssignedLeads(forceRefresh: force),
+        AgentRepository.instance.getTodayVisits(forceRefresh: force),
+      ]);
+      if (mounted) {
+        setState(() {
+          _leads = results[0] as List<AgentLead>;
+          _visits = results[1] as List<FieldVisit>;
+        });
+      }
+    } finally {
+      _isFetching = false;
     }
   }
 
@@ -103,6 +118,7 @@ class _AgentDashboardState extends State<AgentDashboard> {
 
     return Frame(
       'Good morning, $greetingName',
+      onRefresh: () => _loadData(force: true),
       [
         CardBox(
           color: AppColors.deepGreen,
@@ -277,7 +293,6 @@ class _AgentDashboardState extends State<AgentDashboard> {
           ),
         ),
       ),
-      onRefresh: _loadData,
     );
   }
 

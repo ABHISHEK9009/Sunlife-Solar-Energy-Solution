@@ -17,8 +17,8 @@ class AgentVisitsPage extends StatefulWidget {
 }
 
 class _AgentVisitsPageState extends State<AgentVisitsPage> {
-  List<FieldVisit> _visits = [];
-  bool _isLoading = true;
+  late List<FieldVisit> _visits = AgentRepository.instance.currentVisits;
+  late bool _isLoading = _visits.isEmpty;
 
   @override
   void initState() {
@@ -34,11 +34,15 @@ class _AgentVisitsPageState extends State<AgentVisitsPage> {
   }
 
   void _onRepoChanged() {
-    _loadData();
+    if (mounted) {
+      setState(() {
+        _visits = AgentRepository.instance.currentVisits;
+      });
+    }
   }
 
-  Future<void> _loadData() async {
-    final visits = await AgentRepository.instance.getTodayVisits();
+  Future<void> _loadData({bool force = false}) async {
+    final visits = await AgentRepository.instance.getTodayVisits(forceRefresh: force);
     if (mounted) {
       setState(() {
         _visits = visits;
@@ -55,6 +59,7 @@ class _AgentVisitsPageState extends State<AgentVisitsPage> {
 
     return Frame(
       'Field visits',
+      onRefresh: () => _loadData(force: true),
       [
         Row(
           children: [
@@ -110,82 +115,88 @@ class _AgentVisitsPageState extends State<AgentVisitsPage> {
                 ),
               ),
             ),
-          )
-        else
-          for (final visit in _visits) ...[
-            CardBox(
-              padding: EdgeInsets.zero,
-              child: InkWell(
-                onTap: () => openPage(
-                  context,
-                  AgentVisitDetailPage(customer: visit.customerName),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(15),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 54,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: visit.isCompleted ? AppColors.canvas : AppColors.softGreen,
-                          borderRadius: BorderRadius.circular(13),
-                        ),
-                        child: Text(
-                          visit.time.replaceFirst(' ', '\n'),
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: visit.isCompleted ? AppColors.muted : AppColors.deepGreen,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
+          ),
+      ],
+      sliverBody: (!_isLoading && _visits.isNotEmpty)
+          ? SliverList.builder(
+              itemCount: _visits.length,
+              itemBuilder: (context, i) {
+                final visit = _visits[i];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: CardBox(
+                    padding: EdgeInsets.zero,
+                    child: InkWell(
+                      onTap: () => openPage(
+                        context,
+                        AgentVisitDetailPage(customer: visit.customerName),
                       ),
-                      const SizedBox(width: 13),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Padding(
+                        padding: const EdgeInsets.all(15),
+                        child: Row(
                           children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    visit.customerName,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      decoration: visit.isCompleted ? TextDecoration.lineThrough : null,
-                                      color: visit.isCompleted ? AppColors.muted : AppColors.ink,
-                                    ),
-                                  ),
+                            Container(
+                              width: 54,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: visit.isCompleted ? AppColors.canvas : AppColors.softGreen,
+                                borderRadius: BorderRadius.circular(13),
+                              ),
+                              child: Text(
+                                visit.time.replaceFirst(' ', '\n'),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: visit.isCompleted ? AppColors.muted : AppColors.deepGreen,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
                                 ),
-                                if (visit.isCompleted)
-                                  const Pill('COMPLETED', greenText: true),
-                              ],
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              '${visit.purpose} · ${visit.location}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: AppColors.muted,
-                                fontSize: 12,
                               ),
                             ),
+                            const SizedBox(width: 13),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          visit.customerName,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w900,
+                                            decoration: visit.isCompleted ? TextDecoration.lineThrough : null,
+                                            color: visit.isCompleted ? AppColors.muted : AppColors.ink,
+                                          ),
+                                        ),
+                                      ),
+                                      if (visit.isCompleted)
+                                        const Pill('COMPLETED', greenText: true),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    '${visit.purpose} · ${visit.location}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: AppColors.muted,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.chevron_right_rounded),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.chevron_right_rounded),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-          ],
-      ],
-      onRefresh: _loadData,
+                );
+              },
+            )
+          : null,
     );
   }
 }

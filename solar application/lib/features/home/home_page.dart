@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/models/payment_record.dart';
 import '../../core/models/solar_project.dart';
+import '../../core/models/subsidy_status.dart';
 import '../../core/repositories/auth_repository.dart';
 import '../../core/repositories/document_repository.dart';
 import '../../core/repositories/notification_repository.dart';
@@ -59,17 +60,20 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadData() async {
-    final project = await ProjectRepository.instance.getCurrentProject();
-    final payment = await PaymentRepository.instance.getPaymentSummary();
-    final docs = await DocumentRepository.instance.getDocuments();
-    final subsidy = await SubsidyRepository.instance.getSubsidyStatus();
+    // Parallelize all 4 independent customer dashboard datasets
+    final results = await Future.wait([
+      ProjectRepository.instance.getCurrentProject(),
+      PaymentRepository.instance.getPaymentSummary(),
+      DocumentRepository.instance.getDocuments(),
+      SubsidyRepository.instance.getSubsidyStatus(),
+    ]);
 
     if (mounted) {
       setState(() {
-        _project = project;
-        _paymentSummary = payment;
-        _documentCount = docs.length;
-        _subsidyStage = subsidy.statusLabel;
+        _project = results[0] as SolarProject;
+        _paymentSummary = results[1] as PaymentSummary;
+        _documentCount = (results[2] as List).length;
+        _subsidyStage = (results[3] as SubsidyStatus).statusLabel;
       });
     }
   }

@@ -90,12 +90,13 @@ class _AgentVisitDetailPageState extends State<AgentVisitDetailPage> {
         return;
       }
 
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
-        ),
-      );
+      final Position position = (await Geolocator.getLastKnownPosition()) ??
+          await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.medium,
+              timeLimit: Duration(seconds: 3),
+            ),
+          );
 
       if (mounted) {
         setState(() {

@@ -85,6 +85,8 @@ model Lead {
 
   @@index([phone])
   @@index([status])
+  @@index([assignedSalesExecutiveId, status])
+  @@index([createdAt])
   @@schema("sunlife")
 }
 
@@ -646,6 +648,9 @@ model TeamMember {
   surveys               SiteSurvey[]
   assignedTickets       ServiceTicket[]
 
+  @@index([phone])
+  @@index([email])
+  @@index([activeStatus, employeeAccessEnabled])
   @@schema("sunlife")
 }
 

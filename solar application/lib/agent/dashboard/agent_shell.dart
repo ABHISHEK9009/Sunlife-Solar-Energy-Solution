@@ -15,16 +15,22 @@ class AgentShell extends StatefulWidget {
 
 class _AgentShellState extends State<AgentShell> {
   int index = 0;
+  late final List<Widget> _pages;
 
   @override
-  Widget build(BuildContext context) {
-    final pages = [
+  void initState() {
+    super.initState();
+    _pages = [
       AgentDashboard(onOpenTab: (value) => setState(() => index = value)),
       const AgentLeadsPage(),
       const AgentVisitsPage(),
       const AgentTasksPage(),
       const AgentProfilePage(),
     ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return PopScope(
       canPop: index == 0,
       onPopInvokedWithResult: (didPop, result) {
@@ -33,7 +39,7 @@ class _AgentShellState extends State<AgentShell> {
         }
       },
       child: Scaffold(
-        body: IndexedStack(index: index, children: pages),
+        body: IndexedStack(index: index, children: _pages),
         bottomNavigationBar: NavigationBar(
           height: 70,
           selectedIndex: index,

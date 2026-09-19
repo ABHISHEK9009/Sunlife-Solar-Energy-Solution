@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/models/agent_lead.dart';
 import '../../core/repositories/agent_repository.dart';
@@ -18,8 +19,9 @@ class AgentLeadsPage extends StatefulWidget {
 class _AgentLeadsPageState extends State<AgentLeadsPage> {
   String filter = 'All';
   String query = '';
-  List<AgentLead> _leads = [];
-  bool _isLoading = true;
+  Timer? _debounceTimer;
+  late List<AgentLead> _leads = AgentRepository.instance.currentLeads;
+  late bool _isLoading = _leads.isEmpty;
 
   @override
   void initState() {
@@ -27,8 +29,14 @@ class _AgentLeadsPageState extends State<AgentLeadsPage> {
     _loadLeads();
   }
 
-  Future<void> _loadLeads() async {
-    final list = await AgentRepository.instance.getAssignedLeads();
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadLeads({bool force = false}) async {
+    final list = await AgentRepository.instance.getAssignedLeads(forceRefresh: force);
     if (mounted) {
       setState(() {
         _leads = list;
@@ -37,10 +45,20 @@ class _AgentLeadsPageState extends State<AgentLeadsPage> {
     }
   }
 
+  void _onSearchChanged(String val) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 200), () {
+      if (mounted) {
+        setState(() => query = val);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final visible = _leads.where((lead) {
-      final matchesQuery = lead.name.toLowerCase().contains(query.toLowerCase()) ||
+      final matchesQuery = query.isEmpty ||
+          lead.name.toLowerCase().contains(query.toLowerCase()) ||
           lead.location.toLowerCase().contains(query.toLowerCase());
       final matchesFilter = filter == 'All' || lead.stage.contains(filter);
       return matchesQuery && matchesFilter;
@@ -48,9 +66,10 @@ class _AgentLeadsPageState extends State<AgentLeadsPage> {
 
     return Frame(
       'Assigned leads',
+      onRefresh: () => _loadLeads(force: true),
       [
         TextField(
-          onChanged: (value) => setState(() => query = value),
+          onChanged: _onSearchChanged,
           decoration: InputDecoration(
             hintText: 'Search customer or location',
             prefixIcon: const Icon(Icons.search_rounded),
@@ -90,37 +109,44 @@ class _AgentLeadsPageState extends State<AgentLeadsPage> {
         else if (visible.isEmpty)
           const CardBox(
             child: Center(child: Text('No leads match this filter.')),
-          )
-        else
-          for (final lead in visible) ...[
-            AgentLeadCard(
-              name: lead.name,
-              location: lead.location,
-              stage: lead.stage,
-              phone: lead.phone,
-              onTap: () async {
-                await openPage(
-                  context,
-                  AgentLeadDetailPage(
+          ),
+      ],
+      sliverBody: (!_isLoading && visible.isNotEmpty)
+          ? SliverList.builder(
+              itemCount: visible.length,
+              itemBuilder: (context, i) {
+                final lead = visible[i];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: AgentLeadCard(
                     name: lead.name,
                     location: lead.location,
+                    stage: lead.stage,
                     phone: lead.phone,
-                    bill: lead.monthlyBill,
-                    initialStage: lead.stage,
+                    onTap: () async {
+                      await openPage(
+                        context,
+                        AgentLeadDetailPage(
+                          name: lead.name,
+                          location: lead.location,
+                          phone: lead.phone,
+                          bill: lead.monthlyBill,
+                          initialStage: lead.stage,
+                        ),
+                      );
+                      _loadLeads();
+                    },
                   ),
                 );
-                _loadLeads();
               },
-            ),
-            const SizedBox(height: 10),
-          ],
-      ],
+            )
+          : null,
       action: IconButton.filledTonal(
         tooltip: 'Capture new lead',
         onPressed: () async {
           final added = await openPage<bool>(context, const AgentLeadCapturePage());
           if (added == true) {
-            _loadLeads();
+            _loadLeads(force: true);
           }
         },
         icon: const Icon(Icons.person_add_alt_1_rounded),
