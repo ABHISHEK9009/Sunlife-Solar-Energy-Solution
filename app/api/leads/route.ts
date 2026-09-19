@@ -195,6 +195,26 @@ export async function PATCH(req: Request) {
       },
     });
 
+    if (assignedSalesExecutiveId !== undefined && existing.customerId) {
+      await prisma.customer
+        .update({
+          where: { id: existing.customerId },
+          data: {
+            assignedSalesExecutiveId: assignedSalesExecutiveId || null,
+          },
+        })
+        .catch((e) => console.error("[Update Customer Assigned Agent Error]:", e));
+
+      await prisma.solarProject
+        .updateMany({
+          where: { customerId: existing.customerId },
+          data: {
+            assignedSalesExecutiveId: assignedSalesExecutiveId || null,
+          },
+        })
+        .catch((e) => console.error("[Update Project Assigned Agent Error]:", e));
+    }
+
     const isAssignChange =
       assignedSalesExecutiveId !== undefined &&
       assignedSalesExecutiveId !== existing.assignedSalesExecutiveId;

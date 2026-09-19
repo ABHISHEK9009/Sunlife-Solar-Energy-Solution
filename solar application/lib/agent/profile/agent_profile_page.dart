@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/repositories/agent_repository.dart';
 import '../../core/repositories/auth_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/card_box.dart';
@@ -84,20 +85,36 @@ class AgentProfilePage extends StatelessWidget {
       const SizedBox(height: 20),
       const Heading('This month'),
       const SizedBox(height: 10),
-      const Row(
-        children: [
-          Expanded(
-            child: AgentVisitSummary(value: '42', label: 'Visits'),
-          ),
-          SizedBox(width: 10),
-          Expanded(
-            child: AgentVisitSummary(value: '18', label: 'Converted'),
-          ),
-          SizedBox(width: 10),
-          Expanded(
-            child: AgentVisitSummary(value: '91%', label: 'Tasks done'),
-          ),
-        ],
+      Builder(
+        builder: (context) {
+          final visitsCount = AgentRepository.instance.currentVisits.length;
+          final convertedCount = AgentRepository.instance.currentLeads
+              .where((l) =>
+                  l.stage.toLowerCase().contains('convert') ||
+                  l.stage.toLowerCase().contains('install') ||
+                  l.stage.toLowerCase().contains('complete'))
+              .length;
+          final tasks = AgentRepository.instance.currentTasks;
+          final tasksDonePercent = tasks.isNotEmpty
+              ? ((tasks.where((t) => t.isCompleted).length / tasks.length) * 100).round()
+              : 100;
+
+          return Row(
+            children: [
+              Expanded(
+                child: AgentVisitSummary(value: '$visitsCount', label: 'Visits'),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: AgentVisitSummary(value: '$convertedCount', label: 'Converted'),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: AgentVisitSummary(value: '$tasksDonePercent%', label: 'Tasks done'),
+              ),
+            ],
+          );
+        },
       ),
       const SizedBox(height: 20),
       CardBox(
@@ -108,12 +125,27 @@ class AgentProfilePage extends StatelessWidget {
               Icons.sync_rounded,
               'CRM sync',
               'Last synced just now',
-              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  backgroundColor: AppColors.deepGreen,
-                  content: Text('CRM offline cache synced with server'),
-                ),
-              ),
+              onTap: () async {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Syncing CRM records with server…'),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+                await Future.wait([
+                  AgentRepository.instance.getAssignedLeads(forceRefresh: true),
+                  AgentRepository.instance.getTodayVisits(forceRefresh: true),
+                  AgentRepository.instance.getTasks(forceRefresh: true),
+                ]);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      backgroundColor: AppColors.deepGreen,
+                      content: Text('All CRM records synced in real-time!'),
+                    ),
+                  );
+                }
+              },
             ),
             MenuTile(
               Icons.help_outline_rounded,

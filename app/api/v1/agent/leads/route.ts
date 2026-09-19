@@ -12,8 +12,15 @@ export async function GET(req: Request) {
 
   try {
     const leads = await prisma.lead.findMany({
+      where: {
+        OR: [
+          { assignedSalesExecutiveId: agent.id },
+          ...(agent.employeeId ? [{ assignedSalesExecutiveId: agent.employeeId }] : []),
+          ...(agent.name ? [{ assignedSalesExecutiveId: agent.name }] : []),
+        ],
+      },
       orderBy: { createdAt: "desc" },
-      take: 50,
+      take: 100,
       select: {
         id: true,
         leadId: true,
@@ -30,6 +37,7 @@ export async function GET(req: Request) {
         interestedSolution: true,
         leadSource: true,
         surveyRequestedDate: true,
+        assignedSalesExecutiveId: true,
       },
     });
 
@@ -48,6 +56,8 @@ export async function GET(req: Request) {
         solarRequirement: l.interestedSolution || "On-Grid",
         approxCapacity: l.requestedCapacity ? `${l.requestedCapacity} kW` : "Not Sure",
         leadSource: l.leadSource || "Field Visit",
+        assignedAgent: agent.name,
+        assignedSalesExecutiveId: l.assignedSalesExecutiveId,
         nextFollowUpDate: l.surveyRequestedDate ? l.surveyRequestedDate.toISOString() : null,
         createdAt: l.createdAt,
       })),

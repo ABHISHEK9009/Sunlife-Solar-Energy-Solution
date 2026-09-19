@@ -13,7 +13,7 @@ class AgentDocumentsPage extends StatefulWidget {
 }
 
 class _AgentDocumentsPageState extends State<AgentDocumentsPage> {
-  final received = <int>{0, 1, 2};
+  final received = <int>{};
   static const documents = [
     'Aadhaar card',
     'Latest electricity bill',

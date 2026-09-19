@@ -26,13 +26,23 @@ class _AgentLeadsPageState extends State<AgentLeadsPage> {
   @override
   void initState() {
     super.initState();
-    _loadLeads();
+    AgentRepository.instance.addListener(_onRepoChanged);
+    _loadLeads(force: true);
   }
 
   @override
   void dispose() {
+    AgentRepository.instance.removeListener(_onRepoChanged);
     _debounceTimer?.cancel();
     super.dispose();
+  }
+
+  void _onRepoChanged() {
+    if (mounted) {
+      setState(() {
+        _leads = AgentRepository.instance.currentLeads;
+      });
+    }
   }
 
   Future<void> _loadLeads({bool force = false}) async {

@@ -175,6 +175,11 @@ export default function AdminLeadsPage() {
   };
 
   const handleAssignAgent = async (leadId: string, agentId: string) => {
+    setLeads((prev) =>
+      prev.map((l) =>
+        l.id === leadId ? { ...l, assignedSalesExecutiveId: agentId || null } : l
+      )
+    );
     try {
       const res = await fetch("/api/leads", {
         method: "PATCH",
@@ -189,10 +194,12 @@ export default function AdminLeadsPage() {
         fetchLeads(true);
       } else {
         alert(data.error || "Failed to assign agent.");
+        fetchLeads(true);
       }
     } catch (err) {
       console.error("[Assign Agent Error]:", err);
       alert("Failed to assign agent. Please try again.");
+      fetchLeads(true);
     }
   };
 

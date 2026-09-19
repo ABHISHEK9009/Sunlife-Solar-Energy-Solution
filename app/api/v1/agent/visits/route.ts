@@ -12,7 +12,14 @@ export async function GET(req: Request) {
 
   try {
     const surveys = await prisma.siteSurvey.findMany({
-      take: 20,
+      where: {
+        OR: [
+          { surveyEngineerId: agent.id },
+          { customer: { assignedSalesExecutiveId: agent.id } },
+          ...(agent.employeeId ? [{ surveyEngineerId: agent.employeeId }] : []),
+        ],
+      },
+      take: 50,
       orderBy: { scheduledDateTime: "asc" },
       include: {
         customer: {

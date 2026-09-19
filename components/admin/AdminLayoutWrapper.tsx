@@ -18,9 +18,17 @@ export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) 
   const getPageTitle = () => {
     if (pathname === "/admin/dashboard" || pathname === "/admin") return "Overview";
     if (pathname === "/admin/leads") return "Customer Leads";
+    if (pathname === "/admin/customers") return "Customer Registry";
+    if (pathname === "/admin/projects") return "Solar Projects";
+    if (pathname === "/admin/surveys") return "Site Surveys";
+    if (pathname === "/admin/quotations") return "Quotations";
+    if (pathname === "/admin/documents") return "Central Documents";
+    if (pathname === "/admin/payments") return "Payments & Billing";
+    if (pathname === "/admin/subsidies") return "Subsidy Tracker";
     if (pathname === "/admin/agents") return "Agent Management";
-    if (pathname === "/admin/estimates") return "Calculator Logs";
     if (pathname === "/admin/team") return "Team & Field Crew";
+    if (pathname === "/admin/estimates") return "Calculator Logs";
+    if (pathname === "/admin/audit") return "Audit Trail";
     return "Admin";
   };
 

@@ -162,6 +162,8 @@ class _AgentLeadDetailPageState extends State<AgentLeadDetailPage> {
                 Info('Solar Requirement', widget.lead?.solarRequirement ?? 'On-Grid'),
                 Info('Approx Capacity', widget.lead?.approxCapacity ?? '5 kW'),
                 Info('Lead Source', widget.lead?.leadSource ?? 'Field Visit'),
+                if (widget.lead?.assignedAgent != null && widget.lead!.assignedAgent!.isNotEmpty)
+                  Info('Assigned Agent', widget.lead!.assignedAgent!),
                 if (widget.lead?.nextFollowUpDate != null)
                   Info(
                     'Next Follow-up',

@@ -22,6 +22,11 @@ next-env.d.ts
 .env.production.local
 *.pem
 .env
+*service-account*.json
+service-account.json
+credentials/
+/public/uploads/*
+!/public/uploads/.gitkeep
 # Python & Language Server Caches
 __pycache__/
 *.py[cod]

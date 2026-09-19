@@ -30,7 +30,7 @@ class _AgentDashboardState extends State<AgentDashboard> {
   void initState() {
     super.initState();
     AgentRepository.instance.addListener(_onRepoChanged);
-    _loadData();
+    _loadData(force: true);
   }
 
   @override

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../constants/api_constants.dart';
 import '../models/agent_lead.dart';
+import '../models/agent_task.dart';
 import '../models/field_visit.dart';
 import '../network/api_client.dart';
 
@@ -11,13 +12,27 @@ class AgentRepository extends ChangeNotifier {
 
   List<AgentLead> _leads = [];
   List<FieldVisit> _visits = [];
+  List<AgentTask> _tasks = [];
   bool _hasFetchedLeads = false;
   bool _hasFetchedVisits = false;
+  bool _hasFetchedTasks = false;
 
   final Set<int> _completedTaskIndices = {};
 
   List<AgentLead> get currentLeads => List.unmodifiable(_leads);
   List<FieldVisit> get currentVisits => List.unmodifiable(_visits);
+  List<AgentTask> get currentTasks => List.unmodifiable(_tasks);
+
+  void reset() {
+    _leads = [];
+    _visits = [];
+    _tasks = [];
+    _hasFetchedLeads = false;
+    _hasFetchedVisits = false;
+    _hasFetchedTasks = false;
+    _completedTaskIndices.clear();
+    notifyListeners();
+  }
 
   Future<List<AgentLead>> getAssignedLeads({bool forceRefresh = false}) async {
     if (!forceRefresh && _hasFetchedLeads && _leads.isNotEmpty) {
@@ -229,5 +244,88 @@ class AgentRepository extends ChangeNotifier {
       _completedTaskIndices.add(index);
     }
     notifyListeners();
+  }
+
+  Future<List<AgentTask>> getTasks({bool forceRefresh = false}) async {
+    if (!forceRefresh && _hasFetchedTasks && _tasks.isNotEmpty) {
+      return List.unmodifiable(_tasks);
+    }
+
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.agentTasks);
+      if (res.statusCode == 200 && res.data != null) {
+        final rawList = res.data is Map && (res.data as Map).containsKey('tasks')
+            ? res.data['tasks'] as List<dynamic>
+            : (res.data is List ? res.data as List<dynamic> : []);
+
+        _tasks = rawList
+            .map((e) => AgentTask.fromJson(e as Map<String, dynamic>))
+            .toList();
+        _hasFetchedTasks = true;
+        notifyListeners();
+        return List.unmodifiable(_tasks);
+      }
+    } catch (_) {
+      // Keep real fetched list
+    }
+
+    // Dynamic fallback generation from current real leads & visits if offline
+    if (_tasks.isEmpty) {
+      final fallbackTasks = <AgentTask>[];
+      for (final lead in _leads) {
+        final isNew = lead.stage.toLowerCase().contains('new');
+        fallbackTasks.add(
+          AgentTask(
+            id: 'task_lead_${lead.id}',
+            title: isNew ? 'Call ${lead.name}' : 'Follow up with ${lead.name}',
+            subtitle: '${lead.stage} · ${lead.location} · ${lead.phone}',
+            iconType: isNew ? 'call' : 'followup',
+            isCompleted: false,
+            targetId: lead.id,
+            targetName: lead.name,
+            targetPhone: lead.phone,
+            targetType: 'lead',
+          ),
+        );
+      }
+      for (final visit in _visits) {
+        fallbackTasks.add(
+          AgentTask(
+            id: 'task_visit_${visit.id}',
+            title: 'Site survey: ${visit.customerName}',
+            subtitle: '${visit.location} · ${visit.time}',
+            iconType: 'survey',
+            isCompleted: visit.isCompleted,
+            targetId: visit.id,
+            targetName: visit.customerName,
+            targetType: 'survey',
+          ),
+        );
+      }
+      _tasks = fallbackTasks;
+      notifyListeners();
+    }
+
+    return List.unmodifiable(_tasks);
+  }
+
+  Future<void> toggleTaskCompletion(String taskId) async {
+    final index = _tasks.indexWhere((t) => t.id == taskId);
+    if (index != -1) {
+      final current = _tasks[index];
+      final newStatus = !current.isCompleted;
+      _tasks[index] = current.copyWith(isCompleted: newStatus);
+      notifyListeners();
+
+      try {
+        await ApiClient.instance.patch(
+          ApiConstants.agentTasks,
+          data: {
+            'taskId': taskId,
+            'isCompleted': newStatus,
+          },
+        );
+      } catch (_) {}
+    }
   }
 }

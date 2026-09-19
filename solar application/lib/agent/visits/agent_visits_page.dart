@@ -55,7 +55,7 @@ class _AgentVisitsPageState extends State<AgentVisitsPage> {
   Widget build(BuildContext context) {
     final completedCount = _visits.where((v) => v.isCompleted).length;
     final totalCount = _visits.length;
-    final weeklyEstimated = totalCount + 4;
+    final pendingCount = totalCount - completedCount;
 
     return Frame(
       'Field visits',
@@ -66,14 +66,14 @@ class _AgentVisitsPageState extends State<AgentVisitsPage> {
             Expanded(
               child: AgentVisitSummary(
                 value: '$totalCount',
-                label: 'Today',
+                label: 'Total',
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: AgentVisitSummary(
-                value: '$weeklyEstimated',
-                label: 'This week',
+                value: '$pendingCount',
+                label: 'Pending',
               ),
             ),
             const SizedBox(width: 10),

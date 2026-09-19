@@ -42,4 +42,5 @@ class ApiConstants {
   // Agent Operations Endpoints
   static const String agentLeads = '/agent/leads';
   static const String agentVisits = '/agent/visits';
+  static const String agentTasks = '/agent/tasks';
 }

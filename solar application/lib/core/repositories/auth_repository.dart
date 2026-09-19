@@ -3,6 +3,7 @@ import '../constants/api_constants.dart';
 import '../models/user_profile.dart';
 import '../network/api_client.dart';
 import '../storage/secure_storage_service.dart';
+import 'agent_repository.dart';
 
 class OtpRequestResult {
   const OtpRequestResult({
@@ -161,5 +162,6 @@ class AuthRepository {
     _currentUser = null;
     ApiClient.instance.setAuthToken(null);
     await SecureStorageService.clearSession();
+    AgentRepository.instance.reset();
   }
 }
