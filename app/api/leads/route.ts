@@ -33,13 +33,21 @@ export async function POST(req: Request) {
       phone,
       email,
       city,
+      district,
+      location,
       propertyType,
-      monthlyBill,
+      solarRequirement,
       interestedSolution,
-      rooftopArea,
-      message,
+      approxCapacity,
+      requestedCapacity,
+      leadSource,
       source = "CRM Admin",
       status = "NEW",
+      nextFollowUpDate,
+      surveyRequestedDate,
+      notes,
+      message,
+      monthlyBill,
       assignedSalesExecutiveId,
     } = body;
 
@@ -50,13 +58,34 @@ export async function POST(req: Request) {
       );
     }
 
-    const cleanPhone = phone.replace(/\D/g, "");
+    const cleanPhone = phone.toString().replace(/\D/g, "");
     if (cleanPhone.length < 10) {
       return NextResponse.json(
         { error: "Please enter a valid 10-digit mobile number." },
         { status: 400 }
       );
     }
+
+    // Format location
+    const formattedLocation = location?.trim() || (
+      city && district ? `${city.trim()}, ${district.trim()}` : (city || district || "Narmadapuram")
+    );
+
+    // Parse capacity
+    const capInput = approxCapacity || requestedCapacity;
+    let capFloat: number | null = null;
+    if (capInput && capInput.toString().toLowerCase() !== "not sure") {
+      const parsed = parseFloat(capInput.toString().replace(/[^\d.]/g, ""));
+      if (!isNaN(parsed) && parsed > 0) {
+        capFloat = parsed;
+      }
+    }
+
+    const solution = solarRequirement || interestedSolution || "On-Grid";
+    const reqType = propertyType || "Residential";
+    const src = leadSource || source || "Website";
+    const followUp = nextFollowUpDate || surveyRequestedDate ? new Date(nextFollowUpDate || surveyRequestedDate) : null;
+    const remark = notes || message || null;
 
     const leadCount = await prisma.lead.count();
     const leadCode = `SL-LEAD-${new Date().getFullYear()}-${String(leadCount + 1).padStart(3, "0")}`;
@@ -67,15 +96,18 @@ export async function POST(req: Request) {
         name: name.trim(),
         phone: cleanPhone,
         email: email ? email.trim() : null,
-        city: city || "Narmadapuram",
-        propertyType: propertyType || "Residential",
+        city: city?.trim() || formattedLocation,
+        location: formattedLocation,
+        propertyType: reqType,
         monthlyBill: monthlyBill || null,
-        interestedSolution: interestedSolution || "Rooftop Solar",
-        rooftopArea: rooftopArea || null,
-        message: message ? message.trim() : null,
-        source,
-        leadSource: source,
-        status,
+        interestedSolution: solution,
+        requestedCapacity: capFloat,
+        message: remark,
+        notes: remark,
+        source: src,
+        leadSource: src,
+        status: status || "NEW",
+        surveyRequestedDate: followUp,
         assignedSalesExecutiveId: assignedSalesExecutiveId || null,
       },
     });
@@ -101,7 +133,24 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
-    const { id, status, notes, message, city, monthlyBill, interestedSolution, assignedSalesExecutiveId } = body;
+    const {
+      id,
+      status,
+      notes,
+      message,
+      city,
+      location,
+      propertyType,
+      monthlyBill,
+      interestedSolution,
+      solarRequirement,
+      requestedCapacity,
+      approxCapacity,
+      leadSource,
+      surveyRequestedDate,
+      nextFollowUpDate,
+      assignedSalesExecutiveId,
+    } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Lead ID is required." }, { status: 400 });
@@ -112,30 +161,65 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Lead not found." }, { status: 404 });
     }
 
+    const followUp = nextFollowUpDate || surveyRequestedDate
+      ? new Date(nextFollowUpDate || surveyRequestedDate)
+      : undefined;
+
+    const capInput = approxCapacity || requestedCapacity;
+    let capFloat: number | undefined = undefined;
+    if (capInput !== undefined) {
+      if (capInput && capInput.toString().toLowerCase() !== "not sure") {
+        const parsed = parseFloat(capInput.toString().replace(/[^\d.]/g, ""));
+        capFloat = !isNaN(parsed) && parsed > 0 ? parsed : undefined;
+      }
+    }
+
     const updated = await prisma.lead.update({
       where: { id },
       data: {
         ...(status && { status }),
-        ...(notes !== undefined && { notes }),
-        ...(message !== undefined && { message }),
+        ...(notes !== undefined && { notes, message: notes }),
+        ...(message !== undefined && { message, notes: message }),
         ...(city !== undefined && { city }),
+        ...(location !== undefined && { location }),
+        ...(propertyType !== undefined && { propertyType }),
         ...(monthlyBill !== undefined && { monthlyBill }),
         ...(interestedSolution !== undefined && { interestedSolution }),
-        ...(assignedSalesExecutiveId !== undefined && { assignedSalesExecutiveId: assignedSalesExecutiveId || null }),
+        ...(solarRequirement !== undefined && { interestedSolution: solarRequirement }),
+        ...(capFloat !== undefined && { requestedCapacity: capFloat }),
+        ...(leadSource !== undefined && { leadSource, source: leadSource }),
+        ...(followUp !== undefined && { surveyRequestedDate: followUp }),
+        ...(assignedSalesExecutiveId !== undefined && {
+          assignedSalesExecutiveId: assignedSalesExecutiveId || null,
+        }),
       },
     });
+
+    const isAssignChange =
+      assignedSalesExecutiveId !== undefined &&
+      assignedSalesExecutiveId !== existing.assignedSalesExecutiveId;
 
     await logAuditEvent({
       entityType: "Lead",
       entityId: id,
-      fieldChanged: status && status !== existing.status ? "status" : "details",
-      previousValue: existing.status,
-      newValue: status || existing.status,
-      action: "STATUS_CHANGE",
+      fieldChanged: isAssignChange
+        ? "assignedSalesExecutiveId"
+        : status && status !== existing.status
+        ? "status"
+        : "details",
+      previousValue: isAssignChange
+        ? existing.assignedSalesExecutiveId
+        : existing.status,
+      newValue: isAssignChange
+        ? assignedSalesExecutiveId || "unassigned"
+        : status || existing.status,
+      action: isAssignChange ? "ASSIGN" : "STATUS_CHANGE",
       actorId: "ADMIN",
       actorType: "ADMIN",
       source: "CRM",
-      newValueText: `Updated lead ${existing.name}: status=${status || existing.status}`,
+      newValueText: isAssignChange
+        ? `Reassigned lead ${existing.name} to agent ${assignedSalesExecutiveId || "Unassigned"}`
+        : `Updated lead ${existing.name}: status=${status || existing.status}`,
     } as any);
 
     return NextResponse.json({ success: true, lead: updated });
