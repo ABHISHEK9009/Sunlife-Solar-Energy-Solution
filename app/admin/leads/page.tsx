@@ -650,12 +650,14 @@ export default function AdminLeadsPage() {
       {/* Detailed Lead Creation Modal */}
       {showAddModal && (
         <div
+          data-lenis-prevent="true"
           className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-6 overflow-hidden animate-in fade-in duration-200"
           onClick={(e) => {
             if (e.target === e.currentTarget) setShowAddModal(false);
           }}
         >
           <div
+            data-lenis-prevent="true"
             className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-3xl h-[88vh] max-h-[850px] min-h-[420px] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
             onWheel={(e) => {
@@ -692,6 +694,7 @@ export default function AdminLeadsPage() {
             {/* DEDICATED SCROLLABLE FORM BODY */}
             <div
               ref={modalBodyScrollRef}
+              data-lenis-prevent="true"
               className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-7 md:p-8 space-y-6 focus:outline-none"
               style={{
                 scrollbarWidth: "thin",
