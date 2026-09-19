@@ -12,10 +12,11 @@ class ApiConstants {
     const customUrl = String.fromEnvironment('API_URL', defaultValue: '');
     if (customUrl.isNotEmpty) return customUrl;
     if (kIsWeb) return 'http://localhost:3000/api/v1';
-    if (defaultTargetPlatform == TargetPlatform.android) {
+    if (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS) {
       return 'https://sunlifesolar.in/api/v1';
     }
-    return 'http://localhost:3000/api/v1';
+    return 'https://sunlifesolar.in/api/v1';
   }
 
   // Support & Contact

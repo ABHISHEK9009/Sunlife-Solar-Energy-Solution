@@ -74,7 +74,11 @@
 	<string>Sunlife Solar uses camera access to take rooftop photos for site surveys and document verification.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Sunlife Solar uses photo library access to upload electricity bills, cheques, and project documents.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Sunlife Solar needs permission to save site survey photos and invoices to your photo library.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Sunlife Solar uses your location to verify field visits and solar installation sites.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Sunlife Solar uses your location to verify field visits and solar installation sites.</string>
 </dict>
 </plist>
