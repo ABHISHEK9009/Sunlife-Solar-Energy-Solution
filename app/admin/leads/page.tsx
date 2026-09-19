@@ -21,6 +21,8 @@ import {
   X,
   ExternalLink,
   Eye,
+  Plus,
+  Trash2,
 } from "lucide-react";
 
 export default function AdminLeadsPage() {
@@ -35,6 +37,21 @@ export default function AdminLeadsPage() {
   const [solarType, setSolarType] = useState("ON_GRID");
   const [conversionNotes, setConversionNotes] = useState("");
   const [converting, setConverting] = useState(false);
+
+  // New Lead Modal State
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [submittingAdd, setSubmittingAdd] = useState(false);
+  const [addForm, setAddForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    city: "Narmadapuram",
+    propertyType: "Residential",
+    monthlyBill: "₹3,000 - ₹5,000",
+    interestedSolution: "Rooftop Solar",
+    rooftopArea: "",
+    message: "",
+  });
 
   const loadRequest = useRef(0);
   const fetchLeads = async (background = false) => {
@@ -60,6 +77,76 @@ export default function AdminLeadsPage() {
 
   useLiveRefresh(() => fetchLeads(true), !loading);
 
+  const handleAddLead = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingAdd(true);
+    try {
+      const res = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(addForm),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowAddModal(false);
+        setAddForm({
+          name: "",
+          phone: "",
+          email: "",
+          city: "Narmadapuram",
+          propertyType: "Residential",
+          monthlyBill: "₹3,000 - ₹5,000",
+          interestedSolution: "Rooftop Solar",
+          rooftopArea: "",
+          message: "",
+        });
+        fetchLeads();
+      } else {
+        alert("Unable to complete the request right now. Please try again.");
+      }
+    } catch (err) {
+      console.error("[Lead Create Error]:", err);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setSubmittingAdd(false);
+    }
+  };
+
+  const handleUpdateStatus = async (id: string, newStatus: string) => {
+    try {
+      const res = await fetch("/api/leads", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: newStatus }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchLeads(true);
+      } else {
+        alert("Unable to complete the request right now. Please try again.");
+      }
+    } catch (err) {
+      console.error("[Lead Status Update Error]:", err);
+      alert("Unable to complete the request right now. Please try again.");
+    }
+  };
+
+  const handleDeleteLead = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to permanently delete lead "${name}"?`)) return;
+    try {
+      const res = await fetch(`/api/leads?id=${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        fetchLeads();
+      } else {
+        alert("Unable to complete the request right now. Please try again.");
+      }
+    } catch (err) {
+      console.error("[Lead Delete Error]:", err);
+      alert("Unable to complete the request right now. Please try again.");
+    }
+  };
+
   const handleConvertLead = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!convertLead) return;
@@ -82,10 +169,11 @@ export default function AdminLeadsPage() {
         setConvertLead(null);
         fetchLeads();
       } else {
-        alert(data.error || "Conversion failed.");
+        alert("Unable to complete the request right now. Please try again.");
       }
     } catch (err) {
-      alert("Network error.");
+      console.error("[Lead Convert Error]:", err);
+      alert("Something went wrong. Please try again.");
     } finally {
       setConverting(false);
     }
@@ -119,6 +207,14 @@ export default function AdminLeadsPage() {
 
         <div className="flex items-center gap-3">
           <button
+            onClick={() => setShowAddModal(true)}
+            className="px-4 py-2 bg-solar-deep hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5 text-sun-amber" />
+            <span>Add Lead</span>
+          </button>
+
+          <button
             onClick={() => fetchLeads()}
             disabled={loading}
             className="px-4 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
@@ -147,7 +243,7 @@ export default function AdminLeadsPage() {
         </div>
 
         <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-          {["ALL", "NEW", "CONTACTED", "SURVEY_SCHEDULED", "CONVERTED"].map((st) => (
+          {["ALL", "NEW", "CONTACTED", "SURVEY_SCHEDULED", "CONVERTED", "LOST"].map((st) => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
@@ -250,17 +346,26 @@ export default function AdminLeadsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-[11px] font-bold inline-block ${
+                      <select
+                        value={lead.status}
+                        onChange={(e) => handleUpdateStatus(lead.id, e.target.value)}
+                        className={`text-[11px] font-bold px-2.5 py-1 rounded-full border cursor-pointer outline-none transition-colors ${
                           lead.status === "NEW"
-                            ? "bg-amber-100 text-amber-800 border border-amber-200"
+                            ? "bg-amber-50 text-amber-800 border-amber-200"
                             : lead.status === "CONVERTED"
-                            ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                            : "bg-blue-100 text-blue-800 border border-blue-200"
+                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                            : lead.status === "LOST"
+                            ? "bg-slate-100 text-slate-600 border-slate-200"
+                            : "bg-blue-50 text-blue-800 border-blue-200"
                         }`}
                       >
-                        {lead.status}
-                      </span>
+                        <option value="NEW">NEW</option>
+                        <option value="CONTACTED">CONTACTED</option>
+                        <option value="SURVEY_SCHEDULED">SURVEY SCHEDULED</option>
+                        <option value="QUOTATION_SENT">QUOTATION SENT</option>
+                        <option value="CONVERTED">CONVERTED</option>
+                        <option value="LOST">LOST</option>
+                      </select>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
@@ -309,6 +414,14 @@ export default function AdminLeadsPage() {
                         >
                           <MessageSquare className="w-3.5 h-3.5" />
                         </a>
+
+                        <button
+                          onClick={() => handleDeleteLead(lead.id, lead.name)}
+                          title="Delete Lead"
+                          className="p-1.5 rounded-xl bg-red-50 hover:bg-red-600 hover:text-white text-red-600 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </td>
                   </tr>

@@ -195,6 +195,14 @@ export default function EmployeeProfilePage() {
       .catch(() => setNotice('Unable to load employee information.'));
 
   useEffect(() => { void loadMember(); }, [memberId]);
+  useEffect(() => {
+    if (
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('mode') === 'edit'
+    ) {
+      setEditing(true);
+    }
+  }, []);
   useLiveRefresh(loadMember, !editing && !saving && !verifying);
 
   const update = (key: keyof Member, value: string) =>
@@ -256,9 +264,8 @@ export default function EmployeeProfilePage() {
           : 'Email verified and employee access enabled.',
       );
     } catch (error) {
-      setNotice(
-        error instanceof Error ? error.message : 'Unable to verify email.',
-      );
+      console.error("[Email Verification Error]:", error);
+      setNotice('Unable to complete the request right now. Please try again.');
     } finally {
       setVerifying(false);
     }

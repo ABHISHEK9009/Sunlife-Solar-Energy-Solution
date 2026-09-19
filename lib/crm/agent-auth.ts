@@ -1,125 +1,209 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac, createHash, randomInt, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
+import { sendAgentOtpEmail, maskEmail } from "@/lib/crm/agent-mailer";
 
 const OTP_SECRET = process.env.ADMIN_PASSWORD || "sunlife_otp_jwt_secret_token_key_2026";
 
-interface OtpEntry {
-  otp: string;
+interface AgentOtpCacheEntry {
+  otpHash: string;
   expiresAt: number;
+  requestedAt: number;
   attempts: number;
 }
 
-const agentOtpCache = new Map<string, OtpEntry>();
-const enrolledAgentPins = new Map<string, string>();
+declare global {
+  var __agentOtpCache: Map<string, AgentOtpCacheEntry> | undefined;
+}
 
-export function registerAgentInitialPin(agentIdOrPhone: string, pin: string = "123456") {
-  enrolledAgentPins.set(agentIdOrPhone.trim().toLowerCase(), pin.trim());
-  return pin.trim();
+const agentOtpCache =
+  globalThis.__agentOtpCache ||
+  (globalThis.__agentOtpCache = new Map<string, AgentOtpCacheEntry>());
+
+/**
+ * Clean and extract 10-digit mobile number from input
+ */
+function extractMobileNumber(input: string): string {
+  const digits = (input || "").replace(/\D/g, "");
+  if (digits.length < 10) {
+    throw new Error(
+      "We could not verify this account. Please check your mobile number or contact your administrator."
+    );
+  }
+  return digits.slice(-10);
 }
 
 /**
- * Generate a 6-digit OTP for an active TeamMember / Agent
+ * Generate a cryptographically secure 6-digit OTP and send to the agent's verified email
  */
-export async function sendAgentOtp(identifier: string) {
-  const trimmed = identifier.trim();
-  const cleanPhone = trimmed.replace(/\D/g, "");
+export async function sendAgentOtp(mobileInput: string) {
+  const cleanMobile = extractMobileNumber(mobileInput);
 
-  // Look up agent by phone, id, or employeeId (case-insensitive)
+  // Look up active agent by mobile number in CRM database
   const member = await prisma.teamMember.findFirst({
     where: {
-      OR: [
-        ...(cleanPhone.length >= 10 ? [{ phone: { contains: cleanPhone.slice(-10) } }] : []),
-        { id: trimmed },
-        { employeeId: { equals: trimmed, mode: "insensitive" } },
-      ],
+      phone: { contains: cleanMobile },
+      activeStatus: true,
+      employeeAccessEnabled: true,
     },
   });
 
   if (!member) {
-    throw new Error("No active agent account found with this ID or Mobile number.");
+    throw new Error(
+      "We could not verify this account. Please check your mobile number or contact your administrator."
+    );
   }
 
-  if (member.activeStatus === false) {
-    throw new Error("Agent account is currently deactivated. Please contact administration.");
-  }
-
-  // Generate 6 digit numeric code (123456 for test ease / staging)
-  let otp = Math.floor(100000 + Math.random() * 900000).toString();
-  if (
-    cleanPhone === "7722995100" ||
-    cleanPhone === "9000000001" ||
-    cleanPhone.endsWith("0000") ||
-    trimmed.toUpperCase().startsWith("SL-") ||
-    trimmed.startsWith("mock-")
-  ) {
-    otp = "123456";
+  const email = member.email?.trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error(
+      "No registered email address found for this account. Please contact your administrator."
+    );
   }
 
   const cacheKey = member.id;
+  const existing = agentOtpCache.get(cacheKey);
+  const now = Date.now();
+
+  // Rate limiting / cooldown: 60 seconds between OTP requests
+  if (existing && existing.requestedAt && now - existing.requestedAt < 60000) {
+    const remainingSeconds = Math.ceil((60000 - (now - existing.requestedAt)) / 1000);
+    throw new Error(
+      `Please wait ${remainingSeconds} seconds before requesting a new OTP.`
+    );
+  }
+
+  // Generate cryptographically secure 6-digit numeric OTP
+  const otp = randomInt(100000, 1000000).toString();
+  const otpHash = createHash("sha256").update(otp).digest("hex");
+  const expiresAt = new Date(now + 10 * 60 * 1000); // 10 minutes
+
+  // Persist hashed OTP & expiry in PostgreSQL database
+  await prisma.teamMember.update({
+    where: { id: member.id },
+    data: {
+      verificationCodeHash: otpHash,
+      verificationExpiresAt: expiresAt,
+    },
+  });
+
+  // Track attempts and cooldown in memory cache
   agentOtpCache.set(cacheKey, {
-    otp,
-    expiresAt: Date.now() + 10 * 60 * 1000,
+    otpHash,
+    expiresAt: expiresAt.getTime(),
+    requestedAt: now,
     attempts: 0,
   });
 
-  console.log(`[Sunlife Agent OTP]: Generated OTP for ${member.name} (${member.phone}): ${otp}`);
+  // Dispatch professional branded HTML email to agent's verified email address
+  const emailResult = await sendAgentOtpEmail({
+    to: email,
+    name: member.name,
+    otp,
+    employeeId: member.employeeId,
+    phone: member.phone,
+    role: member.role,
+    territory: member.territory,
+  });
 
-  const phone = member.phone;
-  const maskedPhone = phone.length >= 4 ? `+91 ******${phone.slice(-4)}` : phone;
+  if (!emailResult.sent) {
+    throw new Error(
+      "Unable to deliver OTP to your registered email. Please contact your administrator."
+    );
+  }
+
+  const maskedEmail = maskEmail(email);
 
   return {
     success: true,
-    agentId: member.id,
-    agentName: member.name,
-    maskedPhone,
+    maskedEmail,
+    message: `OTP has been sent to your registered email address (${maskedEmail}).`,
     expiresInSeconds: 600,
-    devHint: process.env.NODE_ENV !== "production" ? otp : undefined,
+    cooldownSeconds: 60,
   };
 }
 
 /**
- * Verify Agent OTP and issue authenticated session token
+ * Securely verify the entered OTP against PostgreSQL database record
  */
-export async function verifyAgentOtp(identifier: string, userOtp: string) {
-  const trimmed = identifier.trim();
-  const cleanPhone = trimmed.replace(/\D/g, "");
+export async function verifyAgentOtp(mobileInput: string, userOtp: string) {
+  const cleanMobile = extractMobileNumber(mobileInput);
+  const cleanOtp = (userOtp || "").trim();
 
+  if (cleanOtp.length !== 6 || !/^\d{6}$/.test(cleanOtp)) {
+    throw new Error("Enter a valid 6-digit OTP.");
+  }
+
+  // Look up agent by mobile number
   const member = await prisma.teamMember.findFirst({
     where: {
-      OR: [
-        ...(cleanPhone.length >= 10 ? [{ phone: { contains: cleanPhone.slice(-10) } }] : []),
-        { id: trimmed },
-        { employeeId: { equals: trimmed, mode: "insensitive" } },
-      ],
+      phone: { contains: cleanMobile },
+      activeStatus: true,
+      employeeAccessEnabled: true,
     },
   });
 
   if (!member) {
-    throw new Error("Agent account not found.");
+    throw new Error(
+      "We could not verify this account. Please check your mobile number or contact your administrator."
+    );
   }
 
   const cacheKey = member.id;
-  const cached = agentOtpCache.get(cacheKey);
+  const cacheEntry = agentOtpCache.get(cacheKey);
+  const currentAttempts = cacheEntry?.attempts || 0;
 
-  const enrolledPin =
-    enrolledAgentPins.get(member.id.toLowerCase()) ||
-    (member.employeeId ? enrolledAgentPins.get(member.employeeId.toLowerCase()) : undefined) ||
-    enrolledAgentPins.get(member.phone);
-
-  const isValidPin =
-    (cached && cached.otp === userOtp.trim()) ||
-    userOtp.trim() === enrolledPin ||
-    userOtp.trim() === "123456";
-
-  if (!isValidPin) {
-    throw new Error("Incorrect 6-digit PIN / OTP entered. Please try again.");
-  }
-
-  if (cached) {
+  // Brute force protection: max 5 failed attempts
+  if (currentAttempts >= 5) {
+    await prisma.teamMember.update({
+      where: { id: member.id },
+      data: {
+        verificationCodeHash: null,
+        verificationExpiresAt: null,
+      },
+    });
     agentOtpCache.delete(cacheKey);
+    throw new Error("Too many failed attempts. Please request a new OTP.");
   }
 
-  // Create signed agent token payload: id:employeeId:role:timestamp:signature
+  // Check expiration (10 minutes limit)
+  const now = new Date();
+  if (!member.verificationExpiresAt || member.verificationExpiresAt < now) {
+    throw new Error("This OTP has expired. Please request a new OTP.");
+  }
+
+  // Check cryptographic hash of OTP
+  const incomingHash = createHash("sha256").update(cleanOtp).digest("hex");
+  if (!member.verificationCodeHash || member.verificationCodeHash !== incomingHash) {
+    if (cacheEntry) {
+      cacheEntry.attempts = currentAttempts + 1;
+    }
+    const remaining = 5 - (currentAttempts + 1);
+    if (remaining <= 0) {
+      await prisma.teamMember.update({
+        where: { id: member.id },
+        data: {
+          verificationCodeHash: null,
+          verificationExpiresAt: null,
+        },
+      });
+      agentOtpCache.delete(cacheKey);
+      throw new Error("Too many failed attempts. Please request a new OTP.");
+    }
+    throw new Error("Incorrect OTP. Please try again.");
+  }
+
+  // Single-use guarantee: Invalidate OTP immediately upon successful verification
+  await prisma.teamMember.update({
+    where: { id: member.id },
+    data: {
+      verificationCodeHash: null,
+      verificationExpiresAt: null,
+      emailVerifiedAt: member.emailVerifiedAt || now,
+    },
+  });
+  agentOtpCache.delete(cacheKey);
+
+  // Generate signed production session access token
   const timestamp = Date.now();
   const employeeIdentifier = member.employeeId || member.id;
   const payload = `${member.id}:${employeeIdentifier}:agent:${timestamp}`;
@@ -139,8 +223,9 @@ export async function verifyAgentOtp(identifier: string, userOtp: string) {
       role: member.role,
       category: member.category,
       phone: member.phone,
-      territory: member.territory || "Jaipur West",
-      department: member.department,
+      email: member.email,
+      territory: member.territory || "Jaipur Central",
+      department: member.department || "Operations",
     },
   };
 }
@@ -185,7 +270,7 @@ export async function authenticateAgentRequest(request: Request) {
       where: { id },
     });
 
-    if (!member || member.activeStatus === false) {
+    if (!member || member.activeStatus === false || member.employeeAccessEnabled === false) {
       return null;
     }
 

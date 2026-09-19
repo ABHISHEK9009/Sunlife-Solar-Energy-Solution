@@ -15,7 +15,7 @@ class OtpPage extends StatefulWidget {
 }
 
 class _OtpPageState extends State<OtpPage> {
-  final controller = TextEditingController(text: '123456');
+  final controller = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
   int _secondsRemaining = 0;
@@ -178,13 +178,6 @@ class _OtpPageState extends State<OtpPage> {
                     _secondsRemaining > 0
                         ? 'Resend OTP in ${_secondsRemaining}s'
                         : 'Resend OTP',
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Center(
-                  child: Text(
-                    'Demo OTP: 123456',
-                    style: TextStyle(color: AppColors.muted, fontSize: 12),
                   ),
                 ),
               ],

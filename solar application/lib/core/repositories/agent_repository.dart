@@ -36,48 +36,9 @@ class AgentRepository extends ChangeNotifier {
             .toList();
         _hasFetchedLeads = true;
         notifyListeners();
-        return List.unmodifiable(_leads);
       }
     } catch (_) {
-      // Offline fallback for testing
-    }
-
-    if (_leads.isEmpty) {
-      _leads = [
-        const AgentLead(
-          id: 'lead_1',
-          name: 'Anita Meena',
-          location: 'Mansarovar',
-          stage: 'Survey scheduled',
-          phone: '98765 41021',
-          monthlyBill: '₹4,800/month',
-        ),
-        const AgentLead(
-          id: 'lead_2',
-          name: 'Suresh Kumar',
-          location: 'Jagatpura',
-          stage: 'Quotation sent',
-          phone: '98765 18432',
-          monthlyBill: '₹6,200/month',
-        ),
-        const AgentLead(
-          id: 'lead_3',
-          name: 'Vikas Sharma',
-          location: 'Vaishali Nagar',
-          stage: 'Documents pending',
-          phone: '98765 09542',
-          monthlyBill: '₹5,100/month',
-        ),
-        const AgentLead(
-          id: 'lead_4',
-          name: 'Mohit Jain',
-          location: 'Malviya Nagar',
-          stage: 'Installation',
-          phone: '98765 83216',
-          monthlyBill: '₹7,450/month',
-        ),
-      ];
-      _hasFetchedLeads = true;
+      // Keep real fetched list
     }
 
     return List.unmodifiable(_leads);
@@ -162,43 +123,9 @@ class AgentRepository extends ChangeNotifier {
             .toList();
         _hasFetchedVisits = true;
         notifyListeners();
-        return List.unmodifiable(_visits);
       }
     } catch (_) {
-      // Fallback for offline testing
-    }
-
-    if (_visits.isEmpty) {
-      _visits = [
-        const FieldVisit(
-          id: 'visit_1',
-          time: '10:30 AM',
-          customerName: 'Anita Meena',
-          purpose: 'Site survey',
-          location: 'Mansarovar, Jaipur',
-          checklist: [false, false, false, false],
-          isCompleted: false,
-        ),
-        const FieldVisit(
-          id: 'visit_2',
-          time: '01:00 PM',
-          customerName: 'Vikas Sharma',
-          purpose: 'Document collection',
-          location: 'Vaishali Nagar, Jaipur',
-          checklist: [false, false, false, false],
-          isCompleted: false,
-        ),
-        const FieldVisit(
-          id: 'visit_3',
-          time: '04:15 PM',
-          customerName: 'Mohit Jain',
-          purpose: 'Installation check',
-          location: 'Malviya Nagar, Jaipur',
-          checklist: [false, false, false, false],
-          isCompleted: false,
-        ),
-      ];
-      _hasFetchedVisits = true;
+      // Keep real fetched visits
     }
 
     return List.unmodifiable(_visits);

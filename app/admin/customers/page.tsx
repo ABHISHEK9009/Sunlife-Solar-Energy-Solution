@@ -84,10 +84,11 @@ export default function AdminCustomersPage() {
         });
         fetchCustomers();
       } else {
-        alert(data.error || "Failed to create customer.");
+        alert("Unable to complete the request right now. Please try again.");
       }
     } catch (err) {
-      alert("Network error.");
+      console.error("[Customer Create Error]:", err);
+      alert("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -105,10 +106,11 @@ export default function AdminCustomersPage() {
       if (data.success) {
         fetchCustomers();
       } else {
-        alert(data.error || "Failed to delete customer.");
+        alert("Unable to complete the request right now. Please try again.");
       }
     } catch (err) {
-      alert("Failed to delete customer.");
+      console.error("[Customer Delete Error]:", err);
+      alert("Unable to complete the request right now. Please try again.");
     }
   };
 

@@ -3,7 +3,6 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { logAuditEvent } from "@/lib/crm/audit-logger";
-import { registerAgentInitialPin } from "@/lib/crm/agent-auth";
 
 export async function GET(req: Request) {
   try {
@@ -27,6 +26,7 @@ export async function GET(req: Request) {
         employeeAccessEnabled: true,
         email: true,
         joinedYear: true,
+        serviceArea: true,
         _count: {
           select: {
             assignedCustomers: true,
@@ -36,7 +36,19 @@ export async function GET(req: Request) {
       },
     });
 
-    return NextResponse.json({ success: true, agents });
+    const mappedAgents = agents.map((a) => ({
+      ...a,
+      pin: a.serviceArea || "123456",
+    }));
+
+    return NextResponse.json(
+      { success: true, agents: mappedAgents },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        },
+      }
+    );
   } catch (error: any) {
     console.error("[Admin Agents GET Error]:", error);
     return NextResponse.json({ error: "Failed to load team agents." }, { status: 500 });
@@ -50,17 +62,24 @@ export async function POST(req: Request) {
       name,
       phone,
       employeeId,
-      role = "Field Operations Agent",
+      role,
       category = "Field Team",
-      territory = "Jaipur Central",
+      territory,
       department = "Operations",
       email,
-      initialPin = "123456",
+      initialPin,
     } = body;
 
-    if (!name || !phone) {
+    if (!name || !name.trim()) {
       return NextResponse.json(
-        { error: "Agent name and valid mobile number are required." },
+        { error: "Full Name is mandatory." },
+        { status: 400 }
+      );
+    }
+
+    if (!phone || !phone.trim()) {
+      return NextResponse.json(
+        { error: "Mobile Number is mandatory." },
         { status: 400 }
       );
     }
@@ -68,7 +87,44 @@ export async function POST(req: Request) {
     const cleanPhone = phone.replace(/\D/g, "");
     if (cleanPhone.length < 10) {
       return NextResponse.json(
-        { error: "Valid 10-digit mobile number required." },
+        { error: "Valid 10-digit mobile number is mandatory." },
+        { status: 400 }
+      );
+    }
+
+    if (!email || !email.trim()) {
+      return NextResponse.json(
+        { error: "Email Address is mandatory." },
+        { status: 400 }
+      );
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return NextResponse.json(
+        { error: "Please enter a valid email address (e.g. agent@sunlifesolar.in)." },
+        { status: 400 }
+      );
+    }
+
+    if (!role || !role.trim()) {
+      return NextResponse.json(
+        { error: "Role Title is mandatory." },
+        { status: 400 }
+      );
+    }
+
+    if (!territory || !territory.trim()) {
+      return NextResponse.json(
+        { error: "Assigned Territory is mandatory." },
+        { status: 400 }
+      );
+    }
+
+    const activePin = initialPin ? initialPin.toString().trim() : "";
+    if (!activePin || activePin.length < 4 || activePin.length > 6) {
+      return NextResponse.json(
+        { error: "Initial Login PIN is mandatory (4-6 digits)." },
         { status: 400 }
       );
     }
@@ -105,22 +161,18 @@ export async function POST(req: Request) {
         employeeId: finalEmpId,
         name: name.trim(),
         phone: cleanPhone,
+        email: cleanEmail,
         role: role.trim(),
-        category: category.trim(),
+        category: (category || "Field Team").trim(),
         territory: territory.trim(),
-        department: department.trim(),
-        email: email ? email.trim() : null,
+        serviceArea: activePin,
+        department: (department || "Operations").trim(),
         activeStatus: true,
         employeeAccessEnabled: true,
         joinedYear: new Date().getFullYear().toString(),
         status: "Available",
       },
     });
-
-    // Register 6-digit initial login PIN in CRM auth system
-    const activePin = initialPin.toString().trim() || "123456";
-    registerAgentInitialPin(cleanPhone, activePin);
-    registerAgentInitialPin(finalEmpId, activePin);
 
     await logAuditEvent({
       entityType: "TeamMember",
@@ -130,7 +182,7 @@ export async function POST(req: Request) {
       actorId: "ADMIN",
       actorType: "ADMIN",
       source: "CRM",
-      newValue: `Registered agent ${newAgent.name} (${finalEmpId}, ${cleanPhone})`,
+      newValue: `Registered agent ${newAgent.name} (${finalEmpId}, ${cleanPhone}, ${cleanEmail})`,
     });
 
     return NextResponse.json(
@@ -141,9 +193,11 @@ export async function POST(req: Request) {
           employeeId: newAgent.employeeId,
           name: newAgent.name,
           phone: newAgent.phone,
+          email: newAgent.email,
           role: newAgent.role,
           territory: newAgent.territory,
           department: newAgent.department,
+          pin: activePin,
         },
         initialPin: activePin,
         loginInstructions: `Agent can now log in to the Sunlife Agent App using Employee ID (${finalEmpId}) or Phone (${cleanPhone}) with 6-digit PIN: ${activePin}`,
@@ -162,7 +216,19 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
-    const { id, activeStatus, employeeAccessEnabled, role, territory, department, status, newPin, phone, name } = body;
+    const {
+      id,
+      activeStatus,
+      employeeAccessEnabled,
+      role,
+      territory,
+      department,
+      status,
+      newPin,
+      phone,
+      name,
+      email,
+    } = body;
     if (!id) {
       return NextResponse.json({ error: "Agent ID is required." }, { status: 400 });
     }
@@ -172,24 +238,29 @@ export async function PATCH(req: Request) {
     if (typeof employeeAccessEnabled === "boolean") updateData.employeeAccessEnabled = employeeAccessEnabled;
     if (role !== undefined) updateData.role = role.trim();
     if (territory !== undefined) updateData.territory = territory.trim();
-    if (department !== undefined) updateData.department = department.trim();
+    if (department !== undefined) updateData.department = department ? department.trim() : null;
     if (status !== undefined) updateData.status = status;
     if (name !== undefined) updateData.name = name.trim();
     if (phone !== undefined) {
       const cleanPhone = phone.replace(/\D/g, "");
       if (cleanPhone.length >= 10) updateData.phone = cleanPhone;
     }
+    if (email !== undefined) {
+      const cleanEmail = email ? email.trim().toLowerCase() : null;
+      if (cleanEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+        return NextResponse.json({ error: "Please provide a valid email address." }, { status: 400 });
+      }
+      updateData.email = cleanEmail;
+    }
+    if (newPin && newPin.toString().trim().length >= 4) {
+      const cleanPin = newPin.toString().trim();
+      updateData.serviceArea = cleanPin;
+    }
 
     const updated = await prisma.teamMember.update({
       where: { id },
       data: updateData,
     });
-
-    if (newPin && newPin.toString().trim().length >= 4) {
-      const cleanPin = newPin.toString().trim();
-      registerAgentInitialPin(updated.phone, cleanPin);
-      if (updated.employeeId) registerAgentInitialPin(updated.employeeId, cleanPin);
-    }
 
     await logAuditEvent({
       entityType: "TeamMember",
@@ -202,7 +273,13 @@ export async function PATCH(req: Request) {
       newValue: `Updated agent ${updated.name} (${updated.employeeId || updated.id})`,
     });
 
-    return NextResponse.json({ success: true, agent: updated });
+    return NextResponse.json({
+      success: true,
+      agent: {
+        ...updated,
+        pin: updated.serviceArea || "123456",
+      },
+    });
   } catch (error: any) {
     console.error("[Admin Agents PATCH Error]:", error);
     return NextResponse.json({ error: error.message || "Failed to update agent." }, { status: 500 });

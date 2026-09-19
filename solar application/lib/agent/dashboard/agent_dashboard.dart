@@ -78,12 +78,11 @@ class _AgentDashboardState extends State<AgentDashboard> {
   @override
   Widget build(BuildContext context) {
     final user = AuthRepository.instance.currentUser;
-    // Maintain 'Good morning, Rahul' fallback for tests and default display
-    final firstName = user?.name.split(' ').first;
-    final greetingName = (firstName != null && firstName.isNotEmpty) ? firstName : 'Rahul';
-    final initials = (user?.name != null && user!.name.isNotEmpty)
-        ? user.name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join()
-        : 'RK';
+    final firstName = user?.name.trim().split(' ').first;
+    final greetingName = (firstName != null && firstName.isNotEmpty) ? firstName : 'Partner';
+    final initials = (user?.name != null && user!.name.trim().isNotEmpty)
+        ? user.name.trim().split(' ').where((e) => e.isNotEmpty).map((e) => e[0]).take(2).join().toUpperCase()
+        : 'FP';
 
     final pendingVisits = _visits.where((v) => !v.isCompleted).toList();
     final completedVisitsCount = _visits.where((v) => v.isCompleted).length;
@@ -98,19 +97,9 @@ class _AgentDashboardState extends State<AgentDashboard> {
         _leads.where((l) => l.stage.toLowerCase().contains('document')).length;
 
     // Follow-up lead to feature in priority card
-    final priorityLead = _leads.firstWhere(
+    final priorityLead = _leads.where(
       (l) => l.stage.toLowerCase().contains('quotation') || l.stage.toLowerCase().contains('follow'),
-      orElse: () => _leads.isNotEmpty
-          ? _leads.first
-          : const AgentLead(
-              id: 'lead_default',
-              name: 'Suresh Kumar',
-              phone: '98765 18432',
-              location: 'Jagatpura',
-              stage: 'Quotation sent',
-              monthlyBill: '₹6,200/month',
-            ),
-    );
+    ).firstOrNull ?? (_leads.isNotEmpty ? _leads.first : null);
 
     return Frame(
       'Good morning, $greetingName',
@@ -236,51 +225,52 @@ class _AgentDashboardState extends State<AgentDashboard> {
                 ),
         ),
         const SizedBox(height: 18),
-        CardBox(
-          color: AppColors.softGreen,
-          child: Row(
-            children: [
-              const CircleAvatar(
-                backgroundColor: AppColors.green,
-                child: Icon(Icons.priority_high_rounded, color: Colors.white),
-              ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Follow-up: ${priorityLead.name}',
-                      style: const TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      'Stage: ${priorityLead.stage} · ${priorityLead.location}',
-                      style: const TextStyle(
-                        color: AppColors.muted,
-                        fontSize: 12,
+        if (priorityLead != null)
+          CardBox(
+            color: AppColors.softGreen,
+            child: Row(
+              children: [
+                const CircleAvatar(
+                  backgroundColor: AppColors.green,
+                  child: Icon(Icons.priority_high_rounded, color: Colors.white),
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Follow-up: ${priorityLead.name}',
+                        style: const TextStyle(fontWeight: FontWeight.w900),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 3),
+                      Text(
+                        'Stage: ${priorityLead.stage} · ${priorityLead.location}',
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              IconButton(
-                tooltip: 'Call ${priorityLead.name}',
-                onPressed: () => _callLead(priorityLead.phone),
-                icon: const Icon(
-                  Icons.call_rounded,
-                  color: AppColors.deepGreen,
+                IconButton(
+                  tooltip: 'Call ${priorityLead.name}',
+                  onPressed: () => _callLead(priorityLead.phone),
+                  icon: const Icon(
+                    Icons.call_rounded,
+                    color: AppColors.deepGreen,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
       ],
       action: CircleAvatar(
         radius: 19,
         backgroundColor: AppColors.deepGreen,
         child: Text(
-          initials.isNotEmpty ? initials : 'RK',
+          initials.isNotEmpty ? initials : 'FP',
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w900,

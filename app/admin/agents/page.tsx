@@ -4,6 +4,9 @@ import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { adminFetch as fetch } from "@/lib/admin-live";
 
 import React, { useRef, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   UserCog,
   Search,
@@ -25,6 +28,9 @@ import {
   Building,
   Briefcase,
   Smartphone,
+  Mail,
+  MoreVertical,
+  Eye,
 } from "lucide-react";
 
 interface Agent {
@@ -41,13 +47,258 @@ interface Agent {
   employeeAccessEnabled: boolean;
   email?: string | null;
   joinedYear?: string | null;
+  pin?: string | null;
   _count?: {
     assignedCustomers: number;
     surveys: number;
   };
 }
 
+const BLANK_REGISTER_FORM = {
+  name: "",
+  phone: "",
+  email: "",
+  employeeId: "",
+  role: "",
+  category: "Field Team",
+  territory: "",
+  department: "Operations",
+  initialPin: "",
+};
+
+function AgentActionMenu({
+  agent,
+  onViewProfile,
+  onEdit,
+  onCredentials,
+  onToggleAccess,
+  onToggleActive,
+}: {
+  agent: Agent;
+  onViewProfile: () => void;
+  onEdit: () => void;
+  onCredentials: () => void;
+  onToggleAccess: () => void;
+  onToggleActive: () => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; right: number; openUpward: boolean } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const leaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const updatePosition = () => {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const menuEstimatedHeight = 240;
+    const openUpward =
+      rect.bottom + menuEstimatedHeight > window.innerHeight &&
+      rect.top > menuEstimatedHeight;
+
+    setCoords({
+      top: openUpward ? rect.top - 6 : rect.bottom + 6,
+      right: Math.max(12, window.innerWidth - rect.right),
+      openUpward,
+    });
+  };
+
+  const handleMouseEnter = () => {
+    if (leaveTimerRef.current) {
+      clearTimeout(leaveTimerRef.current);
+      leaveTimerRef.current = null;
+    }
+    updatePosition();
+    setIsOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+    leaveTimerRef.current = setTimeout(() => {
+      setIsOpen(false);
+    }, 220);
+  };
+
+  const toggleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isOpen) {
+      updatePosition();
+      setIsOpen(true);
+    } else {
+      setIsOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+    const handleScroll = () => {
+      setIsOpen(false);
+    };
+    window.addEventListener("mousedown", handleOutside);
+    window.addEventListener("scroll", handleScroll, true);
+    return () => {
+      window.removeEventListener("mousedown", handleOutside);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+    };
+  }, []);
+
+  return (
+    <div
+      className="relative inline-flex items-center justify-end"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={toggleClick}
+        title="More options"
+        aria-label={`Actions for ${agent.name}`}
+        aria-expanded={isOpen}
+        className={`p-1.5 rounded-lg transition-colors cursor-pointer border ${
+          isOpen
+            ? "bg-slate-100 text-slate-900 border-slate-300 shadow-xs"
+            : "text-slate-500 hover:text-slate-800 hover:bg-slate-100 border-slate-200 hover:border-slate-300 shadow-2xs"
+        }`}
+      >
+        <MoreVertical className="w-4 h-4" />
+      </button>
+
+      {isOpen &&
+        coords &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={menuRef}
+            onMouseEnter={() => {
+              if (leaveTimerRef.current) {
+                clearTimeout(leaveTimerRef.current);
+                leaveTimerRef.current = null;
+              }
+            }}
+            onMouseLeave={handleMouseLeave}
+            style={{
+              position: "fixed",
+              top: coords.openUpward ? "auto" : `${coords.top}px`,
+              bottom: coords.openUpward
+                ? `${window.innerHeight - coords.top}px`
+                : "auto",
+              right: `${coords.right}px`,
+              zIndex: 9999,
+            }}
+            className="w-52 rounded-2xl border border-slate-200 bg-white p-1.5 text-left shadow-2xl animate-in fade-in zoom-in-95 duration-100"
+          >
+            <div className="px-3.5 py-1.5 border-b border-slate-100 mb-1">
+              <div className="font-semibold text-[11px] text-slate-900 truncate">
+                {agent.name}
+              </div>
+              <div className="font-mono text-[10px] text-slate-400">
+                {agent.employeeId || "Agent Actions"}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                onViewProfile();
+              }}
+              className="w-full text-left px-3.5 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 transition-colors cursor-pointer rounded-lg"
+            >
+              <Eye className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span className="font-medium">View Full Profile</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                onEdit();
+              }}
+              className="w-full text-left px-3.5 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 transition-colors cursor-pointer rounded-lg"
+            >
+              <Edit2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span className="font-medium">Edit Details</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                onCredentials();
+              }}
+              className="w-full text-left px-3.5 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 transition-colors cursor-pointer rounded-lg"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span className="font-medium">Login PIN & Credentials</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                onToggleAccess();
+              }}
+              className="w-full text-left px-3.5 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 transition-colors cursor-pointer rounded-lg"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span className="font-medium">
+                {agent.employeeAccessEnabled
+                  ? "Revoke Mobile Access"
+                  : "Authorize Mobile Access"}
+              </span>
+            </button>
+
+            <div className="my-1 border-t border-slate-100" />
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                onToggleActive();
+              }}
+              className={`w-full text-left px-3.5 py-2 text-xs flex items-center gap-2.5 transition-colors cursor-pointer rounded-lg ${
+                agent.activeStatus
+                  ? "text-red-600 hover:bg-red-50"
+                  : "text-emerald-700 hover:bg-emerald-50"
+              }`}
+            >
+              {agent.activeStatus ? (
+                <>
+                  <Trash2 className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                  <span className="font-medium">Deactivate Agent</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="font-medium">Activate Agent</span>
+                </>
+              )}
+            </button>
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+}
+
 export default function AdminAgentsPage() {
+  const router = useRouter();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -60,27 +311,21 @@ export default function AdminAgentsPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCredsModal, setShowCredsModal] = useState(false);
   const [activeAgent, setActiveAgent] = useState<Agent | null>(null);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [createdAgentCreds, setCreatedAgentCreds] = useState<{
     name: string;
     employeeId: string;
     phone: string;
+    email?: string;
     pin: string;
   } | null>(null);
 
-  // Form State
-  const [registerForm, setRegisterForm] = useState({
-    name: "",
-    phone: "",
-    employeeId: "",
-    role: "Field Operations Agent",
-    category: "Field Team",
-    territory: "Jaipur Central",
-    department: "Operations",
-    initialPin: "123456",
-  });
+  // Form State - opens completely blank on New Agent click
+  const [registerForm, setRegisterForm] = useState(BLANK_REGISTER_FORM);
   const [editForm, setEditForm] = useState({
     name: "",
     phone: "",
+    email: "",
     role: "",
     territory: "",
     department: "",
@@ -115,8 +360,43 @@ export default function AdminAgentsPage() {
 
   useLiveRefresh(() => fetchAgents(true), !loading);
 
+  const openRegisterModal = () => {
+    // Ensure form is opened completely blank every time
+    setRegisterForm({ ...BLANK_REGISTER_FORM });
+    setShowRegisterModal(true);
+  };
+
   const handleRegisterAgent = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Client-side Mandatory Field Validation
+    if (!registerForm.name.trim()) {
+      alert("Full Name is mandatory.");
+      return;
+    }
+    const cleanPhone = registerForm.phone.replace(/\D/g, "");
+    if (cleanPhone.length < 10) {
+      alert("Valid 10-digit Mobile Number is mandatory.");
+      return;
+    }
+    if (!registerForm.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerForm.email.trim())) {
+      alert("Valid Email Address is mandatory (e.g. agent@sunlifesolar.in).");
+      return;
+    }
+    if (!registerForm.role.trim()) {
+      alert("Role Title is mandatory.");
+      return;
+    }
+    if (!registerForm.territory.trim()) {
+      alert("Assigned Territory is mandatory.");
+      return;
+    }
+    const pin = registerForm.initialPin.trim();
+    if (!pin || pin.length < 4 || pin.length > 6) {
+      alert("Initial Login PIN (4 to 6 digits) is mandatory.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const res = await fetch("/api/v1/admin/agents", {
@@ -131,26 +411,19 @@ export default function AdminAgentsPage() {
           name: data.agent.name,
           employeeId: data.agent.employeeId,
           phone: data.agent.phone,
+          email: data.agent.email || registerForm.email.trim(),
           pin: data.initialPin || registerForm.initialPin,
         });
         setShowCredsModal(true);
-        // Reset form
-        setRegisterForm({
-          name: "",
-          phone: "",
-          employeeId: "",
-          role: "Field Operations Agent",
-          category: "Field Team",
-          territory: "Jaipur Central",
-          department: "Operations",
-          initialPin: "123456",
-        });
-        fetchAgents();
+        // Reset form completely blank
+        setRegisterForm({ ...BLANK_REGISTER_FORM });
+        fetchAgents(true);
       } else {
-        alert(data.error || "Failed to register agent.");
+        alert("Unable to complete the request right now. Please try again.");
       }
     } catch (err: any) {
-      alert("Error registering agent: " + err.message);
+      console.error("[Agent Registration Error]:", err);
+      alert("Unable to complete the request right now. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -204,16 +477,21 @@ export default function AdminAgentsPage() {
     }
   };
 
+  const openProfile = (agent: Agent) => {
+    router.push(`/admin/team/${agent.id}/edit`);
+  };
+
   const openEdit = (agent: Agent) => {
     setActiveAgent(agent);
     setEditForm({
-      name: agent.name,
-      phone: agent.phone,
-      role: agent.role,
+      name: agent.name || "",
+      phone: agent.phone || "",
+      email: agent.email || "",
+      role: agent.role || "",
       territory: agent.territory || "",
       department: agent.department || "",
       status: agent.status || "Available",
-      newPin: "",
+      newPin: agent.pin || "",
     });
     setShowEditModal(true);
   };
@@ -221,15 +499,40 @@ export default function AdminAgentsPage() {
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeAgent) return;
+
+    // Client-side Mandatory Field Validation
+    if (!editForm.name.trim()) {
+      alert("Full Name is mandatory.");
+      return;
+    }
+    const cleanPhone = editForm.phone.replace(/\D/g, "");
+    if (cleanPhone.length < 10) {
+      alert("Valid 10-digit Mobile Number is mandatory.");
+      return;
+    }
+    if (!editForm.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email.trim())) {
+      alert("Valid Email Address is mandatory (e.g. agent@sunlifesolar.in).");
+      return;
+    }
+    if (!editForm.role.trim()) {
+      alert("Role Title is mandatory.");
+      return;
+    }
+    if (!editForm.territory.trim()) {
+      alert("Assigned Territory is mandatory.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const payload: any = {
         id: activeAgent.id,
-        name: editForm.name,
-        phone: editForm.phone,
-        role: editForm.role,
-        territory: editForm.territory,
-        department: editForm.department,
+        name: editForm.name.trim(),
+        phone: cleanPhone,
+        email: editForm.email.trim().toLowerCase(),
+        role: editForm.role.trim(),
+        territory: editForm.territory.trim(),
+        department: editForm.department.trim(),
         status: editForm.status,
       };
       if (editForm.newPin && editForm.newPin.trim().length >= 4) {
@@ -244,12 +547,31 @@ export default function AdminAgentsPage() {
       const data = await res.json();
       if (data.success) {
         setShowEditModal(false);
-        fetchAgents();
+        // Instant optimistic update
+        setAgents((prev) =>
+          prev.map((a) =>
+            a.id === activeAgent.id
+              ? {
+                  ...a,
+                  name: editForm.name.trim(),
+                  phone: cleanPhone,
+                  email: editForm.email.trim().toLowerCase(),
+                  role: editForm.role.trim(),
+                  territory: editForm.territory.trim(),
+                  department: editForm.department.trim(),
+                  status: editForm.status,
+                  pin: editForm.newPin && editForm.newPin.trim().length >= 4 ? editForm.newPin.trim() : (data.agent?.pin || a.pin || "123456"),
+                }
+              : a
+          )
+        );
+        fetchAgents(true);
       } else {
-        alert(data.error || "Failed to update agent.");
+        alert("Unable to complete the request right now. Please try again.");
       }
     } catch (err: any) {
-      alert("Error: " + err.message);
+      console.error("[Agent Update Error]:", err);
+      alert("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -260,14 +582,16 @@ export default function AdminAgentsPage() {
       name: agent.name,
       employeeId: agent.employeeId || agent.id,
       phone: agent.phone,
-      pin: "123456",
+      email: agent.email || undefined,
+      pin: agent.pin || "123456",
     });
     setShowCredsModal(true);
   };
 
   const copyCredsText = () => {
     if (!createdAgentCreds) return;
-    const text = `Sunlife Solar Agent App Credentials\nName: ${createdAgentCreds.name}\nEmployee ID: ${createdAgentCreds.employeeId}\nRegistered Phone: ${createdAgentCreds.phone}\nInitial PIN: ${createdAgentCreds.pin}\nLogin Portal: https://sunlifesolar.in/agent`;
+    const emailLine = createdAgentCreds.email ? `Email: ${createdAgentCreds.email}\n` : "";
+    const text = `Sunlife Solar Agent App Credentials\nName: ${createdAgentCreds.name}\nEmployee ID: ${createdAgentCreds.employeeId}\nRegistered Phone: ${createdAgentCreds.phone}\n${emailLine}Initial PIN: ${createdAgentCreds.pin}\nLogin Portal: https://sunlifesolar.in/agent`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -289,6 +613,7 @@ export default function AdminAgentsPage() {
       agent.name.toLowerCase().includes(q) ||
       (agent.employeeId && agent.employeeId.toLowerCase().includes(q)) ||
       agent.phone.includes(q) ||
+      (agent.email && agent.email.toLowerCase().includes(q)) ||
       agent.role.toLowerCase().includes(q) ||
       (agent.territory && agent.territory.toLowerCase().includes(q));
 
@@ -342,7 +667,7 @@ export default function AdminAgentsPage() {
           </button>
 
           <button
-            onClick={() => setShowRegisterModal(true)}
+            onClick={openRegisterModal}
             className="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs font-semibold rounded-xl transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
           >
             <Plus className="w-3.5 h-3.5 text-slate-600" />
@@ -455,7 +780,7 @@ export default function AdminAgentsPage() {
       </div>
 
       {/* Agents Table */}
-      <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider border-b border-slate-200">
@@ -506,12 +831,23 @@ export default function AdminAgentsPage() {
                       {/* Agent Info */}
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 flex items-center justify-center font-bold text-xs shrink-0">
+                          <div
+                            onClick={() => openProfile(agent)}
+                            className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 flex items-center justify-center font-bold text-xs shrink-0 cursor-pointer transition-colors shadow-2xs"
+                            title="Click to view agent profile"
+                          >
                             {initials}
                           </div>
                           <div>
                             <div className="font-semibold text-slate-900 flex items-center gap-1.5">
-                              <span>{agent.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => openProfile(agent)}
+                                className="hover:text-blue-600 hover:underline text-left font-semibold cursor-pointer transition-colors"
+                                title="Click to view agent profile"
+                              >
+                                {agent.name}
+                              </button>
                               {!agent.activeStatus && (
                                 <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-red-50 text-red-600 border border-red-200">
                                   Inactive
@@ -528,6 +864,15 @@ export default function AdminAgentsPage() {
                                   <span>{agent.status}</span>
                                 </>
                               )}
+                              <span>•</span>
+                              <button
+                                type="button"
+                                onClick={() => openProfile(agent)}
+                                className="text-blue-600 hover:text-blue-800 hover:underline font-medium inline-flex items-center gap-0.5 cursor-pointer"
+                              >
+                                <Eye className="w-3 h-3" />
+                                <span>View Profile</span>
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -543,13 +888,18 @@ export default function AdminAgentsPage() {
 
                       {/* Contact */}
                       <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-1.5 text-slate-700 font-mono font-medium">
-                          <Phone className="w-3 h-3 text-slate-400" />
+                        <div className="flex items-center gap-1.5 text-slate-700 font-mono font-medium text-xs">
+                          <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                           <span>+91 {agent.phone}</span>
                         </div>
-                        {agent.email && (
-                          <div className="text-[11px] text-slate-400 truncate max-w-[150px]">
-                            {agent.email}
+                        {agent.email ? (
+                          <div className="flex items-center gap-1.5 text-[11px] text-slate-600 mt-1 truncate max-w-[190px]" title={agent.email}>
+                            <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span className="truncate font-medium">{agent.email}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-[10px] text-amber-600/70 mt-0.5 italic">
+                            <span>No email assigned</span>
                           </div>
                         )}
                       </td>
@@ -590,36 +940,29 @@ export default function AdminAgentsPage() {
                         </button>
                       </td>
 
-                      {/* Actions */}
+                      {/* Actions with Three-Dot & Hover Dropdown */}
                       <td className="px-5 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* Direct Quick View Profile Button */}
                           <button
-                            onClick={() => openCredentials(agent)}
-                            title="View credentials & WhatsApp invite"
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer border border-transparent hover:border-slate-200"
+                            type="button"
+                            onClick={() => openProfile(agent)}
+                            title="View Agent Profile"
+                            className="p-1.5 px-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer border border-slate-200 hover:border-slate-300 flex items-center gap-1 text-[11px] font-medium shadow-2xs"
                           >
-                            <KeyRound className="w-3.5 h-3.5" />
+                            <Eye className="w-3.5 h-3.5 text-slate-500" />
+                            <span className="hidden sm:inline">Profile</span>
                           </button>
 
-                          <button
-                            onClick={() => openEdit(agent)}
-                            title="Edit Agent details"
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer border border-transparent hover:border-slate-200"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            onClick={() => handleToggleActiveStatus(agent)}
-                            title={agent.activeStatus ? "Deactivate agent" : "Activate agent"}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer border border-transparent hover:border-red-100"
-                          >
-                            {agent.activeStatus ? (
-                              <Trash2 className="w-3.5 h-3.5" />
-                            ) : (
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            )}
-                          </button>
+                          {/* Portal-based Hover Action Menu */}
+                          <AgentActionMenu
+                            agent={agent}
+                            onViewProfile={() => openProfile(agent)}
+                            onEdit={() => openEdit(agent)}
+                            onCredentials={() => openCredentials(agent)}
+                            onToggleAccess={() => handleToggleAccess(agent)}
+                            onToggleActive={() => handleToggleActiveStatus(agent)}
+                          />
                         </div>
                       </td>
                     </tr>
@@ -639,7 +982,7 @@ export default function AdminAgentsPage() {
               <div>
                 <h3 className="text-base font-bold text-slate-900">Register New Field Agent</h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Creates profile and generates mobile credentials with 6-digit PIN
+                  Fields marked with <span className="text-red-500 font-bold">*</span> are mandatory
                 </p>
               </div>
               <button
@@ -653,7 +996,9 @@ export default function AdminAgentsPage() {
             <form onSubmit={handleRegisterAgent} className="space-y-4 pt-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Full Name *</label>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    Full Name <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     required
@@ -668,7 +1013,7 @@ export default function AdminAgentsPage() {
 
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1">
-                    Mobile Number *
+                    Mobile Number <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="tel"
@@ -686,7 +1031,23 @@ export default function AdminAgentsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1">
-                    Employee ID (Optional)
+                    Email Address <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="agent@sunlifesolar.in"
+                    value={registerForm.email}
+                    onChange={(e) =>
+                      setRegisterForm({ ...registerForm, email: e.target.value })
+                    }
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    Employee ID <span className="text-slate-400 font-normal">(Optional)</span>
                   </label>
                   <input
                     type="text"
@@ -698,14 +1059,36 @@ export default function AdminAgentsPage() {
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white font-mono"
                   />
                 </div>
+              </div>
 
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Role Title</label>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    Role Title <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
+                    required
+                    placeholder="e.g. Field Operations Agent"
                     value={registerForm.role}
                     onChange={(e) =>
                       setRegisterForm({ ...registerForm, role: e.target.value })
+                    }
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    Assigned Territory <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Jaipur Central, Pipariya"
+                    value={registerForm.territory}
+                    onChange={(e) =>
+                      setRegisterForm({ ...registerForm, territory: e.target.value })
                     }
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white"
                   />
@@ -715,25 +1098,12 @@ export default function AdminAgentsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1">
-                    Assigned Territory
+                    Initial 6-Digit PIN <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Jaipur North, Pipariya"
-                    value={registerForm.territory}
-                    onChange={(e) =>
-                      setRegisterForm({ ...registerForm, territory: e.target.value })
-                    }
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">
-                    Initial 6-Digit PIN
-                  </label>
-                  <input
-                    type="text"
+                    required
+                    placeholder="4 to 6 digit PIN"
                     maxLength={6}
                     value={registerForm.initialPin}
                     onChange={(e) =>
@@ -742,11 +1112,26 @@ export default function AdminAgentsPage() {
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white font-mono text-center tracking-wider"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    Department <span className="text-slate-400 font-normal">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Operations, Sales"
+                    value={registerForm.department}
+                    onChange={(e) =>
+                      setRegisterForm({ ...registerForm, department: e.target.value })
+                    }
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white"
+                  />
+                </div>
               </div>
 
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-500 text-[11px] leading-relaxed">
                 The agent will immediately be able to log in to the Sunlife Field Agent App using
-                their registered mobile number and this 6-digit initial PIN.
+                their registered mobile number or employee ID and this 6-digit initial PIN.
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
@@ -780,7 +1165,7 @@ export default function AdminAgentsPage() {
                   Edit Agent: {activeAgent.name}
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  ID: {activeAgent.employeeId || activeAgent.id}
+                  ID: {activeAgent.employeeId || activeAgent.id} • Fields with <span className="text-red-500 font-bold">*</span> are mandatory
                 </p>
               </div>
               <button
@@ -794,7 +1179,9 @@ export default function AdminAgentsPage() {
             <form onSubmit={handleSaveEdit} className="space-y-4 pt-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Full Name</label>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    Full Name <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     required
@@ -805,7 +1192,9 @@ export default function AdminAgentsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Mobile Number</label>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    Mobile Number <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="tel"
                     required
@@ -818,21 +1207,41 @@ export default function AdminAgentsPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Role Title</label>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    Email Address <span className="text-red-500">*</span>
+                  </label>
                   <input
-                    type="text"
-                    value={editForm.role}
-                    onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                    type="email"
+                    required
+                    placeholder="agent@sunlifesolar.in"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white"
                   />
                 </div>
 
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1">
-                    Assigned Territory
+                    Role Title <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
+                    required
+                    value={editForm.role}
+                    onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    Assigned Territory <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
                     value={editForm.territory}
                     onChange={(e) =>
                       setEditForm({ ...editForm, territory: e.target.value })
@@ -840,9 +1249,7 @@ export default function AdminAgentsPage() {
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white"
                   />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1">
                     Duty Status Label
@@ -858,14 +1265,31 @@ export default function AdminAgentsPage() {
                     <option value="Off-Duty">Off-Duty</option>
                   </select>
                 </div>
+              </div>
 
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1">
-                    Reset Login PIN (Optional)
+                    Department <span className="text-slate-400 font-normal">(Optional)</span>
                   </label>
                   <input
                     type="text"
-                    placeholder="New 6-digit PIN"
+                    placeholder="e.g. Operations, Sales"
+                    value={editForm.department}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, department: e.target.value })
+                    }
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    Reset Login PIN <span className="text-slate-400 font-normal">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="New 4-6 digit PIN"
                     maxLength={6}
                     value={editForm.newPin}
                     onChange={(e) =>
@@ -937,6 +1361,14 @@ export default function AdminAgentsPage() {
                     +91 {createdAgentCreds.phone}
                   </span>
                 </div>
+                {createdAgentCreds.email && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Email Address</span>
+                    <span className="font-mono font-medium text-slate-800 truncate max-w-[200px]">
+                      {createdAgentCreds.email}
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between pt-1 border-t border-slate-200/80">
                   <span className="text-slate-400">Login PIN</span>
                   <span className="font-mono font-bold text-slate-900 tracking-wider">

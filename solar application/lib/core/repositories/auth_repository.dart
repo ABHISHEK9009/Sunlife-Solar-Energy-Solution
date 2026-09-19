@@ -4,6 +4,20 @@ import '../models/user_profile.dart';
 import '../network/api_client.dart';
 import '../storage/secure_storage_service.dart';
 
+class OtpRequestResult {
+  const OtpRequestResult({
+    required this.success,
+    this.maskedEmail,
+    this.message,
+    this.error,
+  });
+
+  final bool success;
+  final String? maskedEmail;
+  final String? message;
+  final String? error;
+}
+
 class AuthRepository {
   AuthRepository._internal();
   static final AuthRepository instance = AuthRepository._internal();
@@ -12,32 +26,36 @@ class AuthRepository {
 
   UserProfile? get currentUser => _currentUser;
 
-  Future<bool> requestOtp({
+  Future<OtpRequestResult> requestOtp({
     required String identifier,
     bool isAgent = false,
   }) async {
+    final cleanPhone = identifier.trim().replaceAll(RegExp(r'\s+'), '');
     try {
       final endpoint =
           isAgent ? ApiConstants.agentRequestOtp : ApiConstants.customerRequestOtp;
-      final payload = isAgent
-          ? {'identifier': identifier.trim()}
-          : {'phone': identifier.trim().replaceAll(' ', '')};
+      final payload = {'phone': cleanPhone};
 
       final res = await ApiClient.instance.post(endpoint, data: payload);
-      return res.statusCode == 200 || res.statusCode == 201;
-    } catch (e) {
-      if (e is ApiException) {
-        final isTestUser = identifier == '9876543210' ||
-            identifier == 'SL-A104' ||
-            identifier == '7722995100' ||
-            identifier.endsWith('0000');
-        if (!isTestUser) {
-          rethrow;
-        }
+      if ((res.statusCode == 200 || res.statusCode == 201) && res.data is Map<String, dynamic>) {
+        final data = res.data as Map<String, dynamic>;
+        return OtpRequestResult(
+          success: true,
+          maskedEmail: data['maskedEmail'] as String?,
+          message: data['message'] as String?,
+        );
       }
-      // Graceful local development / offline fallback
-      await Future.delayed(const Duration(milliseconds: 300));
-      return true;
+      final errorMsg = res.data is Map && (res.data as Map)['error'] != null
+          ? (res.data as Map)['error'].toString()
+          : 'Unable to complete the request right now. Please try again.';
+      return OtpRequestResult(success: false, error: errorMsg);
+    } on ApiException catch (e) {
+      return OtpRequestResult(success: false, error: e.message);
+    } catch (_) {
+      return const OtpRequestResult(
+        success: false,
+        error: 'Unable to complete the request right now. Please try again.',
+      );
     }
   }
 
@@ -46,117 +64,66 @@ class AuthRepository {
     required String otp,
     bool isAgent = false,
   }) async {
-    if (otp.trim().length != 6) {
-      throw ApiException('OTP must be 6 digits');
+    final cleanPhone = identifier.trim().replaceAll(RegExp(r'\s+'), '');
+    final cleanOtp = otp.trim();
+
+    if (cleanOtp.length != 6 || !RegExp(r'^\d{6}$').hasMatch(cleanOtp)) {
+      throw ApiException('Enter a valid 6-digit OTP');
     }
 
-    try {
-      final endpoint =
-          isAgent ? ApiConstants.agentVerifyOtp : ApiConstants.customerVerifyOtp;
-      final payload = isAgent
-          ? {'identifier': identifier.trim(), 'otp': otp.trim()}
-          : {'phone': identifier.trim().replaceAll(' ', ''), 'otp': otp.trim()};
+    final endpoint =
+        isAgent ? ApiConstants.agentVerifyOtp : ApiConstants.customerVerifyOtp;
+    final payload = {'phone': cleanPhone, 'otp': cleanOtp};
 
-      final res = await ApiClient.instance.post(endpoint, data: payload);
-      if (res.statusCode == 200 && res.data is Map<String, dynamic>) {
-        final data = res.data as Map<String, dynamic>;
-        final access = data['accessToken'] as String? ??
-            data['access_token'] as String? ??
-            'auth_${DateTime.now().millisecondsSinceEpoch}';
-        final refresh = data['refreshToken'] as String? ??
-            data['refresh_token'] as String? ??
-            'refresh_${DateTime.now().millisecondsSinceEpoch}';
-
-        ApiClient.instance.setAuthToken(access);
-
-        final customerData = data['customer'] as Map<String, dynamic>?;
-        final agentData = data['agent'] as Map<String, dynamic>?;
-        final userData = data['user'] as Map<String, dynamic>?;
-
-        final user = isAgent
-            ? UserProfile(
-                id: agentData?['employeeId'] as String? ??
-                    agentData?['id'] as String? ??
-                    identifier,
-                name: agentData?['name'] as String? ?? 'Rahul Kumar',
-                phone: agentData?['phone'] as String? ?? '+91 98765 00000',
-                role: 'agent',
-                territory: agentData?['territory'] as String? ?? 'Jaipur West',
-                managerName:
-                    agentData?['department'] as String? ?? 'Operations',
-              )
-            : UserProfile(
-                id: customerData?['customerId'] as String? ??
-                    customerData?['id'] as String? ??
-                    'SL-10452',
-                name: customerData?['fullName'] as String? ??
-                    userData?['name'] as String? ??
-                    'Rajesh Sharma',
-                phone: customerData?['primaryMobile'] as String? ?? identifier,
-                email: customerData?['email'] as String? ??
-                    userData?['email'] as String?,
-                role: 'customer',
-                plantId: 'SP-JPR-00452',
-                discomConsumerNo: 'JVVNL-182943',
-                subsidyBankMasked: 'XXXXXX2341',
-              );
-
-        await SecureStorageService.saveSession(
-          accessToken: access,
-          refreshToken: refresh,
-          role: isAgent ? 'agent' : 'customer',
-          userId: user.id.isNotEmpty ? user.id : identifier,
-          userName: user.name,
-        );
-        _currentUser = user;
-        return user;
+    final res = await ApiClient.instance.post(endpoint, data: payload);
+    if ((res.statusCode == 200 || res.statusCode == 201) && res.data is Map<String, dynamic>) {
+      final data = res.data as Map<String, dynamic>;
+      final access = data['accessToken'] as String? ?? data['access_token'] as String?;
+      if (access == null || access.isEmpty) {
+        throw ApiException('Invalid session received from server.');
       }
-    } catch (e) {
-      if (e is ApiException) {
-        final isTestUser = identifier == '9876543210' ||
-            identifier == 'SL-A104' ||
-            identifier == '7722995100' ||
-            identifier.endsWith('0000');
-        if (!isTestUser) {
-          rethrow;
-        }
-      }
+
+      ApiClient.instance.setAuthToken(access);
+
+      final agentData = data['agent'] as Map<String, dynamic>?;
+      final customerData = data['customer'] as Map<String, dynamic>?;
+
+      final user = isAgent
+          ? UserProfile(
+              id: agentData?['employeeId'] as String? ?? agentData?['id'] as String? ?? cleanPhone,
+              name: agentData?['name'] as String? ?? 'Field Partner',
+              phone: agentData?['phone'] as String? ?? cleanPhone,
+              email: agentData?['email'] as String?,
+              role: 'agent',
+              territory: agentData?['territory'] as String? ?? 'Jaipur Central',
+              managerName: agentData?['department'] as String? ?? 'Operations',
+            )
+          : UserProfile(
+              id: customerData?['customerId'] as String? ?? customerData?['id'] as String? ?? cleanPhone,
+              name: customerData?['fullName'] as String? ?? 'Customer',
+              phone: customerData?['primaryMobile'] as String? ?? cleanPhone,
+              email: customerData?['email'] as String?,
+              role: 'customer',
+              plantId: customerData?['plantId'] as String? ?? '',
+              discomConsumerNo: customerData?['discomConsumerNo'] as String? ?? '',
+            );
+
+      await SecureStorageService.saveSession(
+        accessToken: access,
+        refreshToken: (data['refreshToken'] as String?) ?? '',
+        role: isAgent ? 'agent' : 'customer',
+        userId: user.id,
+        userName: user.name,
+      );
+
+      _currentUser = user;
+      return user;
     }
 
-    // Offline / test fallback user generation
-    final user = isAgent
-        ? UserProfile(
-            id: identifier.startsWith('SL-') ? identifier : 'SL-A104',
-            name: 'Rahul Kumar',
-            phone: '+91 98765 00000',
-            role: 'agent',
-            territory: 'Jaipur West',
-            managerName: 'Priya Verma',
-          )
-        : UserProfile(
-            id: 'SL-10452',
-            name: 'Rajesh Sharma',
-            phone: identifier,
-            email: 'rajesh@example.com',
-            role: 'customer',
-            plantId: 'SP-JPR-00452',
-            discomConsumerNo: 'JVVNL-182943',
-            subsidyBankMasked: 'XXXXXX2341',
-          );
-
-    final mockToken = 'auth_token_${DateTime.now().millisecondsSinceEpoch}';
-    ApiClient.instance.setAuthToken(mockToken);
-
-    await SecureStorageService.saveSession(
-      accessToken: mockToken,
-      refreshToken: 'refresh_token_${DateTime.now().millisecondsSinceEpoch}',
-      role: isAgent ? 'agent' : 'customer',
-      userId: user.id,
-      userName: user.name,
-    );
-
-    _currentUser = user;
-    return user;
+    final errorMsg = res.data is Map && (res.data as Map)['error'] != null
+        ? (res.data as Map)['error'].toString()
+        : 'Incorrect OTP. Please try again.';
+    throw ApiException(errorMsg);
   }
 
   Future<UserProfile?> loadStoredSession() async {
@@ -174,22 +141,17 @@ class AuthRepository {
 
     _currentUser = role == 'agent'
         ? UserProfile(
-            id: userId.isNotEmpty ? userId : 'SL-A104',
-            name: userName ?? 'Rahul Kumar',
-            phone: '+91 98765 00000',
+            id: userId,
+            name: userName ?? 'Field Partner',
+            phone: '',
             role: 'agent',
-            territory: 'Jaipur West',
-            managerName: 'Priya Verma',
+            territory: 'Jaipur Central',
           )
         : UserProfile(
-            id: userId.isNotEmpty ? userId : 'SL-10452',
-            name: userName ?? 'Rajesh Sharma',
-            phone: '+91 98765 43210',
-            email: 'rajesh@example.com',
+            id: userId,
+            name: userName ?? 'Customer',
+            phone: '',
             role: 'customer',
-            plantId: 'SP-JPR-00452',
-            discomConsumerNo: 'JVVNL-182943',
-            subsidyBankMasked: 'XXXXXX2341',
           );
 
     return _currentUser;

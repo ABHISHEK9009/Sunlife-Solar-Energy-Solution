@@ -5,17 +5,17 @@ import { logAuditEvent } from "@/lib/crm/audit-logger";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const identifier = body.identifier || body.agent_id || body.phone;
+    const identifier = body.phone || body.mobile || body.identifier || body.agent_id;
     const { otp } = body;
 
     if (!identifier || !otp) {
       return NextResponse.json(
-        { error: "Identifier and 6-digit OTP are required." },
+        { error: "Mobile number and 6-digit OTP are required." },
         { status: 400 }
       );
     }
 
-    const result = await verifyAgentOtp(identifier, otp);
+    const result = await verifyAgentOtp(identifier.toString(), otp.toString());
 
     // Audit log successful agent login
     try {
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error("[Agent OTP Verify Error]:", error);
     return NextResponse.json(
-      { error: error.message || "Invalid or expired agent OTP." },
+      { error: error.message || "Invalid or expired OTP." },
       { status: 400 }
     );
   }

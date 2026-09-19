@@ -16,12 +16,18 @@ class AgentProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = AuthRepository.instance.currentUser;
-    final name = user?.name.isNotEmpty == true ? user!.name : 'Rahul Kumar';
-    final agentId = user?.id.isNotEmpty == true ? user!.id : 'SL-A104';
-    final territory = user?.territory ?? 'Jaipur West';
-    final manager = user?.managerName ?? 'Priya Verma';
-    final phone = user?.phone ?? '+91 98765 00000';
-    final initials = name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join();
+    final name = user?.name.isNotEmpty == true ? user!.name : 'Field Partner';
+    final agentId = user?.id.isNotEmpty == true ? user!.id : 'CRM Employee';
+    final territory = user?.territory ?? 'Jaipur Central';
+    final manager = user?.managerName ?? 'Operations';
+    final phone = user?.phone.isNotEmpty == true ? user!.phone : '';
+    final initials = name
+        .split(' ')
+        .where((e) => e.isNotEmpty)
+        .map((e) => e[0])
+        .take(2)
+        .join()
+        .toUpperCase();
 
     return Frame('Agent profile', [
       CardBox(

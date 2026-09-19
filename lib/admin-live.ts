@@ -36,7 +36,12 @@ export async function adminFetch(input: RequestInfo | URL, init?: RequestInit): 
     const response = await fetch(input, { ...init, cache: "no-store", signal: controller.signal });
     if (!response.ok) {
       const body = await response.clone().json().catch(() => null);
-      throw new Error(response.status === 401 ? "Your session expired. Please sign in again." : body?.error || "Unable to reach the database. Please retry.");
+      const userMessage = response.status === 401
+        ? "Your session expired. Please sign in again."
+        : (body?.error && typeof body.error === "string" && !/database|prisma|sql|server|column|syntax|query|econnrefused/i.test(body.error)
+            ? body.error
+            : "Unable to complete the request right now. Please try again.");
+      throw new Error(userMessage);
     }
     report(key);
     if (!["GET", "HEAD"].includes(method)) {
@@ -50,7 +55,7 @@ export async function adminFetch(input: RequestInfo | URL, init?: RequestInit): 
     return response;
   } catch (error) {
     if (!parentSignal?.aborted) {
-      report(key, error instanceof Error && error.name !== "AbortError" ? error.message : "Database request timed out. Please retry.");
+      report(key, "Unable to complete the request right now. Please try again.");
     }
     throw error;
   } finally {

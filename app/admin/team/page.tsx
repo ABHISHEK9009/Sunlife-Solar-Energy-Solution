@@ -66,6 +66,8 @@ interface TeamMember {
   skills: string[];
   joinedYear: string;
   monthlySalary?: number;
+  employeeId?: string;
+  activeStatus?: boolean;
   // Personal Info
   email?: string;
   dob?: string;
@@ -171,6 +173,229 @@ type ExportPreset =
   | "last6months"
   | "thisyear"
   | "custom";
+
+function TeamMemberActionMenu({
+  member,
+  onViewProfile,
+  onEditProfile,
+  onViewMonthlySlip,
+  onDeleteMember,
+}: {
+  member: TeamMember;
+  onViewProfile: () => void;
+  onEditProfile: () => void;
+  onViewMonthlySlip: () => void;
+  onDeleteMember: () => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; right: number; openUpward: boolean } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const leaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const updatePosition = () => {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const menuEstimatedHeight = 250;
+    const openUpward =
+      rect.bottom + menuEstimatedHeight > window.innerHeight &&
+      rect.top > menuEstimatedHeight;
+
+    setCoords({
+      top: openUpward ? rect.top - 6 : rect.bottom + 6,
+      right: Math.max(12, window.innerWidth - rect.right),
+      openUpward,
+    });
+  };
+
+  const handleMouseEnter = () => {
+    if (leaveTimerRef.current) {
+      clearTimeout(leaveTimerRef.current);
+      leaveTimerRef.current = null;
+    }
+    updatePosition();
+    setIsOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+    leaveTimerRef.current = setTimeout(() => {
+      setIsOpen(false);
+    }, 220);
+  };
+
+  const toggleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isOpen) {
+      updatePosition();
+      setIsOpen(true);
+    } else {
+      setIsOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+    const handleScroll = () => {
+      setIsOpen(false);
+    };
+    window.addEventListener("mousedown", handleOutside);
+    window.addEventListener("scroll", handleScroll, true);
+    return () => {
+      window.removeEventListener("mousedown", handleOutside);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+    };
+  }, []);
+
+  return (
+    <div
+      className="relative inline-flex items-center justify-center"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={toggleClick}
+        title={`Actions for ${member.name}`}
+        aria-label={`Actions for ${member.name}`}
+        aria-expanded={isOpen}
+        className={`p-2 rounded-xl transition-all cursor-pointer border ${
+          isOpen
+            ? "bg-slate-200 text-slate-900 border-slate-300 shadow-sm"
+            : "bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200 hover:border-slate-300"
+        }`}
+      >
+        <MoreHorizontal className="w-4 h-4" />
+      </button>
+
+      {isOpen &&
+        coords &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={menuRef}
+            onMouseEnter={() => {
+              if (leaveTimerRef.current) {
+                clearTimeout(leaveTimerRef.current);
+                leaveTimerRef.current = null;
+              }
+            }}
+            onMouseLeave={handleMouseLeave}
+            style={{
+              position: "fixed",
+              top: coords.openUpward ? "auto" : `${coords.top}px`,
+              bottom: coords.openUpward
+                ? `${window.innerHeight - coords.top}px`
+                : "auto",
+              right: `${coords.right}px`,
+              zIndex: 9999,
+            }}
+            className="w-52 rounded-2xl border border-slate-200 bg-white p-1.5 text-left shadow-2xl animate-in fade-in zoom-in-95 duration-100"
+          >
+            <div className="px-3 py-1.5 border-b border-slate-100 mb-1">
+              <div className="font-bold text-[11px] text-slate-900 truncate">
+                {member.name}
+              </div>
+              <div className="font-mono text-[10px] text-slate-400">
+                {member.employeeId || member.role}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                onViewProfile();
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
+            >
+              <Eye className="w-3.5 h-3.5 text-blue-600" />
+              <span>View Profile</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                onEditProfile();
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+              <span>Edit Profile</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                onViewMonthlySlip();
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
+            >
+              <FileText className="w-3.5 h-3.5 text-emerald-600" />
+              <span>View Monthly Slip</span>
+            </button>
+
+            <a
+              href={`tel:${member.phone}`}
+              onClick={() => setIsOpen(false)}
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+            >
+              <Phone className="w-3.5 h-3.5 text-slate-500" />
+              <span>Call Staff</span>
+            </a>
+
+            <a
+              href={`https://wa.me/91${member.phone.replace(/[^0-9]/g, "")}`}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => setIsOpen(false)}
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+              <span>WhatsApp</span>
+            </a>
+
+            {member.id !== "owner-1" && (
+              <>
+                <div className="my-1 border-t border-slate-100" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(false);
+                    onDeleteMember();
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Employee</span>
+                </button>
+              </>
+            )}
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+}
 
 function TeamContent() {
   const searchParams = useSearchParams();
@@ -380,7 +605,8 @@ function TeamContent() {
       onSaved();
       return true;
     } catch (error) {
-      setWorkforceError(error instanceof Error ? error.message : "Unable to save changes. Please retry.");
+      console.error("[Workforce Save Error]:", error);
+      setWorkforceError("Something went wrong. Please try again.");
       return false;
     } finally {
       savingRef.current = false;
@@ -2071,18 +2297,30 @@ function TeamContent() {
                     <th className="px-6 py-3.5">Designation</th>
                     <th className="px-6 py-3.5">Contact Number</th>
                     <th className="px-6 py-3.5">Territory Hub</th>
-                    <th className="px-3 py-3.5 text-center">Actions</th>
+                    <th className="px-4 py-3.5 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredTeam.map((member) => (
                     <tr key={member.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="px-6 py-4">
-                        <div className="font-bold text-slate-900 text-sm">
+                        <Link
+                          href={`/admin/team/${member.id}/edit`}
+                          className="font-bold text-slate-900 text-sm hover:text-blue-600 hover:underline text-left cursor-pointer transition-colors block"
+                          title="Click to view full profile"
+                        >
                           {member.name}
-                        </div>
-                        <div className="text-[10px] text-slate-400">
-                          Joined {member.joinedYear}
+                        </Link>
+                        <div className="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                          <span>Joined {member.joinedYear}</span>
+                          <span>•</span>
+                          <Link
+                            href={`/admin/team/${member.id}/edit`}
+                            className="text-blue-600 hover:text-blue-800 hover:underline font-medium inline-flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>View Profile</span>
+                          </Link>
                         </div>
                       </td>
 
@@ -2112,57 +2350,17 @@ function TeamContent() {
                         </span>
                       </td>
 
-                      <td className="px-3 py-4 text-center">
-                        <div className="relative inline-flex justify-center">
-                          <button
-                            type="button"
-                            onClick={() => setOpenActionMenuMemberId((openId) => openId === member.id ? null : member.id)}
-                            title={`More actions for ${member.name}`}
-                            aria-label={`More actions for ${member.name}`}
-                            aria-expanded={openActionMenuMemberId === member.id}
-                            className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors cursor-pointer"
-                          >
-                            <MoreHorizontal className="w-4 h-4" />
-                          </button>
-                          {openActionMenuMemberId === member.id && (
-                            <div className="absolute right-0 top-full z-30 mt-2 w-48 rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl">
-                              <button
-                                onClick={() => { openEditProfile(member.id); setOpenActionMenuMemberId(null); }}
-                                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                              >
-                                <Edit3 className="w-3.5 h-3.5 text-blue-600" /> Edit profile
-                              </button>
-                              <button
-                                onClick={() => { setMonthlyFilterMemberId(member.id); handleTabChange("monthly"); setOpenActionMenuMemberId(null); }}
-                                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                              >
-                                <FileText className="w-3.5 h-3.5 text-emerald-600" /> View monthly slip
-                              </button>
-                              <a
-                                href={`tel:${member.phone}`}
-                                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                              >
-                                <Phone className="w-3.5 h-3.5 text-slate-500" /> Call staff
-                              </a>
-                              <a
-                                href={`https://wa.me/91${member.phone.replace(/[^0-9]/g, "")}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                              >
-                                <MessageSquare className="w-3.5 h-3.5 text-emerald-600" /> WhatsApp
-                              </a>
-                              {member.id !== "owner-1" && (
-                                <button
-                                  onClick={() => { handleDeleteMember(member.id); setOpenActionMenuMemberId(null); }}
-                                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" /> Delete employee
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                      <td className="px-4 py-4 text-center">
+                        <TeamMemberActionMenu
+                          member={member}
+                          onViewProfile={() => router.push(`/admin/team/${member.id}/edit`)}
+                          onEditProfile={() => router.push(`/admin/team/${member.id}/edit?mode=edit`)}
+                          onViewMonthlySlip={() => {
+                            setMonthlyFilterMemberId(member.id);
+                            handleTabChange("monthly");
+                          }}
+                          onDeleteMember={() => handleDeleteMember(member.id)}
+                        />
                       </td>
                     </tr>
                   ))}

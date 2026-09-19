@@ -45,12 +45,12 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      final success = await AuthRepository.instance.requestOtp(identifier: phone);
+      final result = await AuthRepository.instance.requestOtp(identifier: phone);
       if (!mounted) return;
-      if (success) {
+      if (result.success) {
         openPage(context, OtpPage(phoneNumber: phone));
       } else {
-        setState(() => _errorMessage = 'Could not send OTP. Please check your number.');
+        setState(() => _errorMessage = result.error ?? 'Could not send OTP. Please check your number.');
       }
     } catch (e) {
       if (mounted) {

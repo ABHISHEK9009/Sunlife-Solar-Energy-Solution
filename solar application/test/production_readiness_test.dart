@@ -1,4 +1,8 @@
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sunlife_solar/core/network/api_client.dart';
 import 'package:sunlife_solar/core/repositories/agent_repository.dart';
 import 'package:sunlife_solar/core/repositories/auth_repository.dart';
 import 'package:sunlife_solar/core/repositories/document_repository.dart';
@@ -8,21 +12,117 @@ import 'package:sunlife_solar/core/repositories/project_repository.dart';
 import 'package:sunlife_solar/core/repositories/support_repository.dart';
 import 'package:sunlife_solar/core/storage/secure_storage_service.dart';
 
+class _TestHttpAdapter implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    if (options.path.contains('/auth/agent/login') || options.path.contains('/auth/otp/send')) {
+      return ResponseBody.fromString(
+        jsonEncode({
+          'success': true,
+          'maskedEmail': 'a***@company.com',
+          'message': 'OTP sent',
+        }),
+        200,
+        headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
+      );
+    }
+    if (options.path.contains('/auth/agent/verify')) {
+      return ResponseBody.fromString(
+        jsonEncode({
+          'success': true,
+          'accessToken': 'test_agent_token',
+          'agent': {
+            'id': 'SA-54504',
+            'employeeId': 'SA-54504',
+            'name': 'Abhishek Verma',
+            'phone': '8839707135',
+            'email': 'abhishekverma9920@gmail.com',
+            'role': 'Field Operations Partner',
+            'territory': 'Jaipur Central',
+            'department': 'Operations',
+          },
+        }),
+        200,
+        headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
+      );
+    }
+    if (options.path.contains('/auth/otp/verify')) {
+      return ResponseBody.fromString(
+        jsonEncode({
+          'success': true,
+          'accessToken': 'test_customer_token',
+          'customer': {
+            'id': 'SL-10452',
+            'fullName': 'Rajesh Sharma',
+            'primaryMobile': '9876543210',
+            'email': 'rajesh@example.com',
+            'plantId': 'SP-JPR-00452',
+            'discomConsumerNo': 'JVVNL-182943',
+          },
+        }),
+        200,
+        headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
+      );
+    }
+    if (options.path.contains('/agent/leads')) {
+      return ResponseBody.fromString(
+        jsonEncode({
+          'success': true,
+          'leads': [],
+        }),
+        200,
+        headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
+      );
+    }
+    if (options.path.contains('/agent/visits')) {
+      return ResponseBody.fromString(
+        jsonEncode({
+          'success': true,
+          'visits': [
+            {
+              'id': 'visit_1',
+              'time': '10:30 AM',
+              'customerName': 'Ramesh Patel',
+              'purpose': 'Site survey',
+              'location': 'C-Scheme, Jaipur',
+              'checklist': [false, false, false, false],
+              'isCompleted': false,
+            }
+          ],
+        }),
+        200,
+        headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
+      );
+    }
+    return ResponseBody.fromString('{}', 200, headers: {
+      Headers.contentTypeHeader: [Headers.jsonContentType],
+    });
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Production Readiness Core Verification', () {
     setUp(() async {
       await SecureStorageService.clearSession();
+      ApiClient.instance.dio.httpClientAdapter = _TestHttpAdapter();
     });
 
     test('AuthRepository - Customer OTP request & verification with session persistence', () async {
-      final otpSent = await AuthRepository.instance.requestOtp(identifier: '9876543210');
-      expect(otpSent, isTrue);
+      final res = await AuthRepository.instance.requestOtp(identifier: '9876543210');
+      expect(res.success, isTrue);
 
       final user = await AuthRepository.instance.verifyOtp(
         identifier: '9876543210',
-        otp: '123456',
+        otp: '654321',
         isAgent: false,
       );
 
@@ -37,13 +137,13 @@ void main() {
 
     test('AuthRepository - Agent authentication with credentials', () async {
       final user = await AuthRepository.instance.verifyOtp(
-        identifier: 'SL-A104',
-        otp: '123456',
+        identifier: '8839707135',
+        otp: '654321',
         isAgent: true,
       );
 
       expect(user.role, 'agent');
-      expect(user.name, 'Rahul Kumar');
+      expect(user.name, 'Abhishek Verma');
       expect(await SecureStorageService.getUserRole(), 'agent');
       expect(await SecureStorageService.isLoggedIn(), isTrue);
     });
@@ -118,15 +218,15 @@ void main() {
       final visits = await AgentRepository.instance.getTodayVisits();
       expect(visits, isNotEmpty);
 
-      await AgentRepository.instance.updateVisitChecklist('Anita Meena', 0, true);
+      await AgentRepository.instance.updateVisitChecklist('Ramesh Patel', 0, true);
       await AgentRepository.instance.completeVisit(
-        'Anita Meena',
+        'Ramesh Patel',
         latitude: 26.9124,
         longitude: 75.7873,
         photoPaths: ['mock_photo_1.jpg'],
       );
 
-      final visit = await AgentRepository.instance.getVisitForCustomer('Anita Meena');
+      final visit = await AgentRepository.instance.getVisitForCustomer('Ramesh Patel');
       expect(visit?.isCompleted, isTrue);
       expect(visit?.latitude, 26.9124);
       expect(visit?.photoPaths, contains('mock_photo_1.jpg'));
