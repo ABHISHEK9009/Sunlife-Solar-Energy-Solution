@@ -187,8 +187,8 @@ export default function WhatsAppInboxPage() {
   };
 
   // Fetch Messages for active conversation
-  const fetchMessages = async (conversationId: string) => {
-    setIsLoadingMessages(true);
+  const fetchMessages = async (conversationId: string, isSilent = false) => {
+    if (!isSilent) setIsLoadingMessages(true);
     try {
       const res = await fetch(`/api/v1/admin/whatsapp?action=messages&conversationId=${conversationId}`);
       const data = await res.json();
@@ -198,7 +198,7 @@ export default function WhatsAppInboxPage() {
     } catch (e) {
       console.error("Failed to load messages:", e);
     } finally {
-      setIsLoadingMessages(false);
+      if (!isSilent) setIsLoadingMessages(false);
     }
   };
 
@@ -227,7 +227,7 @@ export default function WhatsAppInboxPage() {
     fetchConversations(false);
 
     const statusInterval = setInterval(fetchGatewayStatus, 6000);
-    const convInterval = setInterval(() => fetchConversations(true), 5000);
+    const convInterval = setInterval(() => fetchConversations(true), 4000);
 
     return () => {
       clearInterval(statusInterval);
@@ -235,23 +235,33 @@ export default function WhatsAppInboxPage() {
     };
   }, [filter, searchQuery, selectedAgentId]);
 
-  // When active conversation changes, fetch its messages
+  // When active conversation changes or is open, auto-fetch & poll its messages
   useEffect(() => {
-    if (activeConversation) {
-      fetchMessages(activeConversation.id);
-      // Mark as read if unreadCount > 0
-      if (activeConversation.unreadCount > 0) {
-        fetch("/api/v1/admin/whatsapp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "mark_read", conversationId: activeConversation.id }),
-        }).then(() => {
-          setActiveConversation((prev) => (prev ? { ...prev, unreadCount: 0 } : null));
-        });
-      }
-    } else {
+    if (!activeConversation) {
       setMessages([]);
+      return;
     }
+
+    // Initial load for this conversation
+    fetchMessages(activeConversation.id, false);
+
+    // Mark as read if unreadCount > 0
+    if (activeConversation.unreadCount > 0) {
+      fetch("/api/v1/admin/whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "mark_read", conversationId: activeConversation.id }),
+      }).then(() => {
+        setActiveConversation((prev) => (prev ? { ...prev, unreadCount: 0 } : null));
+      });
+    }
+
+    // Real-time polling for incoming messages every 3.5 seconds
+    const msgInterval = setInterval(() => {
+      fetchMessages(activeConversation.id, true);
+    }, 3500);
+
+    return () => clearInterval(msgInterval);
   }, [activeConversation?.id]);
 
   // Auto-scroll to bottom of chat
