@@ -89,8 +89,13 @@ export function getEffectiveDriveConfig(): GoogleDriveConfig {
   const hasOAuth = Boolean(clientId && clientSecret && refreshToken);
 
   let authMethod: "SERVICE_ACCOUNT" | "OAUTH2" | "NONE" = "NONE";
-  if (hasServiceAccount) authMethod = "SERVICE_ACCOUNT";
-  else if (hasOAuth) authMethod = "OAUTH2";
+  if (fileConfig.authMethod === "OAUTH2" && hasOAuth) {
+    authMethod = "OAUTH2";
+  } else if (hasOAuth) {
+    authMethod = "OAUTH2";
+  } else if (hasServiceAccount) {
+    authMethod = "SERVICE_ACCOUNT";
+  }
 
   return {
     enabled: fileConfig.enabled !== false && authMethod !== "NONE",
@@ -114,7 +119,24 @@ export function getEffectiveDriveConfig(): GoogleDriveConfig {
 export function getDriveClient(customConfig?: Partial<GoogleDriveConfig>) {
   const config = customConfig ? { ...getEffectiveDriveConfig(), ...customConfig } : getEffectiveDriveConfig();
 
-  // 1. Service Account via JSON file
+  // 1. OAuth2 Client with Refresh Token (Prioritized for personal Drive storage quota)
+  if (config.authMethod === "OAUTH2" || (config.clientId && config.clientSecret && config.refreshToken)) {
+    if (config.clientId && config.clientSecret && config.refreshToken) {
+      try {
+        const oauth2Client = new google.auth.OAuth2(
+          config.clientId,
+          config.clientSecret,
+          config.redirectUri || "https://developers.google.com/oauthplayground"
+        );
+        oauth2Client.setCredentials({ refresh_token: config.refreshToken });
+        return google.drive({ version: "v3", auth: oauth2Client });
+      } catch (e) {
+        console.error("[Google Drive] Failed to create client with OAuth2:", e);
+      }
+    }
+  }
+
+  // 2. Service Account via JSON file
   if (config.serviceAccountKeyFile && fs.existsSync(config.serviceAccountKeyFile)) {
     try {
       const auth = new google.auth.GoogleAuth({
@@ -127,7 +149,7 @@ export function getDriveClient(customConfig?: Partial<GoogleDriveConfig>) {
     }
   }
 
-  // 2. Service Account via Email and Private Key
+  // 3. Service Account via Email and Private Key
   if (config.serviceAccountEmail && config.serviceAccountPrivateKey) {
     try {
       const privateKey = config.serviceAccountPrivateKey.replace(/\\n/g, "\n");
@@ -139,21 +161,6 @@ export function getDriveClient(customConfig?: Partial<GoogleDriveConfig>) {
       return google.drive({ version: "v3", auth });
     } catch (e) {
       console.error("[Google Drive] Failed to create client with JWT:", e);
-    }
-  }
-
-  // 3. OAuth2 Client with Refresh Token
-  if (config.clientId && config.clientSecret && config.refreshToken) {
-    try {
-      const oauth2Client = new google.auth.OAuth2(
-        config.clientId,
-        config.clientSecret,
-        config.redirectUri || "https://developers.google.com/oauthplayground"
-      );
-      oauth2Client.setCredentials({ refresh_token: config.refreshToken });
-      return google.drive({ version: "v3", auth: oauth2Client });
-    } catch (e) {
-      console.error("[Google Drive] Failed to create client with OAuth2:", e);
     }
   }
 
@@ -503,17 +510,17 @@ export async function uploadDocumentToDrive(options: UploadOptions): Promise<Upl
       const config = getEffectiveDriveConfig();
       let targetFolderId = config.folderId;
 
-      // If customerName provided and target folder set, organize in customer subfolder
-      if (targetFolderId && customerName) {
-        targetFolderId = await getOrCreateSubfolder(drive, targetFolderId, customerName);
-      }
+      // Upload directly into main folder (no subfolder creation)
+      const cleanFileName = customerName && !fileName.includes(customerName)
+        ? `${customerName} - ${fileName}`
+        : fileName;
 
       const stream = new Readable();
       stream.push(buffer);
       stream.push(null);
 
       const fileMetadata: any = {
-        name: fileName,
+        name: cleanFileName,
         parents: targetFolderId ? [targetFolderId] : undefined,
       };
 

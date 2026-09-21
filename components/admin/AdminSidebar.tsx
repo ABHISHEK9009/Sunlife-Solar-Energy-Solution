@@ -23,6 +23,7 @@ import {
   X,
   ChevronRight,
   ChevronDown,
+  MessageSquare,
 } from "lucide-react";
 
 interface AdminSidebarProps {
@@ -59,6 +60,7 @@ export function AdminSidebar({ mobileOpen, setMobileOpen }: AdminSidebarProps) {
       title: "Pipeline & Customers",
       items: [
         { name: "Overview", href: "/admin/dashboard", icon: LayoutDashboard },
+        { name: "WhatsApp Inbox", href: "/admin/whatsapp", icon: MessageSquare },
         { name: "Leads & Inquiries", href: "/admin/leads", icon: UserPlus },
         { name: "Customer Registry", href: "/admin/customers", icon: Users },
         { name: "Solar Projects", href: "/admin/projects", icon: Zap },

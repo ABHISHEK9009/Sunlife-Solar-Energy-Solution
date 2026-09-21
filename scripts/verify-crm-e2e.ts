@@ -38,9 +38,9 @@ async function main() {
   // 2. Testing OTP Flow
   console.log("\n2. Testing OTP Generation & Verification (Module 18 Auth)...");
   const otpRes = await sendCustomerOtp(testPhone);
-  console.log("   ✔ OTP dispatched:", otpRes.maskedMobile, "| Test OTP:", otpRes.devHint);
+  console.log("   ✔ OTP dispatched:", otpRes.maskedMobile, "| Test OTP:", (otpRes as any).devHint);
 
-  const verifyRes = await verifyCustomerOtp(testPhone, otpRes.devHint || "123456");
+  const verifyRes = await verifyCustomerOtp(testPhone, (otpRes as any).devHint || "123456");
   console.log("   ✔ OTP Verified! Session token created. Length:", verifyRes.accessToken.length);
 
   // 3. Testing Lead Conversion Pipeline (Module 2 & Rule)

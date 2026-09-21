@@ -1,0 +1,32 @@
+{
+  "name": "sunlife-whatsapp-gateway",
+  "version": "1.0.0",
+  "description": "Standalone Baileys WhatsApp Gateway for Sunlife Solar CRM",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^6.7.9",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pino": "^8.19.0",
+    "qrcode": "^1.5.3",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "keywords": [
+    "whatsapp",
+    "baileys",
+    "gateway",
+    "sunlife-solar"
+  ],
+  "author": "Sunlife Solar Energy Solution",
+  "license": "ISC"
+}

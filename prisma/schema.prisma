@@ -43,6 +43,8 @@ model Customer {
   tickets                 ServiceTicket[]
   notifications           Notification[]
   referralsSent           Referral[]      @relation("CustomerReferralsSent")
+  whatsAppConversations   WhatsAppConversation[]
+  whatsAppMessages        WhatsAppMessage[]
 
   @@index([primaryMobile])
   @@index([customerStatus])
@@ -82,6 +84,8 @@ model Lead {
   updatedAt               DateTime        @updatedAt
 
   referral                Referral?
+  whatsAppConversations   WhatsAppConversation[]
+  whatsAppMessages        WhatsAppMessage[]
 
   @@index([phone])
   @@index([status])
@@ -646,6 +650,7 @@ model TeamMember {
   assignedProjectsAsEngineer SolarProject[] @relation("AssignedEngineer")
   assignedProjectsAsSales    SolarProject[] @relation("AssignedSales")
   surveys               SiteSurvey[]
+  assignedWhatsAppConversations WhatsAppConversation[]
   assignedTickets       ServiceTicket[]
 
   @@index([phone])
@@ -753,5 +758,78 @@ model LeaveRequest {
   updatedAt  DateTime   @updatedAt
 
   @@index([memberId, status])
+  @@schema("sunlife")
+}
+
+// -------------------------------------------------------------
+// 15. WhatsApp Communication Module
+// -------------------------------------------------------------
+model WhatsAppConversation {
+  id              String            @id @default(cuid())
+  phone           String            @unique // Normalized E.164 without +, e.g. 919826012345
+  customerId      String?
+  customer        Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  leadId          String?
+  lead            Lead?             @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  assignedToId    String?
+  assignedTo      TeamMember?       @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  lastHandledById String?
+  status          String            @default("OPEN") // OPEN | RESOLVED
+  unreadCount     Int               @default(0)
+  lastMessageText String?
+  lastMessageAt   DateTime?
+  lastInboundAt   DateTime?
+  lastOutboundAt  DateTime?
+  messages        WhatsAppMessage[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([phone])
+  @@index([customerId])
+  @@index([leadId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([lastMessageAt])
+  @@schema("sunlife")
+}
+
+model WhatsAppMessage {
+  id                String                @id @default(cuid())
+  conversationId    String?
+  conversation      WhatsAppConversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  gatewayMessageId  String?               // Message ID returned by WhatsApp/Baileys
+  providerMessageId String?               // Alias for provider
+  replyToMessageId  String?               // For message quotes/replies
+  customerId        String?
+  customer          Customer?             @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  leadId            String?
+  lead              Lead?                 @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  phone             String                // Normalized E.164 without +, e.g. 919826012345
+  senderType        String                @default("SYSTEM") // ADMIN, AGENT, SYSTEM, CUSTOMER
+  senderId          String?               // ID of admin/agent or customer
+  senderName        String?               // Human readable name
+  direction         String                @default("OUTBOUND") // OUTBOUND, INBOUND
+  messageType       String                @default("TEXT") // TEXT, IMAGE, DOCUMENT, TEMPLATE
+  content           String                // Message body
+  mediaUrl          String?               // Media / document URL
+  caption           String?               // Optional media caption
+  fileName          String?               // Document filename
+  status            String                @default("QUEUED") // QUEUED, SENDING, SENT, DELIVERED, READ, FAILED
+  retryCount        Int                   @default(0)
+  failureCode       String?               // Error code from gateway
+  failureReason     String?               // Detailed failure reason
+  templateName      String?               // Event/template name (e.g. SURVEY_SCHEDULED)
+  metadata          Json                  @default("{}")
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@index([conversationId, createdAt])
+  @@index([phone, createdAt])
+  @@index([customerId])
+  @@index([leadId])
+  @@index([status])
   @@schema("sunlife")
 }

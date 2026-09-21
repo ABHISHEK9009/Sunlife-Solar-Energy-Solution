@@ -23,8 +23,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const customer = await prisma.customer.findUnique({
-      where: { id: customerId },
+    const customer = await prisma.customer.findFirst({
+      where: {
+        OR: [{ id: customerId }, { customerId: customerId }],
+      },
       select: { id: true, customerId: true, fullName: true, primaryMobile: true },
     });
 
@@ -59,7 +61,7 @@ export async function POST(req: NextRequest) {
     const doc = await prisma.document.create({
       data: {
         documentId,
-        customerId,
+        customerId: customer.id,
         projectId: projectId || null,
         documentCategory,
         documentName: documentName.trim(),
@@ -69,6 +71,8 @@ export async function POST(req: NextRequest) {
         uploadedBy,
         verificationStatus,
         verifiedBy: verificationStatus === "VERIFIED" ? uploadedBy : null,
+        customerCanView: true,
+        customerCanDownload: true,
       },
       include: {
         customer: { select: { customerId: true, fullName: true, primaryMobile: true } },

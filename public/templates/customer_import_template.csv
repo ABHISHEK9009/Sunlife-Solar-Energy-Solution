@@ -1,0 +1,6 @@
+fullName,primaryMobile,alternateMobile,email,installationAddress,billingAddress,propertyType,plantCapacityKw,solarType,consumerNumber,discom,customerStatus
+"Ramesh Kumar Verma","9826012345","9826099999","ramesh.verma@example.com","House No 45, Anand Nagar, Hoshangabad Road, Narmadapuram, MP 461001","Same as installation","RESIDENTIAL","5.0","ON_GRID","IVRS-10023456","MPMKVVCL","ACTIVE"
+"Sunita Devi Sharma","9425098765","","sunita.sharma@example.com","Plot 12, Ward 15, Near Bus Stand, Itarsi, MP 461111","","RESIDENTIAL","3.3","ON_GRID","IVRS-10087654","MPMKVVCL","ACTIVE"
+"Verma Agro Industries","9111054321","9111054322","contact@vermaagro.in","Industrial Area, Phase 2, Kheda, Narmadapuram, MP 461001","Head Office, Main Market, Narmadapuram","COMMERCIAL","15.0","ON_GRID","IVRS-20054321","MPMKVVCL","ACTIVE"
+"Deepak Patel","9893011223","","deepak.patel@example.com","102 Green City, Pipariya Road, Narmadapuram, MP 461001","","RESIDENTIAL","6.0","HYBRID","IVRS-10033445","MPMKVVCL","ACTIVE"
+"Rajeshwari Power Mills","9752044556","9752044557","info@rajeshwaripower.in","Warehouse 4, Budhni Road, Narmadapuram, MP 461001","","COMMERCIAL","25.0","ON_GRID","IVRS-30099887","MPMKVVCL","ACTIVE"

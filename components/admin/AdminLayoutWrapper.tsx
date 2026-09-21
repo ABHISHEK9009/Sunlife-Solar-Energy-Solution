@@ -17,6 +17,7 @@ export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) 
 
   const getPageTitle = () => {
     if (pathname === "/admin/dashboard" || pathname === "/admin") return "Overview";
+    if (pathname === "/admin/whatsapp") return "WhatsApp Inbox";
     if (pathname === "/admin/leads") return "Customer Leads";
     if (pathname === "/admin/customers") return "Customer Registry";
     if (pathname === "/admin/projects") return "Solar Projects";

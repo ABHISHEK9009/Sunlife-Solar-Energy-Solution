@@ -17,19 +17,27 @@ export async function GET(
         OR: [{ id }, { customerId: id }, { primaryMobile: id.replace(/\D/g, "") }],
       },
       include: {
-        assignedSalesExecutive: { select: { name: true, phone: true, role: true } },
+        assignedSalesExecutive: { select: { id: true, name: true, phone: true, role: true } },
         projects: {
           orderBy: { createdAt: "desc" },
           include: {
             subsidy: true,
             monitoring: true,
-            payments: true,
+            payments: { orderBy: { createdAt: "desc" } },
             quotations: { orderBy: { versionNumber: "desc" } },
+            assignedEngineer: { select: { id: true, name: true, phone: true, role: true } },
+            assignedSalesExecutive: { select: { id: true, name: true, phone: true, role: true } },
+            surveys: { orderBy: { scheduledDateTime: "desc" } },
           },
         },
         documents: { orderBy: { uploadedDate: "desc" } },
         payments: { orderBy: { createdAt: "desc" } },
-        surveys: { orderBy: { scheduledDateTime: "desc" } },
+        surveys: {
+          orderBy: { scheduledDateTime: "desc" },
+          include: {
+            surveyEngineer: { select: { id: true, name: true, phone: true, role: true } },
+          },
+        },
         tickets: { orderBy: { submittedDate: "desc" } },
         leads: { orderBy: { createdAt: "desc" } },
       },
@@ -90,19 +98,27 @@ export async function GET(
       customer = await prisma.customer.findUnique({
         where: { id: existingCust.id },
         include: {
-          assignedSalesExecutive: { select: { name: true, phone: true, role: true } },
+          assignedSalesExecutive: { select: { id: true, name: true, phone: true, role: true } },
           projects: {
             orderBy: { createdAt: "desc" },
             include: {
               subsidy: true,
               monitoring: true,
-              payments: true,
+              payments: { orderBy: { createdAt: "desc" } },
               quotations: { orderBy: { versionNumber: "desc" } },
+              assignedEngineer: { select: { id: true, name: true, phone: true, role: true } },
+              assignedSalesExecutive: { select: { id: true, name: true, phone: true, role: true } },
+              surveys: { orderBy: { scheduledDateTime: "desc" } },
             },
           },
           documents: { orderBy: { uploadedDate: "desc" } },
           payments: { orderBy: { createdAt: "desc" } },
-          surveys: { orderBy: { scheduledDateTime: "desc" } },
+          surveys: {
+            orderBy: { scheduledDateTime: "desc" },
+            include: {
+              surveyEngineer: { select: { id: true, name: true, phone: true, role: true } },
+            },
+          },
           tickets: { orderBy: { submittedDate: "desc" } },
           leads: { orderBy: { createdAt: "desc" } },
         },
@@ -113,12 +129,11 @@ export async function GET(
       return NextResponse.json({ error: "Failed to resolve client." }, { status: 404 });
     }
 
-    // 3. Compile Unified Activity Timeline
-    // Fetch AuditLogs for this customer and any linked leads/projects
+    // 3. Compile Unified Activity Timeline & Team Members
     const projectIds = customer.projects.map((p) => p.id);
     const leadIds = customer.leads.map((l) => l.id);
 
-    const [auditLogs, projectTimelines] = await Promise.all([
+    const [auditLogs, projectTimelines, teamMembers] = await Promise.all([
       prisma.auditLog.findMany({
         where: {
           OR: [
@@ -129,14 +144,20 @@ export async function GET(
           ],
         },
         orderBy: { timestamp: "desc" },
-        take: 100,
+        take: 30,
       }),
       projectIds.length > 0
         ? prisma.projectTimeline.findMany({
             where: { projectId: { in: projectIds } },
             orderBy: { eventDateTime: "desc" },
+            take: 30,
           })
         : Promise.resolve([]),
+      prisma.teamMember.findMany({
+        where: { activeStatus: true },
+        select: { id: true, name: true, role: true, phone: true, category: true },
+        orderBy: { name: "asc" },
+      }),
     ]);
 
     // Format and combine timeline events
@@ -220,6 +241,7 @@ export async function GET(
       client: customer,
       timeline: timelineEvents,
       activeProject: customer.projects.length > 0 ? customer.projects[0] : null,
+      teamMembers: teamMembers || [],
     });
   } catch (error: any) {
     console.error("[Client Profile GET Error]:", error);
@@ -237,7 +259,22 @@ async function resolveClient(id: string, includeProjects = false): Promise<any> 
         ...(cleanPhone ? [{ primaryMobile: cleanPhone }] : []),
       ],
     },
-    include: includeProjects ? { projects: true } : undefined,
+    include: includeProjects
+      ? {
+          projects: {
+            orderBy: { createdAt: "desc" },
+            include: {
+              subsidy: true,
+              monitoring: true,
+              payments: true,
+              quotations: true,
+              assignedEngineer: true,
+              assignedSalesExecutive: true,
+            },
+          },
+          leads: true,
+        }
+      : undefined,
   });
 
   if (!customer) {
@@ -254,7 +291,22 @@ async function resolveClient(id: string, includeProjects = false): Promise<any> 
     if (lead?.customerId) {
       customer = await prisma.customer.findUnique({
         where: { id: lead.customerId },
-        include: includeProjects ? { projects: true } : undefined,
+        include: includeProjects
+          ? {
+              projects: {
+                orderBy: { createdAt: "desc" },
+                include: {
+                  subsidy: true,
+                  monitoring: true,
+                  payments: true,
+                  quotations: true,
+                  assignedEngineer: true,
+                  assignedSalesExecutive: true,
+                },
+              },
+              leads: true,
+            }
+          : undefined,
       });
     }
   }
@@ -323,7 +375,7 @@ export async function PATCH(
   }
 }
 
-// Actions: Add Activity Note or Add Document
+// Actions: UPDATE_STAGE, UPDATE_SPECS, ASSIGN_OFFICER, SCHEDULE_SURVEY, ADD_ACTIVITY, ADD_DOCUMENT
 export async function POST(
   req: Request,
   { params }: { params: { id: string } }
@@ -339,7 +391,338 @@ export async function POST(
       return NextResponse.json({ error: "Customer not found." }, { status: 404 });
     }
 
-    // Action 1: Add Activity Note (Call, Visit, Meeting, Note)
+    let activeProject = customer.projects?.length > 0 ? customer.projects[0] : null;
+
+    // Action 1: UPDATE_STAGE (1-Click Operational Stage Transition)
+    if (action === "UPDATE_STAGE") {
+      const { stage, notes, visibleToCustomer = true } = body;
+      if (!stage) {
+        return NextResponse.json({ error: "Stage is required." }, { status: 400 });
+      }
+
+      // If no project exists yet, auto-provision one so operations can track it
+      if (!activeProject) {
+        const projectCount = await prisma.solarProject.count();
+        const projectId = `SL-PRJ-${1000 + projectCount + 1}`;
+        const lead = customer.leads?.[0];
+
+        activeProject = await prisma.solarProject.create({
+          data: {
+            projectId,
+            customerId: customer.id,
+            projectName: `${customer.fullName} - ${lead?.propertyType || "Rooftop"} Solar`,
+            plantCapacityKw: lead?.requestedCapacity || 3.0,
+            solarType: "ON_GRID",
+            propertyType: customer.propertyType || "RESIDENTIAL",
+            projectStatus: stage,
+            installationAddress: customer.installationAddress,
+            discom: "MPMKVVCL",
+            lastStatusUpdate: new Date(),
+          },
+        });
+
+        // Update customer status to reflect active pipeline
+        await prisma.customer.update({
+          where: { id: customer.id },
+          data: { customerStatus: stage === "ACTIVE" || stage === "COMPLETED" ? "ACTIVE" : "ACTIVE" },
+        });
+      } else {
+        // Update existing project status
+        const updateData: any = {
+          projectStatus: stage,
+          lastStatusUpdate: new Date(),
+        };
+
+        if (stage === "INSTALLATION_COMPLETED") {
+          updateData.installationDate = new Date();
+        } else if (stage === "ACTIVE" || stage === "NET_METER_INSTALLED") {
+          updateData.commissioningDate = new Date();
+        }
+
+        activeProject = await prisma.solarProject.update({
+          where: { id: activeProject.id },
+          data: updateData,
+        });
+
+        if (stage === "ACTIVE" || stage === "COMPLETED") {
+          await prisma.customer.update({
+            where: { id: customer.id },
+            data: { customerStatus: "ACTIVE" },
+          });
+        }
+      }
+
+      // Record Milestone in ProjectTimeline
+      const timelineEntry = await prisma.projectTimeline.create({
+        data: {
+          projectId: activeProject.id,
+          eventType: "STAGE_CHANGE",
+          eventTitle: `Operations Stage: ${stage.replace(/_/g, " ")}`,
+          customerDescription: notes || `Project progressed to ${stage.replace(/_/g, " ")} stage.`,
+          internalDescription: `Stage updated to ${stage} by ADMIN`,
+          visibleToCustomer: Boolean(visibleToCustomer),
+          createdBy: "ADMIN",
+        },
+      });
+
+      // App notification if visible to customer
+      if (visibleToCustomer) {
+        await prisma.notification.create({
+          data: {
+            customerId: customer.id,
+            projectId: activeProject.id,
+            notificationType: "STAGE_UPDATE",
+            title: `Project Status: ${stage.replace(/_/g, " ")}`,
+            message: notes || `Your solar installation has progressed to the ${stage.replace(/_/g, " ")} stage.`,
+            deliveryChannel: "IN_APP",
+          },
+        });
+      }
+
+      await logAuditEvent({
+        entityType: "SolarProject",
+        entityId: activeProject.id,
+        fieldChanged: "projectStatus",
+        action: "STATUS_CHANGE",
+        actorId: "ADMIN",
+        actorType: "ADMIN",
+        previousValue: activeProject.projectStatus,
+        newValue: stage,
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Stage successfully updated to ${stage.replace(/_/g, " ")}`,
+        activeProject,
+        timelineEntry,
+      });
+    }
+
+    // Action 2: UPDATE_SPECS (Technical & DISCOM Specs)
+    if (action === "UPDATE_SPECS") {
+      const {
+        plantCapacityKw,
+        discom,
+        consumerNumber,
+        solarType,
+        propertyType,
+        panelBrandModel,
+        panelQuantity,
+        inverterBrandModel,
+        inverterSerialNumber,
+        warrantyStartDate,
+        warrantyEndDate,
+        estimatedMonthlyGenerationKwh,
+        estimatedMonthlySavingsInr,
+        roofType,
+        availableRoofAreaSqFt,
+        shadowInfo,
+        sanctionedLoad,
+      } = body;
+
+      if (!activeProject) {
+        // Provision project if not existing
+        const projectCount = await prisma.solarProject.count();
+        const projectId = `SL-PRJ-${1000 + projectCount + 1}`;
+        activeProject = await prisma.solarProject.create({
+          data: {
+            projectId,
+            customerId: customer.id,
+            projectName: `${customer.fullName} - Rooftop Solar`,
+            plantCapacityKw: parseFloat(plantCapacityKw) || 3.0,
+            solarType: solarType || "ON_GRID",
+            propertyType: propertyType || customer.propertyType || "RESIDENTIAL",
+            installationAddress: customer.installationAddress,
+            discom: discom || "MPMKVVCL",
+            consumerNumber: consumerNumber || null,
+            panelBrandModel: panelBrandModel || null,
+            panelQuantity: panelQuantity ? parseInt(panelQuantity) : null,
+            inverterBrandModel: inverterBrandModel || null,
+            inverterSerialNumber: inverterSerialNumber || null,
+            lastStatusUpdate: new Date(),
+          },
+        });
+      } else {
+        activeProject = await prisma.solarProject.update({
+          where: { id: activeProject.id },
+          data: {
+            ...(plantCapacityKw !== undefined && { plantCapacityKw: parseFloat(plantCapacityKw) || 3.0 }),
+            ...(discom !== undefined && { discom }),
+            ...(consumerNumber !== undefined && { consumerNumber: consumerNumber?.trim() || null }),
+            ...(solarType !== undefined && { solarType }),
+            ...(propertyType !== undefined && { propertyType }),
+            ...(panelBrandModel !== undefined && { panelBrandModel: panelBrandModel?.trim() || null }),
+            ...(panelQuantity !== undefined && { panelQuantity: panelQuantity ? parseInt(panelQuantity) : null }),
+            ...(inverterBrandModel !== undefined && { inverterBrandModel: inverterBrandModel?.trim() || null }),
+            ...(inverterSerialNumber !== undefined && { inverterSerialNumber: inverterSerialNumber?.trim() || null }),
+            ...(warrantyStartDate && { warrantyStartDate: new Date(warrantyStartDate) }),
+            ...(warrantyEndDate && { warrantyEndDate: new Date(warrantyEndDate) }),
+            ...(estimatedMonthlyGenerationKwh !== undefined && {
+              estimatedMonthlyGenerationKwh: parseFloat(estimatedMonthlyGenerationKwh) || null,
+            }),
+            ...(estimatedMonthlySavingsInr !== undefined && {
+              estimatedMonthlySavingsInr: parseFloat(estimatedMonthlySavingsInr) || null,
+            }),
+          },
+        });
+      }
+
+      // Persist Roof & Survey specifications if provided
+      if (roofType !== undefined || availableRoofAreaSqFt !== undefined || shadowInfo !== undefined || sanctionedLoad !== undefined) {
+        const existingSurvey = await prisma.siteSurvey.findFirst({
+          where: { customerId: customer.id },
+          orderBy: { scheduledDateTime: "desc" },
+        });
+
+        if (existingSurvey) {
+          await prisma.siteSurvey.update({
+            where: { id: existingSurvey.id },
+            data: {
+              ...(roofType && { roofType }),
+              ...(availableRoofAreaSqFt && { availableRoofAreaSqFt: parseFloat(availableRoofAreaSqFt) || null }),
+              ...(shadowInfo && { shadowInfo }),
+              ...(sanctionedLoad && { existingElectricityLoadKw: parseFloat(sanctionedLoad) || null }),
+              ...(consumerNumber && { discomConsumerNumber: consumerNumber.trim() }),
+            },
+          });
+        } else {
+          const surveyCount = await prisma.siteSurvey.count();
+          await prisma.siteSurvey.create({
+            data: {
+              surveyId: `SL-SRV-${1000 + surveyCount + 1}`,
+              customerId: customer.id,
+              projectId: activeProject.id,
+              scheduledDateTime: new Date(),
+              surveyStatus: "COMPLETED",
+              roofType: roofType || "RCC Flat Roof",
+              availableRoofAreaSqFt: parseFloat(availableRoofAreaSqFt) || 350,
+              shadowInfo: shadowInfo || "Shadow-free south orientation",
+              existingElectricityLoadKw: parseFloat(sanctionedLoad) || 3.0,
+              discomConsumerNumber: consumerNumber?.trim() || null,
+            },
+          });
+        }
+      }
+
+      await logAuditEvent({
+        entityType: "SolarProject",
+        entityId: activeProject.id,
+        fieldChanged: "hardwareSpecs",
+        action: "UPDATE",
+        actorId: "ADMIN",
+        actorType: "ADMIN",
+        newValue: `Updated technical & DISCOM specs for ${activeProject.projectId}`,
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Technical & DISCOM specifications saved successfully.",
+        activeProject,
+      });
+    }
+
+    // Action 3: ASSIGN_OFFICER (Assign Sales / Survey / Project Engineer)
+    if (action === "ASSIGN_OFFICER") {
+      const { salesExecutiveId, engineerId } = body;
+
+      if (salesExecutiveId !== undefined) {
+        await prisma.customer.update({
+          where: { id: customer.id },
+          data: { assignedSalesExecutiveId: salesExecutiveId || null },
+        });
+
+        if (activeProject) {
+          await prisma.solarProject.update({
+            where: { id: activeProject.id },
+            data: { assignedSalesExecutiveId: salesExecutiveId || null },
+          });
+        }
+      }
+
+      if (engineerId !== undefined && activeProject) {
+        await prisma.solarProject.update({
+          where: { id: activeProject.id },
+          data: { assignedEngineerId: engineerId || null },
+        });
+      }
+
+      await logAuditEvent({
+        entityType: "Customer",
+        entityId: customer.id,
+        fieldChanged: "assignedOfficers",
+        action: "UPDATE",
+        actorId: "ADMIN",
+        actorType: "ADMIN",
+        newValue: `Reassigned operational officers for client ${customer.fullName}`,
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Assigned officers updated successfully.",
+      });
+    }
+
+    // Action 4: SCHEDULE_SURVEY
+    if (action === "SCHEDULE_SURVEY") {
+      const { scheduledDateTime, surveyEngineerId, notes, roofType, availableRoofAreaSqFt } = body;
+      if (!scheduledDateTime) {
+        return NextResponse.json({ error: "Scheduled date & time is required." }, { status: 400 });
+      }
+
+      const surveyCount = await prisma.siteSurvey.count();
+      const surveyId = `SL-SRV-${1000 + surveyCount + 1}`;
+
+      const survey = await prisma.siteSurvey.create({
+        data: {
+          surveyId,
+          projectId: activeProject?.id || null,
+          customerId: customer.id,
+          scheduledDateTime: new Date(scheduledDateTime),
+          surveyEngineerId: surveyEngineerId || null,
+          surveyStatus: "SCHEDULED",
+          roofType: roofType || null,
+          availableRoofAreaSqFt: availableRoofAreaSqFt ? parseFloat(availableRoofAreaSqFt) : null,
+          engineerNotes: notes || null,
+        },
+      });
+
+      if (activeProject) {
+        await prisma.solarProject.update({
+          where: { id: activeProject.id },
+          data: { projectStatus: "SURVEY_SCHEDULED", lastStatusUpdate: new Date() },
+        });
+
+        await prisma.projectTimeline.create({
+          data: {
+            projectId: activeProject.id,
+            eventType: "SURVEY_SCHEDULED",
+            eventTitle: "Site Survey Scheduled",
+            customerDescription: `Site survey scheduled for ${new Date(scheduledDateTime).toLocaleDateString()}`,
+            internalDescription: `Survey booked by ADMIN (${surveyId})`,
+            visibleToCustomer: true,
+            createdBy: "ADMIN",
+          },
+        });
+      }
+
+      await logAuditEvent({
+        entityType: "SiteSurvey",
+        entityId: survey.id,
+        fieldChanged: "surveyStatus",
+        action: "CREATE",
+        actorId: "ADMIN",
+        actorType: "ADMIN",
+        newValue: `Scheduled survey ${surveyId} on ${scheduledDateTime}`,
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Site Survey (${surveyId}) successfully scheduled.`,
+        survey,
+      });
+    }
+
+    // Action 5: Add Activity Note (Call, Visit, Meeting, Note)
     if (action === "ADD_ACTIVITY") {
       const { activityType, title, description, visibleToCustomer = false, projectId } = body;
 
@@ -349,7 +732,6 @@ export async function POST(
 
       const linkedProjectId = projectId || (customer.projects.length > 0 ? customer.projects[0].id : null);
 
-      // 1. Log in AuditLog for permanent client history
       const visibilityTag = visibleToCustomer ? " [APP_VISIBLE]" : "";
       await logAuditEvent({
         entityType: "Customer",
@@ -361,7 +743,6 @@ export async function POST(
         newValue: description,
       });
 
-      // 2. If client has an active project and visibility is requested, append to ProjectTimeline
       let timelineEntry = null;
       if (linkedProjectId) {
         timelineEntry = await prisma.projectTimeline.create({
@@ -370,7 +751,7 @@ export async function POST(
             eventType: activityType || "CLIENT_INTERACTION",
             eventTitle: title,
             customerDescription: description,
-            internalDescription: `Logged by ADMIN via Client Profile (${activityType || "NOTE"})`,
+            internalDescription: `Logged by ADMIN via Client Operations (${activityType || "NOTE"})`,
             visibleToCustomer: Boolean(visibleToCustomer),
             createdBy: "ADMIN",
           },
@@ -397,7 +778,7 @@ export async function POST(
       });
     }
 
-    // Action 2: Add Document
+    // Action 6: Add Document
     if (action === "ADD_DOCUMENT") {
       const { documentCategory, documentName, fileLocation, mimeType, projectId } = body;
 

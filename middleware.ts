@@ -24,7 +24,7 @@ export async function middleware(request: NextRequest) {
   // Allow login page and OAuth callbacks
   if (
     pathname === "/admin/login" ||
-    pathname.startsWith("/api/v1/admin/documents/drive-auth/callback")
+    pathname.startsWith("/api/v1/admin/documents/drive-auth")
   ) {
     const response = NextResponse.next();
     response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");

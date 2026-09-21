@@ -89,8 +89,22 @@ export async function POST(req: Request) {
       );
     }
 
-    const customerCount = await prisma.customer.count();
-    const customerCode = `SL-CUST-${1000 + customerCount + 1}`;
+    // Collision-proof Customer Code generation
+    const existingCust = await prisma.customer.findMany({
+      where: { customerId: { startsWith: "SL-CUST-" } },
+      select: { customerId: true },
+    });
+    const existingCustNums = new Set(
+      existingCust.map((c) => {
+        const match = c.customerId.match(/SL-CUST-(\d+)/);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+    );
+    let nextCustNum = 1001;
+    while (existingCustNums.has(nextCustNum)) {
+      nextCustNum++;
+    }
+    const customerCode = `SL-CUST-${nextCustNum}`;
 
     const customer = await prisma.customer.create({
       data: {
@@ -108,9 +122,22 @@ export async function POST(req: Request) {
       },
     });
 
-    // 1. Create Solar Project for new client
-    const projectCount = await prisma.solarProject.count();
-    const projectId = `SL-PRJ-${1000 + projectCount + 1}`;
+    // Collision-proof Solar Project ID generation
+    const existingPrj = await prisma.solarProject.findMany({
+      where: { projectId: { startsWith: "SL-PRJ-" } },
+      select: { projectId: true },
+    });
+    const existingPrjNums = new Set(
+      existingPrj.map((p) => {
+        const match = p.projectId.match(/SL-PRJ-(\d+)/);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+    );
+    let nextPrjNum = 1001;
+    while (existingPrjNums.has(nextPrjNum)) {
+      nextPrjNum++;
+    }
+    const projectId = `SL-PRJ-${nextPrjNum}`;
 
     const project = await prisma.solarProject.create({
       data: {

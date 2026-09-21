@@ -84,3 +84,14 @@ prisma/*.db
 prisma/*.db-journal
 prisma/generated/
 dev.db
+
+# WhatsApp Gateway
+whatsapp-gateway/node_modules/
+whatsapp-gateway/sessions/
+whatsapp-gateway/.env
+sessions/
+
+# Google Drive Local Config
+data/google-drive-config.json
+
+
