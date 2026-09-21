@@ -11,6 +11,7 @@ const FORBIDDEN_HOSTS = [
 
 const ALLOWED_HOSTS = [
   "ep-autumn-forest-ayafh9sa-pooler.c-5.us-east-2.aws.neon.tech",
+  "ep-autumn-forest-ayafh9sa.c-5.us-east-2.aws.neon.tech",
 ];
 
 export function assertSunlifeDatabase(): void {

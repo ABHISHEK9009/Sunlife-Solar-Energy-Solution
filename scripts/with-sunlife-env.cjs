@@ -4,7 +4,11 @@ const path = require("node:path");
 const { parseEnv } = require("node:util");
 const { spawnSync } = require("node:child_process");
 
-const EXPECTED_HOST = "ep-autumn-forest-ayafh9sa-pooler.c-5.us-east-2.aws.neon.tech";
+// Both pooler (for app connections) and non-pooler (for migrations) are valid
+const EXPECTED_HOSTS = [
+  "ep-autumn-forest-ayafh9sa-pooler.c-5.us-east-2.aws.neon.tech",
+  "ep-autumn-forest-ayafh9sa.c-5.us-east-2.aws.neon.tech",
+];
 
 function checkedEnvironment(shellEnv, fileEnv) {
   const env = { ...shellEnv };
@@ -20,7 +24,7 @@ function checkedEnvironment(shellEnv, fileEnv) {
   for (const key of ["DATABASE_URL", "DIRECT_URL"]) {
     if (!env[key]) continue;
     const url = new URL(env[key]);
-    if (!["postgres:", "postgresql:"].includes(url.protocol) || url.hostname !== EXPECTED_HOST) {
+    if (!["postgres:", "postgresql:"].includes(url.protocol) || !EXPECTED_HOSTS.includes(url.hostname)) {
       throw new Error(`${key} is not the approved Sunlife database. Operation blocked.`);
     }
   }
