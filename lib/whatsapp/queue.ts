@@ -75,6 +75,39 @@ export async function enqueueWhatsAppMessage(options: EnqueueMessageOptions) {
     throw new Error(`Invalid phone number: ${options.phone}`);
   }
 
+  // Auto-resolve customer or lead from Client Registry if not explicitly provided
+  let effectiveCustomerId = options.customerId || null;
+  let effectiveLeadId = options.leadId || null;
+
+  if (!effectiveCustomerId && !effectiveLeadId) {
+    const tenDigit = phone.slice(-10);
+    const customer = await prisma.customer.findFirst({
+      where: {
+        OR: [
+          { primaryMobile: phone },
+          { primaryMobile: tenDigit },
+          { alternateMobile: phone },
+          { alternateMobile: tenDigit },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (customer) {
+      effectiveCustomerId = customer.id;
+    } else {
+      const lead = await prisma.lead.findFirst({
+        where: {
+          OR: [{ phone: phone }, { phone: tenDigit }],
+        },
+        select: { id: true },
+      });
+      if (lead) {
+        effectiveLeadId = lead.id;
+      }
+    }
+  }
+
   // 1. Find or create conversation
   let conversation = await prisma.whatsAppConversation.findUnique({
     where: { phone },
@@ -84,8 +117,8 @@ export async function enqueueWhatsAppMessage(options: EnqueueMessageOptions) {
     conversation = await prisma.whatsAppConversation.create({
       data: {
         phone,
-        customerId: options.customerId || null,
-        leadId: options.leadId || null,
+        customerId: effectiveCustomerId,
+        leadId: effectiveLeadId,
         status: "OPEN",
         lastMessageText: options.content.slice(0, 200),
         lastMessageAt: new Date(),
@@ -97,8 +130,8 @@ export async function enqueueWhatsAppMessage(options: EnqueueMessageOptions) {
     await prisma.whatsAppConversation.update({
       where: { id: conversation.id },
       data: {
-        customerId: options.customerId || conversation.customerId,
-        leadId: options.leadId || conversation.leadId,
+        customerId: effectiveCustomerId || conversation.customerId,
+        leadId: effectiveLeadId || conversation.leadId,
         lastMessageText: options.content.slice(0, 200),
         lastMessageAt: new Date(),
         lastOutboundAt: new Date(),
@@ -111,8 +144,8 @@ export async function enqueueWhatsAppMessage(options: EnqueueMessageOptions) {
     data: {
       conversationId: conversation.id,
       phone,
-      customerId: options.customerId || null,
-      leadId: options.leadId || null,
+      customerId: effectiveCustomerId,
+      leadId: effectiveLeadId,
       senderType: options.senderType || "SYSTEM",
       senderId: options.senderId || null,
       senderName: options.senderName || null,

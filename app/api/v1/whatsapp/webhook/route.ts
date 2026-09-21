@@ -57,7 +57,18 @@ export async function POST(req: NextRequest) {
         })
       : null;
 
-    // 2. Upsert WhatsApp Conversation
+    // PRIVACY FILTER: Only process messages from contacts saved in the Client Registry (Customer or Lead).
+    // All personal messages, unknown numbers, friends, and family are completely ignored and never stored in the CRM.
+    if (!customer && !lead) {
+      console.log(`[WhatsApp Webhook] Ignored non-client personal message from: ${phone}`);
+      return NextResponse.json({
+        success: true,
+        ignored: true,
+        reason: "Sender is not registered in the Client Registry (Customer or Lead). Personal message ignored.",
+      });
+    }
+
+    // 2. Upsert WhatsApp Conversation (Registered Clients Only)
     let conversation = await prisma.whatsAppConversation.findUnique({
       where: { phone },
     });

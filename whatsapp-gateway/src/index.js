@@ -123,6 +123,10 @@ async function connectToWhatsApp() {
         if (msg.key.fromMe) continue;
         // Skip broadcast / status messages
         if (msg.key.remoteJid === "status@broadcast" || msg.key.remoteJid?.endsWith("@broadcast")) continue;
+        // Skip group messages (personal family/friends groups)
+        if (msg.key.remoteJid?.endsWith("@g.us")) continue;
+        // Skip newsletters / channels
+        if (msg.key.remoteJid?.endsWith("@newsletter")) continue;
 
         const senderJid = msg.key.remoteJid;
         const cleanPhone = senderJid?.replace(/@s\.whatsapp\.net|@c\.us/g, "");

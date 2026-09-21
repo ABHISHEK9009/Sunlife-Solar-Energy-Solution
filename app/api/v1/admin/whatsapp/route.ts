@@ -49,7 +49,17 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search")?.trim() || "";
     const assignedToId = searchParams.get("assignedToId");
 
-    const where: any = {};
+    // Strict Privacy: Only return conversations belonging to registered clients (Customer or Lead)
+    const where: any = {
+      AND: [
+        {
+          OR: [
+            { customerId: { not: null } },
+            { leadId: { not: null } },
+          ],
+        },
+      ],
+    };
 
     if (filter === "unread") {
       where.unreadCount = { gt: 0 };
@@ -68,13 +78,15 @@ export async function GET(req: NextRequest) {
     }
 
     if (search) {
-      where.OR = [
-        { phone: { contains: search } },
-        { lastMessageText: { contains: search, mode: "insensitive" } },
-        { customer: { fullName: { contains: search, mode: "insensitive" } } },
-        { customer: { customerId: { contains: search, mode: "insensitive" } } },
-        { lead: { name: { contains: search, mode: "insensitive" } } },
-      ];
+      where.AND.push({
+        OR: [
+          { phone: { contains: search } },
+          { lastMessageText: { contains: search, mode: "insensitive" } },
+          { customer: { fullName: { contains: search, mode: "insensitive" } } },
+          { customer: { customerId: { contains: search, mode: "insensitive" } } },
+          { lead: { name: { contains: search, mode: "insensitive" } } },
+        ],
+      });
     }
 
     const conversations = await prisma.whatsAppConversation.findMany({
