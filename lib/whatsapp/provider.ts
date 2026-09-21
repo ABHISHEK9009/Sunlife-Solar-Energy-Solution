@@ -56,8 +56,12 @@ export class HttpGatewayProvider implements WhatsAppProvider {
   private timeoutMs: number;
 
   constructor() {
-    this.baseUrl = (process.env.WHATSAPP_GATEWAY_URL || "http://localhost:3001").replace(/\/$/, "");
-    this.apiKey = process.env.WHATSAPP_API_KEY || "sunlife_whatsapp_secret_key_2026";
+    let rawUrl = (process.env.WHATSAPP_GATEWAY_URL || "http://localhost:3001").trim();
+    if (rawUrl && !rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
+      rawUrl = `https://${rawUrl}`;
+    }
+    this.baseUrl = rawUrl.replace(/\/$/, "");
+    this.apiKey = (process.env.WHATSAPP_API_KEY || "sunlife_whatsapp_secret_key_2026").trim();
     this.timeoutMs = 15000;
   }
 
@@ -192,12 +196,7 @@ export class HttpGatewayProvider implements WhatsAppProvider {
   }
 }
 
-// Singleton factory
-let providerInstance: WhatsAppProvider | null = null;
-
+// Factory function
 export function getWhatsAppProvider(): WhatsAppProvider {
-  if (!providerInstance) {
-    providerInstance = new HttpGatewayProvider();
-  }
-  return providerInstance;
+  return new HttpGatewayProvider();
 }
