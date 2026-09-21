@@ -9,5 +9,6 @@
     "**/.tempmediaStorage/**",
     "**/scratch/**"
   ],
-  "python.linting.enabled": false
+  "python.linting.enabled": false,
+  "java.jdt.ls.java.home": "C:\\Program Files\\Android\\Android Studio\\jbr"
 }

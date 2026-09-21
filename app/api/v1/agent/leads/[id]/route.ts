@@ -23,16 +23,54 @@ export async function PATCH(
       return NextResponse.json({ error: "Stage/status is required." }, { status: 400 });
     }
 
+    const ALLOWED_LEAD_STATUSES = [
+      "NEW",
+      "CONTACTED",
+      "SURVEY_SCHEDULED",
+      "SURVEY_COMPLETED",
+      "QUOTATION_SENT",
+      "NEGOTIATION",
+      "CONVERTED",
+      "LOST",
+    ];
+
     const existingLead = await prisma.lead.findUnique({ where: { id } });
     if (!existingLead) {
       return NextResponse.json({ error: "Lead not found." }, { status: 404 });
     }
 
+    // Verify agent is assigned, or lead is unassigned, or agent is administrator/manager
+    const isAssigned =
+      !existingLead.assignedSalesExecutiveId ||
+      existingLead.assignedSalesExecutiveId === agent.id;
+
+    if (!isAssigned && agent.role !== "Admin" && agent.role !== "Manager") {
+      return NextResponse.json(
+        { error: "Access denied. This lead is assigned to another representative." },
+        { status: 403 }
+      );
+    }
+
+    const normalizedStage = newStage.toUpperCase().replace(/\s+/g, "_");
+    const validStatus = ALLOWED_LEAD_STATUSES.find(
+      (s) => s === normalizedStage || s === newStage
+    );
+
+    if (!validStatus) {
+      return NextResponse.json(
+        {
+          error: `Invalid lead status "${newStage}". Allowed values: ${ALLOWED_LEAD_STATUSES.join(", ")}`,
+        },
+        { status: 400 }
+      );
+    }
+
     const updated = await prisma.lead.update({
       where: { id },
       data: {
-        status: newStage,
-        ...(notes ? { notes } : {}),
+        status: validStatus,
+        assignedSalesExecutiveId: existingLead.assignedSalesExecutiveId || agent.id,
+        ...(notes ? { notes: notes.trim() } : {}),
       },
     });
 

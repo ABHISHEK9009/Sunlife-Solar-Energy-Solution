@@ -34,8 +34,78 @@ class AgentLeadDetailPage extends StatefulWidget {
 class _AgentLeadDetailPageState extends State<AgentLeadDetailPage> {
   late String stage = widget.initialStage;
   bool isSaving = false;
+  bool _isEnrolling = false;
 
   String get _cleanPhone => widget.phone.replaceAll(RegExp(r'\D'), '');
+
+  Future<void> _enrollAsCustomer() async {
+    if (_isEnrolling) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Enroll as CRM Customer?'),
+        content: Text(
+          'This will register ${widget.name} (${widget.phone}) as an official customer in the Sunlife Solar CRM and initialize their project record.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.deepGreen),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Confirm Enrollment', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isEnrolling = true);
+
+    try {
+      final capacityVal = double.tryParse(
+        (widget.lead?.approxCapacity ?? '5').replaceAll(RegExp(r'[^\d.]'), ''),
+      ) ?? 5.0;
+
+      final res = await AgentRepository.instance.enrollClient(
+        fullName: widget.name,
+        primaryMobile: _cleanPhone,
+        installationAddress: widget.location,
+        propertyType: widget.lead?.propertyType ?? 'RESIDENTIAL',
+        monthlyBill: widget.bill.replaceAll(RegExp(r'[^\d]'), '').isEmpty ? '5000' : widget.bill.replaceAll(RegExp(r'[^\d]'), ''),
+        capacityKw: capacityVal,
+        notes: widget.lead?.notes,
+      );
+
+      if (mounted) {
+        final custCode = res['customer']?['customerId'] ?? '';
+        final projCode = res['project']?['projectId'] ?? '';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.deepGreen,
+            content: Text('Successfully enrolled $custCode ($projCode) in CRM!'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        final message = e.toString().replaceAll('Exception:', '').trim();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red.shade700,
+            content: Text(message.isNotEmpty ? message : 'Enrollment failed.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isEnrolling = false);
+      }
+    }
+  }
 
   Future<void> _makeCall() async {
     final uri = Uri.parse('tel:+91$_cleanPhone');
@@ -234,6 +304,12 @@ class _AgentLeadDetailPageState extends State<AgentLeadDetailPage> {
                   onTap: () => ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Follow-up scheduled in CRM')),
                   ),
+                ),
+                MenuTile(
+                  Icons.how_to_reg_rounded,
+                  'Enroll as CRM Customer',
+                  'Register client & create project in CRM',
+                  onTap: _enrollAsCustomer,
                   last: true,
                 ),
               ],

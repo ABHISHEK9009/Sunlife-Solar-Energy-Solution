@@ -2,46 +2,58 @@ import { createHmac, createHash, randomInt, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendAgentOtpEmail, maskEmail } from "@/lib/crm/agent-mailer";
 
-const OTP_SECRET = process.env.ADMIN_PASSWORD || "sunlife_otp_jwt_secret_token_key_2026";
+function getAgentAuthSecret(): string {
+  const secret = process.env.AGENT_AUTH_SECRET || process.env.AUTH_JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("AGENT_AUTH_SECRET or AUTH_JWT_SECRET must be configured in production.");
+    }
+    return "sunlife_agent_auth_development_secret_2026";
+  }
+  return secret;
+}
 
-interface AgentOtpCacheEntry {
+interface AgentChallenge {
   otpHash: string;
   expiresAt: number;
   requestedAt: number;
   attempts: number;
+  purpose: "AGENT_LOGIN";
 }
 
 declare global {
-  var __agentOtpCache: Map<string, AgentOtpCacheEntry> | undefined;
+  var __agentLoginChallenges: Map<string, AgentChallenge> | undefined;
 }
 
-const agentOtpCache =
-  globalThis.__agentOtpCache ||
-  (globalThis.__agentOtpCache = new Map<string, AgentOtpCacheEntry>());
+const agentLoginChallenges =
+  globalThis.__agentLoginChallenges ||
+  (globalThis.__agentLoginChallenges = new Map<string, AgentChallenge>());
 
 /**
- * Clean and extract 10-digit mobile number from input
+ * Normalizes Indian mobile numbers
  */
-function extractMobileNumber(input: string): string {
+function normalizeIndianMobile(input: string): string {
   const digits = (input || "").replace(/\D/g, "");
-  if (digits.length < 10) {
-    throw new Error(
-      "We could not verify this account. Please check your mobile number or contact your administrator."
-    );
-  }
-  return digits.slice(-10);
+  if (digits.length === 10) return digits;
+  if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+  if (digits.length === 11 && digits.startsWith("0")) return digits.slice(1);
+  throw new Error("Please enter a valid 10-digit mobile number.");
 }
 
 /**
  * Generate a cryptographically secure 6-digit OTP and send to the agent's verified email
  */
 export async function sendAgentOtp(mobileInput: string) {
-  const cleanMobile = extractMobileNumber(mobileInput);
+  const cleanMobile = normalizeIndianMobile(mobileInput);
 
-  // Look up active agent by mobile number in CRM database
+  // Look up active agent by unambiguous exact mobile match
   const member = await prisma.teamMember.findFirst({
     where: {
-      phone: { contains: cleanMobile },
+      OR: [
+        { phone: cleanMobile },
+        { phone: `+91${cleanMobile}` },
+        { phone: `+91 ${cleanMobile}` },
+      ],
       activeStatus: true,
       employeeAccessEnabled: true,
     },
@@ -61,7 +73,7 @@ export async function sendAgentOtp(mobileInput: string) {
   }
 
   const cacheKey = member.id;
-  const existing = agentOtpCache.get(cacheKey);
+  const existing = agentLoginChallenges.get(cacheKey);
   const now = Date.now();
 
   // Rate limiting / cooldown: 60 seconds between OTP requests
@@ -74,24 +86,26 @@ export async function sendAgentOtp(mobileInput: string) {
 
   // Generate cryptographically secure 6-digit numeric OTP
   const otp = randomInt(100000, 1000000).toString();
-  const otpHash = createHash("sha256").update(otp).digest("hex");
+  // Prefix purpose to ensure login challenge cannot cross-validate with email-verification
+  const otpHash = createHash("sha256").update(`LOGIN:${otp}`).digest("hex");
   const expiresAt = new Date(now + 10 * 60 * 1000); // 10 minutes
 
-  // Persist hashed OTP & expiry in PostgreSQL database
+  // Persist challenge purpose-separated hash in DB
   await prisma.teamMember.update({
     where: { id: member.id },
     data: {
-      verificationCodeHash: otpHash,
+      verificationCodeHash: `LOGIN:${otpHash}`,
       verificationExpiresAt: expiresAt,
     },
   });
 
-  // Track attempts and cooldown in memory cache
-  agentOtpCache.set(cacheKey, {
+  // Track attempts and cooldown in shared instance memory cache
+  agentLoginChallenges.set(cacheKey, {
     otpHash,
     expiresAt: expiresAt.getTime(),
     requestedAt: now,
     attempts: 0,
+    purpose: "AGENT_LOGIN",
   });
 
   // Dispatch professional branded HTML email to agent's verified email address
@@ -123,20 +137,24 @@ export async function sendAgentOtp(mobileInput: string) {
 }
 
 /**
- * Securely verify the entered OTP against PostgreSQL database record
+ * Securely verify the entered OTP with atomic consumption
  */
 export async function verifyAgentOtp(mobileInput: string, userOtp: string) {
-  const cleanMobile = extractMobileNumber(mobileInput);
+  const cleanMobile = normalizeIndianMobile(mobileInput);
   const cleanOtp = (userOtp || "").trim();
 
   if (cleanOtp.length !== 6 || !/^\d{6}$/.test(cleanOtp)) {
     throw new Error("Enter a valid 6-digit OTP.");
   }
 
-  // Look up agent by mobile number
+  // Look up agent by exact mobile match
   const member = await prisma.teamMember.findFirst({
     where: {
-      phone: { contains: cleanMobile },
+      OR: [
+        { phone: cleanMobile },
+        { phone: `+91${cleanMobile}` },
+        { phone: `+91 ${cleanMobile}` },
+      ],
       activeStatus: true,
       employeeAccessEnabled: true,
     },
@@ -149,8 +167,8 @@ export async function verifyAgentOtp(mobileInput: string, userOtp: string) {
   }
 
   const cacheKey = member.id;
-  const cacheEntry = agentOtpCache.get(cacheKey);
-  const currentAttempts = cacheEntry?.attempts || 0;
+  const challenge = agentLoginChallenges.get(cacheKey);
+  const currentAttempts = challenge?.attempts || 0;
 
   // Brute force protection: max 5 failed attempts
   if (currentAttempts >= 5) {
@@ -161,7 +179,7 @@ export async function verifyAgentOtp(mobileInput: string, userOtp: string) {
         verificationExpiresAt: null,
       },
     });
-    agentOtpCache.delete(cacheKey);
+    agentLoginChallenges.delete(cacheKey);
     throw new Error("Too many failed attempts. Please request a new OTP.");
   }
 
@@ -171,11 +189,25 @@ export async function verifyAgentOtp(mobileInput: string, userOtp: string) {
     throw new Error("This OTP has expired. Please request a new OTP.");
   }
 
-  // Check cryptographic hash of OTP
-  const incomingHash = createHash("sha256").update(cleanOtp).digest("hex");
-  if (!member.verificationCodeHash || member.verificationCodeHash !== incomingHash) {
-    if (cacheEntry) {
-      cacheEntry.attempts = currentAttempts + 1;
+  // Check purpose separation
+  if (!member.verificationCodeHash || !member.verificationCodeHash.startsWith("LOGIN:")) {
+    throw new Error("Invalid challenge purpose. Please request a new OTP.");
+  }
+
+  // Check cryptographic hash of OTP with purpose prefix
+  const expectedHash = member.verificationCodeHash.slice(6); // remove "LOGIN:"
+  const incomingHash = createHash("sha256").update(`LOGIN:${cleanOtp}`).digest("hex");
+
+  const incomingBuffer = Buffer.from(incomingHash);
+  const expectedBuffer = Buffer.from(expectedHash);
+
+  const isMatch =
+    incomingBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(incomingBuffer, expectedBuffer);
+
+  if (!isMatch) {
+    if (challenge) {
+      challenge.attempts = currentAttempts + 1;
     }
     const remaining = 5 - (currentAttempts + 1);
     if (remaining <= 0) {
@@ -186,13 +218,13 @@ export async function verifyAgentOtp(mobileInput: string, userOtp: string) {
           verificationExpiresAt: null,
         },
       });
-      agentOtpCache.delete(cacheKey);
+      agentLoginChallenges.delete(cacheKey);
       throw new Error("Too many failed attempts. Please request a new OTP.");
     }
     throw new Error("Incorrect OTP. Please try again.");
   }
 
-  // Single-use guarantee: Invalidate OTP immediately upon successful verification
+  // Single-use guarantee: Invalidate OTP atomically upon successful verification
   await prisma.teamMember.update({
     where: { id: member.id },
     data: {
@@ -201,13 +233,13 @@ export async function verifyAgentOtp(mobileInput: string, userOtp: string) {
       emailVerifiedAt: member.emailVerifiedAt || now,
     },
   });
-  agentOtpCache.delete(cacheKey);
+  agentLoginChallenges.delete(cacheKey);
 
   // Generate signed production session access token
   const timestamp = Date.now();
   const employeeIdentifier = member.employeeId || member.id;
   const payload = `${member.id}:${employeeIdentifier}:agent:${timestamp}`;
-  const signature = createHmac("sha256", OTP_SECRET)
+  const signature = createHmac("sha256", getAgentAuthSecret())
     .update(payload)
     .digest("hex");
 
@@ -224,7 +256,7 @@ export async function verifyAgentOtp(mobileInput: string, userOtp: string) {
       category: member.category,
       phone: member.phone,
       email: member.email,
-      territory: member.territory || "Jaipur Central",
+      territory: member.territory || "Headquarters",
       department: member.department || "Operations",
     },
   };
@@ -234,12 +266,12 @@ export async function verifyAgentOtp(mobileInput: string, userOtp: string) {
  * Validates the Authorization Bearer token for Agent routes
  */
 export async function authenticateAgentRequest(request: Request) {
-  const authHeader = request.headers.get("Authorization");
+  const authHeader = request.headers.get("Authorization") || request.headers.get("authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return null;
   }
 
-  const token = authHeader.split(" ")[1];
+  const token = authHeader.slice(7).trim();
   try {
     const decoded = Buffer.from(token, "base64url").toString("utf-8");
     const parts = decoded.split(":");
@@ -249,7 +281,7 @@ export async function authenticateAgentRequest(request: Request) {
     if (role !== "agent") return null;
 
     const payload = `${id}:${employeeId}:${role}:${timestampStr}`;
-    const expectedSignature = createHmac("sha256", OTP_SECRET)
+    const expectedSignature = createHmac("sha256", getAgentAuthSecret())
       .update(payload)
       .digest("hex");
 

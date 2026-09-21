@@ -1,43 +1,17 @@
 import 'package:flutter/foundation.dart';
+import '../constants/api_constants.dart';
 import '../models/notification_item.dart';
+import '../network/api_client.dart';
 
 class NotificationRepository {
   NotificationRepository._internal() {
-    _unreadCountNotifier.value = _notifications.where((n) => !n.isRead).length;
-    _notificationsNotifier.value = List.unmodifiable(_notifications);
+    _syncNotifiers();
   }
 
   static final NotificationRepository instance = NotificationRepository._internal();
 
-  final List<NotificationItem> _notifications = [
-    NotificationItem(
-      id: 'notif_1',
-      title: 'Net-meter application submitted',
-      message: 'Your application was submitted to JVVNL for meter inspection.',
-      timestamp: DateTime.now().subtract(const Duration(hours: 3)),
-      isRead: false,
-      category: 'Project',
-      actionRoute: 'project',
-    ),
-    NotificationItem(
-      id: 'notif_2',
-      title: 'Installation completed',
-      message: 'Your 5 kW system was installed and tested successfully.',
-      timestamp: DateTime.now().subtract(const Duration(days: 1)),
-      isRead: true,
-      category: 'Project',
-      actionRoute: 'project',
-    ),
-    NotificationItem(
-      id: 'notif_3',
-      title: 'Installation certificate ready',
-      message: 'Your approved installation certificate is available in Documents.',
-      timestamp: DateTime.now().subtract(const Duration(days: 3)),
-      isRead: true,
-      category: 'Documents',
-      actionRoute: 'documents',
-    ),
-  ];
+  List<NotificationItem> _notifications = [];
+  bool _isLoading = false;
 
   final ValueNotifier<int> _unreadCountNotifier = ValueNotifier<int>(0);
   final ValueNotifier<List<NotificationItem>> _notificationsNotifier =
@@ -47,25 +21,66 @@ class NotificationRepository {
   ValueListenable<List<NotificationItem>> get notificationsNotifier => _notificationsNotifier;
 
   int get unreadCount => _unreadCountNotifier.value;
-
   List<NotificationItem> get notifications => List.unmodifiable(_notifications);
+  bool get isLoading => _isLoading;
 
-  Future<List<NotificationItem>> getNotifications() async {
+  void reset() {
+    _notifications = [];
+    _isLoading = false;
+    _syncNotifiers();
+  }
+
+  Future<List<NotificationItem>> getNotifications({bool forceRefresh = false}) async {
+    if (!forceRefresh && _notifications.isNotEmpty) {
+      return List.unmodifiable(_notifications);
+    }
+
+    _isLoading = true;
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.notifications);
+      if (res.statusCode == 200 && res.data is Map<String, dynamic>) {
+        final data = res.data as Map<String, dynamic>;
+        final rawList = data['notifications'] as List<dynamic>? ?? [];
+        _notifications = rawList
+            .map((e) => NotificationItem.fromJson(e as Map<String, dynamic>))
+            .toList();
+        _syncNotifiers();
+      }
+    } catch (_) {
+      // Keep real fetched list on error; do not fabricate fake notifications
+    } finally {
+      _isLoading = false;
+    }
+
     return List.unmodifiable(_notifications);
   }
 
-  void markAllAsRead() {
+  Future<void> markAllAsRead() async {
     for (var i = 0; i < _notifications.length; i++) {
       _notifications[i] = _notifications[i].copyWith(isRead: true);
     }
     _syncNotifiers();
+
+    try {
+      await ApiClient.instance.patch(
+        ApiConstants.notifications,
+        data: {'markAllRead': true},
+      );
+    } catch (_) {}
   }
 
-  void markAsRead(String id) {
+  Future<void> markAsRead(String id) async {
     final index = _notifications.indexWhere((n) => n.id == id);
     if (index != -1 && !_notifications[index].isRead) {
       _notifications[index] = _notifications[index].copyWith(isRead: true);
       _syncNotifiers();
+
+      try {
+        await ApiClient.instance.patch(
+          ApiConstants.notifications,
+          data: {'notificationId': id},
+        );
+      } catch (_) {}
     }
   }
 

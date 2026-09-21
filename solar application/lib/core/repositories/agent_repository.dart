@@ -5,6 +5,7 @@ import '../models/agent_lead.dart';
 import '../models/agent_task.dart';
 import '../models/field_visit.dart';
 import '../network/api_client.dart';
+import 'auth_repository.dart';
 
 class AgentRepository extends ChangeNotifier {
   AgentRepository._internal();
@@ -53,12 +54,13 @@ class AgentRepository extends ChangeNotifier {
         notifyListeners();
       }
     } catch (_) {
-      // Keep real fetched list
+      // Retain confirmed list
     }
 
     return List.unmodifiable(_leads);
   }
 
+  /// Adds new lead. Awaits real server confirmation; never fabricates local mock success.
   Future<AgentLead> addLead({
     required String name,
     required String phone,
@@ -76,10 +78,10 @@ class AgentRepository extends ChangeNotifier {
     String? notes,
   }) async {
     final payload = <String, dynamic>{
-      'name': name,
-      'phone': phone,
-      'location': location,
-      'leadSource': leadSource ?? 'Field Visit',
+      'name': name.trim(),
+      'phone': phone.trim(),
+      'location': location.trim(),
+      'leadSource': leadSource ?? 'Field Partner Visit',
       'propertyType': requirementType ?? 'Residential',
       'solarRequirement': solarRequirement ?? 'On-Grid',
       'approxCapacity': approxCapacity ?? '5 kW',
@@ -94,61 +96,45 @@ class AgentRepository extends ChangeNotifier {
       payload['nextFollowUpDate'] = nextFollowUpDate.toIso8601String();
     }
 
-    try {
-      final res = await ApiClient.instance.post(
-        ApiConstants.agentLeads,
-        data: payload,
-      );
-
-      if ((res.statusCode == 200 || res.statusCode == 201) &&
-          res.data is Map &&
-          (res.data as Map).containsKey('lead')) {
-        final savedLead = AgentLead.fromJson(res.data['lead'] as Map<String, dynamic>);
-        _leads.insert(0, savedLead);
-        notifyListeners();
-        return savedLead;
-      }
-    } catch (_) {
-      // Fallback
+    final res = await ApiClient.instance.post(ApiConstants.agentLeads, data: payload);
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      final leadData = res.data is Map && (res.data as Map).containsKey('lead')
+          ? res.data['lead']
+          : res.data;
+      final lead = AgentLead.fromJson(Map<String, dynamic>.from(leadData as Map));
+      _leads.insert(0, lead);
+      notifyListeners();
+      return lead;
     }
 
-    final fallbackLead = AgentLead(
-      id: 'lead_${DateTime.now().millisecondsSinceEpoch}',
-      name: name,
-      phone: phone,
-      location: location,
-      city: city,
-      district: district,
-      stage: leadStatus ?? 'New lead',
-      monthlyBill: monthlyBill != null ? '₹$monthlyBill/month' : '₹5,000/month',
-      propertyType: requirementType ?? 'Residential',
-      solarRequirement: solarRequirement ?? 'On-Grid',
-      approxCapacity: approxCapacity ?? '5 kW',
-      preferredSystem: '${approxCapacity ?? "5 kW"} ${solarRequirement ?? "On-Grid"}',
-      leadSource: leadSource ?? 'Field Visit',
-      assignedAgent: assignedAgent,
-      nextFollowUpDate: nextFollowUpDate,
-      notes: notes,
-      createdAt: DateTime.now(),
-    );
-    _leads.insert(0, fallbackLead);
-    notifyListeners();
-    return fallbackLead;
+    throw Exception("Failed to save lead to CRM. Server rejected the request.");
   }
 
+  /// Updates lead stage with rollback on failure.
   Future<void> updateLeadStage(String leadId, String newStage) async {
     final index = _leads.indexWhere((l) => l.id == leadId || l.name == leadId);
-    if (index != -1) {
-      final targetLead = _leads[index];
-      _leads[index] = targetLead.copyWith(stage: newStage);
-      notifyListeners();
+    if (index == -1) return;
 
-      try {
-        await ApiClient.instance.patch(
-          '${ApiConstants.agentLeads}/${targetLead.id}',
-          data: {'stage': newStage},
-        );
-      } catch (_) {}
+    final targetLead = _leads[index];
+    final originalStage = targetLead.stage;
+
+    // Optimistic local update
+    _leads[index] = targetLead.copyWith(stage: newStage);
+    notifyListeners();
+
+    try {
+      final res = await ApiClient.instance.dio.patch(
+        '${ApiConstants.agentLeads}/${targetLead.id}',
+        data: {'stage': newStage},
+      );
+      if (res.statusCode != 200) {
+        throw Exception("Server returned ${res.statusCode}");
+      }
+    } catch (err) {
+      // Roll back on failure
+      _leads[index] = targetLead.copyWith(stage: originalStage);
+      notifyListeners();
+      throw Exception("Could not update lead status: ${err.toString()}");
     }
   }
 
@@ -165,13 +151,13 @@ class AgentRepository extends ChangeNotifier {
             : (res.data is List ? res.data as List<dynamic> : []);
 
         _visits = rawList
-            .map((e) => FieldVisit.fromJson(e as Map<String, dynamic>))
+            .map((e) => FieldVisit.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList();
         _hasFetchedVisits = true;
         notifyListeners();
       }
     } catch (_) {
-      // Keep real fetched visits
+      // Retain confirmed list
     }
 
     return List.unmodifiable(_visits);
@@ -203,35 +189,47 @@ class AgentRepository extends ChangeNotifier {
     }
   }
 
+  /// Completes a visit with real server persistence and error rollback.
   Future<void> completeVisit(
-    String customerName, {
+    String visitIdOrCustomerName, {
     double? latitude,
     double? longitude,
     List<String>? photoPaths,
   }) async {
     final i = _visits.indexWhere(
-      (v) => v.customerName.toLowerCase() == customerName.toLowerCase(),
+      (v) => v.id == visitIdOrCustomerName || v.customerName.toLowerCase() == visitIdOrCustomerName.toLowerCase(),
     );
-    if (i != -1) {
-      final visit = _visits[i];
-      _visits[i] = visit.copyWith(
-        isCompleted: true,
-        latitude: latitude ?? visit.latitude,
-        longitude: longitude ?? visit.longitude,
-        photoPaths: photoPaths ?? visit.photoPaths,
-      );
-      notifyListeners();
+    if (i == -1) throw Exception("Visit record not found.");
 
-      try {
-        await ApiClient.instance.post(
-          '${ApiConstants.agentVisits}/${visit.id}/complete',
-          data: {
-            'latitude': latitude,
-            'longitude': longitude,
-            'photoPaths': photoPaths,
-          },
-        );
-      } catch (_) {}
+    final visit = _visits[i];
+    final originalCompleted = visit.isCompleted;
+
+    // Optimistic UI
+    _visits[i] = visit.copyWith(
+      isCompleted: true,
+      latitude: latitude ?? visit.latitude,
+      longitude: longitude ?? visit.longitude,
+      photoPaths: photoPaths ?? visit.photoPaths,
+    );
+    notifyListeners();
+
+    try {
+      final res = await ApiClient.instance.post(
+        '${ApiConstants.agentVisits}/${visit.id}/complete',
+        data: {
+          'latitude': latitude,
+          'longitude': longitude,
+          'photoPaths': photoPaths,
+        },
+      );
+      if (res.statusCode != 200 && res.statusCode != 201) {
+        throw Exception("Server returned ${res.statusCode}");
+      }
+    } catch (err) {
+      // Roll back
+      _visits[i] = visit.copyWith(isCompleted: originalCompleted);
+      notifyListeners();
+      throw Exception("Failed to complete visit on server: ${err.toString()}");
     }
   }
 
@@ -269,43 +267,6 @@ class AgentRepository extends ChangeNotifier {
       // Keep real fetched list
     }
 
-    // Dynamic fallback generation from current real leads & visits if offline
-    if (_tasks.isEmpty) {
-      final fallbackTasks = <AgentTask>[];
-      for (final lead in _leads) {
-        final isNew = lead.stage.toLowerCase().contains('new');
-        fallbackTasks.add(
-          AgentTask(
-            id: 'task_lead_${lead.id}',
-            title: isNew ? 'Call ${lead.name}' : 'Follow up with ${lead.name}',
-            subtitle: '${lead.stage} · ${lead.location} · ${lead.phone}',
-            iconType: isNew ? 'call' : 'followup',
-            isCompleted: false,
-            targetId: lead.id,
-            targetName: lead.name,
-            targetPhone: lead.phone,
-            targetType: 'lead',
-          ),
-        );
-      }
-      for (final visit in _visits) {
-        fallbackTasks.add(
-          AgentTask(
-            id: 'task_visit_${visit.id}',
-            title: 'Site survey: ${visit.customerName}',
-            subtitle: '${visit.location} · ${visit.time}',
-            iconType: 'survey',
-            isCompleted: visit.isCompleted,
-            targetId: visit.id,
-            targetName: visit.customerName,
-            targetType: 'survey',
-          ),
-        );
-      }
-      _tasks = fallbackTasks;
-      notifyListeners();
-    }
-
     return List.unmodifiable(_tasks);
   }
 
@@ -325,7 +286,83 @@ class AgentRepository extends ChangeNotifier {
             'isCompleted': newStatus,
           },
         );
-      } catch (_) {}
+      } catch (_) {
+        // Rollback
+        _tasks[index] = current;
+        notifyListeners();
+      }
     }
+  }
+
+  /// Enrolls client directly into CRM via /api/v1/agent/enroll-client
+  Future<Map<String, dynamic>> enrollClient({
+    required String fullName,
+    required String primaryMobile,
+    required String installationAddress,
+    String? alternateMobile,
+    String? email,
+    String propertyType = "RESIDENTIAL",
+    String monthlyBill = "5000",
+    double capacityKw = 5.0,
+    String? notes,
+  }) async {
+    final res = await ApiClient.instance.post(
+      '/api/v1/agent/enroll-client',
+      data: {
+        'fullName': fullName.trim(),
+        'primaryMobile': primaryMobile.trim(),
+        'installationAddress': installationAddress.trim(),
+        'alternateMobile': alternateMobile?.trim(),
+        'email': email?.trim(),
+        'propertyType': propertyType,
+        'monthlyBill': monthlyBill,
+        'capacityKw': capacityKw,
+        'notes': notes?.trim(),
+      },
+    );
+
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      final data = res.data is Map ? Map<String, dynamic>.from(res.data as Map) : <String, dynamic>{};
+      await getAssignedLeads(forceRefresh: true);
+      return data;
+    }
+
+    throw Exception(
+      res.data is Map && (res.data as Map).containsKey('error')
+          ? res.data['error'].toString()
+          : "Failed to enroll client.",
+    );
+  }
+
+  /// Punches attendance in/out via /api/attendance
+  Future<Map<String, dynamic>> punchAttendance({
+    required String action, // "punch-in" or "punch-out"
+    double? latitude,
+    double? longitude,
+  }) async {
+    final user = AuthRepository.instance.currentUser;
+    if (user == null || user.id.isEmpty) {
+      throw Exception("Agent must be logged in to record attendance.");
+    }
+
+    final res = await ApiClient.instance.post(
+      '/api/attendance',
+      data: {
+        'memberId': user.id,
+        'action': action,
+        'latitude': latitude,
+        'longitude': longitude,
+      },
+    );
+
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      return res.data is Map ? Map<String, dynamic>.from(res.data as Map) : <String, dynamic>{};
+    }
+
+    throw Exception(
+      res.data is Map && (res.data as Map).containsKey('error')
+          ? res.data['error'].toString()
+          : "Failed to record attendance.",
+    );
   }
 }

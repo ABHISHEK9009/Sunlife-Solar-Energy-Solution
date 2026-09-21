@@ -55,7 +55,7 @@ export async function adminFetch(input: RequestInfo | URL, init?: RequestInit): 
     return response;
   } catch (error) {
     if (!parentSignal?.aborted) {
-      report(key, "Unable to complete the request right now. Please try again.");
+      report(key, error instanceof Error && error.name !== "AbortError" ? error.message : "Unable to complete the request right now. Please try again.");
     }
     throw error;
   } finally {

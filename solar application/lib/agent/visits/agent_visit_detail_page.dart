@@ -62,15 +62,10 @@ class _AgentVisitDetailPageState extends State<AgentVisitDetailPage> {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        // Mock fallback for desktop or when GPS service is disabled
-        setState(() {
-          _latitude = 26.9124;
-          _longitude = 75.7873;
-          _isGettingLocation = false;
-        });
+        setState(() => _isGettingLocation = false);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('GPS coordinates captured (Jaipur: 26.91°N, 75.78°E)')),
+            const SnackBar(content: Text('Location services are disabled on this device. Please turn on GPS.')),
           );
         }
         return;
@@ -81,22 +76,31 @@ class _AgentVisitDetailPageState extends State<AgentVisitDetailPage> {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
           setState(() => _isGettingLocation = false);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Location permissions are denied.')),
+            );
+          }
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
         setState(() => _isGettingLocation = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permissions are permanently denied. Please enable in Settings.')),
+          );
+        }
         return;
       }
 
-      final Position position = (await Geolocator.getLastKnownPosition()) ??
-          await Geolocator.getCurrentPosition(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.medium,
-              timeLimit: Duration(seconds: 3),
-            ),
-          );
+      final Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
 
       if (mounted) {
         setState(() {
@@ -107,20 +111,15 @@ class _AgentVisitDetailPageState extends State<AgentVisitDetailPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppColors.deepGreen,
-            content: Text('Location verified: ${position.latitude.toStringAsFixed(4)}°N, ${position.longitude.toStringAsFixed(4)}°E'),
+            content: Text('GPS Captured: ${position.latitude.toStringAsFixed(4)}°N, ${position.longitude.toStringAsFixed(4)}°E'),
           ),
         );
       }
-    } catch (_) {
-      // Fallback
+    } catch (e) {
       if (mounted) {
-        setState(() {
-          _latitude = 26.8532;
-          _longitude = 75.7654;
-          _isGettingLocation = false;
-        });
+        setState(() => _isGettingLocation = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('GPS check-in verified at site (26.85°N, 75.76°E)')),
+          const SnackBar(content: Text('Could not acquire accurate GPS coordinates. Please try again.')),
         );
       }
     }
@@ -169,30 +168,42 @@ class _AgentVisitDetailPageState extends State<AgentVisitDetailPage> {
   Future<void> _completeVisit() async {
     setState(() => _isSaving = true);
 
-    await AgentRepository.instance.completeVisit(
-      widget.customer,
-      latitude: _latitude,
-      longitude: _longitude,
-      photoPaths: _photos,
-    );
-
-    if (mounted) {
-      setState(() => _isSaving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: AppColors.deepGreen,
-          content: Text('${widget.customer} site survey completed & saved to CRM'),
-        ),
+    try {
+      await AgentRepository.instance.completeVisit(
+        widget.customer,
+        latitude: _latitude,
+        longitude: _longitude,
+        photoPaths: _photos,
       );
-      Navigator.pop(context);
+
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.deepGreen,
+            content: Text('${widget.customer} site survey completed & saved to CRM'),
+          ),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red.shade700,
+            content: Text('Failed to complete survey: $e'),
+          ),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final purpose = _visit?.purpose.toUpperCase() ?? 'SITE SURVEY';
-    final time = _visit?.time ?? '10:30 AM';
-    final location = _visit?.location ?? 'Mansarovar, Jaipur';
+    final time = _visit?.time ?? '--:--';
+    final location = _visit?.location ?? 'Scheduled Site';
 
     return SubPage(
       title: 'Visit checklist',

@@ -38,6 +38,7 @@ class ApiConstants {
   static const String customerProjects = '/customer/projects';
   static const String projectDetail = '/projects'; // /projects/{id}
   static const String serviceTickets = '/tickets';
+  static const String notifications = '/notifications';
 
   // Agent Operations Endpoints
   static const String agentLeads = '/agent/leads';

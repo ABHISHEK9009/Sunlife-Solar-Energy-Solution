@@ -64,6 +64,20 @@ export async function POST(
       return NextResponse.json({ error: "Required fields missing." }, { status: 400 });
     }
 
+    const project = await prisma.solarProject.findFirst({
+      where: {
+        OR: [{ id }, { projectId: id }],
+        customerId: customer.id,
+      },
+    });
+
+    if (!project) {
+      return NextResponse.json(
+        { error: "Project not found or unauthorized access." },
+        { status: 404 }
+      );
+    }
+
     const docCount = await prisma.document.count();
     const documentCode = `SL-DOC-${1000 + docCount + 1}`;
 
@@ -71,7 +85,7 @@ export async function POST(
       data: {
         documentId: documentCode,
         customerId: customer.id,
-        projectId: id,
+        projectId: project.id,
         documentCategory,
         documentName,
         fileLocation,

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sunlife_solar/agent/dashboard/agent_shell.dart';
 import 'package:sunlife_solar/core/network/api_client.dart';
 import 'package:sunlife_solar/core/repositories/agent_repository.dart';
@@ -40,7 +41,7 @@ class _WidgetTestHttpAdapter implements HttpClientAdapter {
             'name': 'Abhishek Verma',
             'phone': '8839707135',
             'email': 'abhishekverma9920@gmail.com',
-            'role': 'Field Operations Partner',
+            'role': 'agent',
             'territory': 'Jaipur Central',
             'department': 'Operations',
           },
@@ -106,7 +107,76 @@ class _WidgetTestHttpAdapter implements HttpClientAdapter {
         headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
       );
     }
-    return ResponseBody.fromString('{}', 200, headers: {
+    if (options.path.contains('/customer/projects')) {
+      return ResponseBody.fromString(
+        jsonEncode({
+          'success': true,
+          'projects': [
+            {
+              'id': 'proj_1',
+              'projectId': 'SS-2026-00452',
+              'plantCapacityKw': 5.0,
+              'solarType': 'RESIDENTIAL_ROOFTOP',
+              'projectStatus': 'STRUCTURE_WORK',
+              'currentStage': 'Structure Work',
+              'installationAddress': 'Jaipur',
+              'discom': 'JVVNL',
+            }
+          ],
+        }),
+        200,
+        headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
+      );
+    }
+    if (options.path.contains('/payments')) {
+      return ResponseBody.fromString(
+        jsonEncode({
+          'success': true,
+          'summary': {
+            'totalContractValue': 250000,
+            'totalPaid': 150000,
+            'outstandingBalance': 100000,
+            'isFullyPaid': false,
+          },
+          'milestones': [],
+        }),
+        200,
+        headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
+      );
+    }
+    if (options.path.contains('/documents')) {
+      return ResponseBody.fromString(
+        jsonEncode({
+          'success': true,
+          'documents': [],
+        }),
+        200,
+        headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
+      );
+    }
+    if (options.path.contains('/subsidy')) {
+      return ResponseBody.fromString(
+        jsonEncode({
+          'success': true,
+          'subsidy': {
+            'stage': 'Processing',
+          },
+        }),
+        200,
+        headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
+      );
+    }
+    if (options.path.contains('/notifications')) {
+      return ResponseBody.fromString(
+        jsonEncode({
+          'success': true,
+          'notifications': [],
+        }),
+        200,
+        headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
+      );
+    }
+    return ResponseBody.fromString('{"success": true}', 200, headers: {
       Headers.contentTypeHeader: [Headers.jsonContentType],
     });
   }
@@ -115,28 +185,44 @@ class _WidgetTestHttpAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
+Future<void> _pumpFrames(WidgetTester tester, [int count = 6]) async {
+  for (int i = 0; i < count; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() async {
+    SecureStorageService.useInMemoryOnly = true;
+    SharedPreferences.setMockInitialValues({});
     await SecureStorageService.clearSession();
     ApiClient.instance.dio.httpClientAdapter = _WidgetTestHttpAdapter();
   });
 
   testWidgets('opens customer dashboard with phone entry', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2160);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(const SunlifeCustomerApp());
     expect(find.text('Power your home\nwith sunshine.'), findsOneWidget);
 
     // Enter valid 10-digit phone number
     await tester.enterText(find.byType(TextField), '9876543210');
+    await tester.ensureVisible(find.text('Continue with OTP'));
     await tester.tap(find.text('Continue with OTP'));
-    await tester.pumpAndSettle();
+    await _pumpFrames(tester, 10);
 
     expect(find.text('Verify your number'), findsOneWidget);
-    await tester.enterText(find.byType(TextField), '654321');
+    await tester.enterText(find.byType(TextField).last, '654321');
+    await tester.ensureVisible(find.text('Verify & continue'));
     await tester.tap(find.text('Verify & continue'));
-    await tester.pumpAndSettle();
+    await _pumpFrames(tester, 10);
 
+    debugPrint('After verify texts: ${find.byType(Text).evaluate().map((e) => (e.widget as Text).data).toList()}');
     expect(find.text('Good morning, Rajesh'), findsOneWidget);
     expect(find.text('Project progress'), findsOneWidget);
   });
@@ -146,14 +232,14 @@ void main() {
       MaterialApp(theme: ThemeData(useMaterial3: true), home: const AppShell()),
     );
     await tester.tap(find.text('Profile'));
-    await tester.pumpAndSettle();
+    await _pumpFrames(tester);
     await tester.dragUntilVisible(
       find.text('Log out'),
       find.byType(Scrollable),
       const Offset(0, -300),
     );
     await tester.tap(find.text('Log out'));
-    await tester.pumpAndSettle();
+    await _pumpFrames(tester);
     expect(find.text('Log out?'), findsOneWidget);
   });
 
@@ -183,12 +269,12 @@ void main() {
     expect(find.text('Agent Portal\nSign In'), findsOneWidget);
     await tester.enterText(find.byType(TextField), '8839707135');
     await tester.tap(find.text('Continue / Send OTP'));
-    await tester.pumpAndSettle();
+    await _pumpFrames(tester);
 
     expect(find.text('Verify Login OTP'), findsOneWidget);
-    await tester.enterText(find.byType(TextField), '654321');
+    await tester.enterText(find.byType(TextField).last, '654321');
     await tester.tap(find.text('Verify & Sign In'));
-    await tester.pumpAndSettle();
+    await _pumpFrames(tester, 10);
 
     expect(find.text('Good morning, Abhishek'), findsOneWidget);
     expect(find.text('Assigned leads'), findsOneWidget);
@@ -204,10 +290,10 @@ void main() {
       ),
     );
     await tester.tap(find.text('Leads'));
-    await tester.pumpAndSettle();
+    await _pumpFrames(tester);
     expect(find.text('Amit Kumar'), findsOneWidget);
     await tester.tap(find.text('Amit Kumar'));
-    await tester.pumpAndSettle();
+    await _pumpFrames(tester);
 
     expect(find.text('Customer requirement'), findsOneWidget);
     expect(find.text('Update lead stage'), findsOneWidget);

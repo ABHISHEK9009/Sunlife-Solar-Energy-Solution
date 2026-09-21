@@ -18,19 +18,27 @@ export async function POST(
     const body = await req.json();
     const { latitude, longitude, photoPaths } = body;
 
-    // Check survey by ID or by customer name fallback
-    let survey = await prisma.siteSurvey.findUnique({ where: { id } });
-    if (!survey) {
-      const match = await prisma.siteSurvey.findFirst({
-        where: {
-          customer: { fullName: { equals: id, mode: "insensitive" } },
-        },
-      });
-      if (match) survey = match;
-    }
+    // Look up survey strictly by ID (internal or surveyId code)
+    const survey = await prisma.siteSurvey.findFirst({
+      where: {
+        OR: [{ id }, { surveyId: id }],
+      },
+    });
 
     if (!survey) {
       return NextResponse.json({ error: "Site survey record not found." }, { status: 404 });
+    }
+
+    // Enforce assignment: an agent cannot complete another agent's assigned survey
+    const isAssigned =
+      !survey.surveyEngineerId ||
+      survey.surveyEngineerId === agent.id;
+
+    if (!isAssigned && agent.role !== "Admin" && agent.role !== "Manager") {
+      return NextResponse.json(
+        { error: "Forbidden. This site survey is assigned to another engineer." },
+        { status: 403 }
+      );
     }
 
     const updated = await prisma.siteSurvey.update({
@@ -40,7 +48,7 @@ export async function POST(
         gpsLatitude: latitude ?? survey.gpsLatitude,
         gpsLongitude: longitude ?? survey.gpsLongitude,
         sitePhotographs: photoPaths ?? survey.sitePhotographs,
-        surveyEngineerId: agent.id,
+        surveyEngineerId: survey.surveyEngineerId || agent.id,
       },
     });
 

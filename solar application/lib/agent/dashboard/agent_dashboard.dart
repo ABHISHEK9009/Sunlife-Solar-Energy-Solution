@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import '../../core/models/agent_lead.dart';
 import '../../core/models/field_visit.dart';
@@ -25,6 +26,7 @@ class _AgentDashboardState extends State<AgentDashboard> {
   late List<AgentLead> _leads = AgentRepository.instance.currentLeads;
   late List<FieldVisit> _visits = AgentRepository.instance.currentVisits;
   bool _isFetching = false;
+  bool _isPunching = false;
 
   @override
   void initState() {
@@ -45,6 +47,68 @@ class _AgentDashboardState extends State<AgentDashboard> {
         _leads = AgentRepository.instance.currentLeads;
         _visits = AgentRepository.instance.currentVisits;
       });
+    }
+  }
+
+  Future<void> _punchAttendance(String action) async {
+    if (_isPunching) return;
+    setState(() => _isPunching = true);
+
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw Exception('Location services are disabled. Please enable GPS on your device.');
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw Exception('Location permission is required for attendance.');
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception('Location permissions are permanently denied. Please allow in app settings.');
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+
+      final result = await AgentRepository.instance.punchAttendance(
+        action: action,
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
+
+      if (mounted) {
+        final label = action == 'punch-in' ? 'Punch-in' : 'Punch-out';
+        final checkTime = result['record']?['checkIn'] ?? result['record']?['checkOut'] ?? '';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.deepGreen,
+            content: Text('$label recorded successfully at $checkTime!'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        final message = e.toString().replaceAll('Exception:', '').trim();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red.shade700,
+            content: Text(message.isNotEmpty ? message : 'Attendance failed.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPunching = false);
+      }
     }
   }
 
@@ -159,14 +223,53 @@ class _AgentDashboardState extends State<AgentDashboard> {
                 style: const TextStyle(color: Colors.white70),
               ),
               const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: () => widget.onOpenTab(2),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white30),
-                ),
-                icon: const Icon(Icons.route_rounded, size: 18),
-                label: const Text('View today’s route'),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => widget.onOpenTab(2),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white30),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                      icon: const Icon(Icons.route_rounded, size: 16),
+                      label: const Text('Route', style: TextStyle(fontSize: 12)),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _isPunching ? null : () => _punchAttendance('punch-in'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                      icon: _isPunching
+                          ? const SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white),
+                            )
+                          : const Icon(Icons.login_rounded, size: 16),
+                      label: const Text('Punch In', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _isPunching ? null : () => _punchAttendance('punch-out'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white70,
+                        side: const BorderSide(color: Colors.white30),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                      icon: const Icon(Icons.logout_rounded, size: 16),
+                      label: const Text('Punch Out', style: TextStyle(fontSize: 12)),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

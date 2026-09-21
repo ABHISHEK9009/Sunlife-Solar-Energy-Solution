@@ -19,7 +19,13 @@ async function sessionToken(password: string) {
 }
 
 export async function middleware(request: NextRequest) {
-  if (request.nextUrl.pathname === "/admin/login") {
+  const pathname = request.nextUrl.pathname;
+
+  // Allow login page and OAuth callbacks
+  if (
+    pathname === "/admin/login" ||
+    pathname.startsWith("/api/v1/admin/documents/drive-auth/callback")
+  ) {
     const response = NextResponse.next();
     response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
     return response;
@@ -27,7 +33,17 @@ export async function middleware(request: NextRequest) {
 
   const password = process.env.ADMIN_PASSWORD;
   const session = request.cookies.get(SESSION_COOKIE)?.value;
-  if (!password || !session || session !== (await sessionToken(password))) {
+  const validSession = password && session && session === (await sessionToken(password));
+
+  if (!validSession) {
+    // Return 401 JSON for API requests
+    if (pathname.startsWith("/api/v1/admin")) {
+      return NextResponse.json(
+        { error: "Unauthorized admin access. Please sign in to the CRM dashboard." },
+        { status: 401 }
+      );
+    }
+
     const loginUrl = new URL("/admin/login", request.url);
     const response = NextResponse.redirect(loginUrl);
     response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
@@ -39,4 +55,4 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ["/admin/:path*"] };
+export const config = { matcher: ["/admin/:path*", "/api/v1/admin/:path*"] };

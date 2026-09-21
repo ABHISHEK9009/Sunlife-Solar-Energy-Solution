@@ -3,9 +3,13 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { logAuditEvent } from "@/lib/crm/audit-logger";
-import { registerCustomerInitialPin } from "@/lib/crm/auth-otp";
+import { authenticateAdminRequest } from "@/lib/crm/admin-auth";
 
 export async function GET(req: Request) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") || "";
@@ -45,6 +49,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const {
@@ -118,10 +126,6 @@ export async function POST(req: Request) {
       },
     });
 
-    // 2. Register authoritative 6-digit Login PIN
-    const initialPin = "123456";
-    registerCustomerInitialPin(cleanPhone, initialPin);
-
     await logAuditEvent({
       entityType: "Customer",
       entityId: customer.id,
@@ -142,8 +146,7 @@ export async function POST(req: Request) {
         projectCode: project.projectId,
         capacityKw: project.plantCapacityKw,
       },
-      initialPin,
-      loginInstructions: `Client can log in using mobile (+91 ${cleanPhone}) and 6-digit PIN: ${initialPin}`,
+      loginInstructions: `Client can log in securely using mobile (+91 ${cleanPhone}) via authenticated one-time OTP.`,
     });
   } catch (error: any) {
     console.error("[Admin Customers POST Error]:", error);
@@ -152,6 +155,10 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateAgentRequest } from "@/lib/crm/agent-auth";
-import { registerCustomerInitialPin } from "@/lib/crm/auth-otp";
 import { logAuditEvent } from "@/lib/crm/audit-logger";
 
 export async function POST(req: Request) {
@@ -129,11 +128,7 @@ export async function POST(req: Request) {
       },
     });
 
-    // 5. Generate and register 6-digit initial Login PIN
-    const initialPin = "123456";
-    registerCustomerInitialPin(cleanPhone, initialPin);
-
-    // 6. Audit Log
+    // 5. Audit Log
     await logAuditEvent({
       entityType: "Customer",
       entityId: customer.id,
@@ -168,8 +163,7 @@ export async function POST(req: Request) {
           surveyId: survey.surveyId,
           scheduledDateTime: survey.scheduledDateTime,
         },
-        initialPin,
-        loginInstructions: `Client can now log in to the Sunlife Solar App using Mobile (+91 ${cleanPhone}) and 6-digit PIN: ${initialPin}`,
+        loginInstructions: `Client can now log in to the Sunlife Solar App using Mobile (+91 ${cleanPhone}) via secure one-time OTP verification.`,
       },
       { status: 201 }
     );

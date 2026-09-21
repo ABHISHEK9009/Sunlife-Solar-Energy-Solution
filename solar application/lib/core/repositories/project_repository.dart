@@ -1,57 +1,81 @@
+import 'package:flutter/foundation.dart';
 import '../constants/api_constants.dart';
 import '../models/solar_project.dart';
 import '../network/api_client.dart';
 
-class ProjectRepository {
+class ProjectRepository extends ChangeNotifier {
   ProjectRepository._internal();
   static final ProjectRepository instance = ProjectRepository._internal();
 
-  SolarProject? _cachedProject;
+  List<SolarProject> _projects = [];
+  SolarProject? _activeProject;
+  bool _hasFetched = false;
+  String? _lastError;
 
-  Future<SolarProject> getCurrentProject({bool forceRefresh = false}) async {
-    if (!forceRefresh && _cachedProject != null) {
-      return _cachedProject!;
+  List<SolarProject> get allProjects => List.unmodifiable(_projects);
+  List<SolarProject> get currentProjects => allProjects;
+  SolarProject? get activeProject => _activeProject;
+  bool get hasFetched => _hasFetched;
+  String? get lastError => _lastError;
+
+  Future<List<SolarProject>> getProjects({bool forceRefresh = false}) async {
+    await getCurrentProject(forceRefresh: forceRefresh);
+    return allProjects;
+  }
+
+  void reset() {
+    _projects = [];
+    _activeProject = null;
+    _hasFetched = false;
+    _lastError = null;
+    notifyListeners();
+  }
+
+  void setActiveProject(SolarProject project) {
+    _activeProject = project;
+    notifyListeners();
+  }
+
+  Future<SolarProject?> getCurrentProject({bool forceRefresh = false}) async {
+    if (!forceRefresh && _activeProject != null) {
+      return _activeProject;
     }
 
+    _lastError = null;
     try {
       final res = await ApiClient.instance.get(ApiConstants.customerProjects);
-      if (res.statusCode == 200 && res.data is Map<String, dynamic>) {
-        final data = res.data as Map<String, dynamic>;
-        if (data['projects'] is List && (data['projects'] as List).isNotEmpty) {
-          final firstProject = (data['projects'] as List).first as Map<String, dynamic>;
-          _cachedProject = SolarProject.fromJson(firstProject);
-          return _cachedProject!;
+      if (res.statusCode == 200 && res.data is Map) {
+        final data = Map<String, dynamic>.from(res.data as Map);
+        final rawList = data['projects'] as List<dynamic>? ?? [];
+
+        _projects = rawList
+            .map((e) => SolarProject.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList();
+
+        if (_projects.isNotEmpty) {
+          // If activeProject is set, retain selection, else select first
+          final activeId = data['activeProjectId'] as String?;
+          _activeProject = _projects.firstWhere(
+            (p) => p.id == activeId || p.projectIdCode == activeId,
+            orElse: () => _projects.first,
+          );
+        } else {
+          _activeProject = null;
         }
+
+        _hasFetched = true;
+        notifyListeners();
+        return _activeProject;
       }
-    } catch (_) {
-      // Fallback for offline testing
+    } catch (e) {
+      _lastError = e.toString();
+      // If we already have a cached project from the current session, keep it
+      if (_activeProject != null) {
+        return _activeProject;
+      }
+      rethrow;
     }
 
-    _cachedProject = const SolarProject(
-      id: 'SS-2026-00452',
-      capacityKw: 5,
-      projectType: 'Residential',
-      systemType: 'On-grid',
-      status: 'IN PROGRESS',
-      currentStage: 'Net metering',
-      expectedUpdateDays: '5–7 days',
-      address: 'Vaishali Nagar, Jaipur',
-      discom: 'JVVNL',
-      panels: 'Adani Solar 540W',
-      inverter: 'Sungrow 5 kW',
-      engineerName: 'Amit Sharma',
-      salesExecutive: 'Priya Verma',
-      completedStages: 4,
-      totalStages: 6,
-      stages: [
-        'Site survey',
-        'Quotation approved',
-        'Documents submitted',
-        'Installation',
-        'Net metering',
-        'Subsidy credit',
-      ],
-    );
-    return _cachedProject!;
+    return _activeProject;
   }
 }

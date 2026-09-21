@@ -4,18 +4,34 @@ import '../constants/api_constants.dart';
 import '../models/service_ticket.dart';
 import '../network/api_client.dart';
 import 'notification_repository.dart';
+import 'project_repository.dart';
 
 class SupportRepository extends ChangeNotifier {
   SupportRepository._internal();
   static final SupportRepository instance = SupportRepository._internal();
 
   List<ServiceTicket> _tickets = [];
-  bool _hasFetched = false;
+  bool _isLoading = false;
+  String? _lastError;
+
+  List<ServiceTicket> get tickets => List.unmodifiable(_tickets);
+  bool get isLoading => _isLoading;
+  String? get lastError => _lastError;
+
+  void reset() {
+    _tickets = [];
+    _isLoading = false;
+    _lastError = null;
+    notifyListeners();
+  }
 
   Future<List<ServiceTicket>> getTickets({bool forceRefresh = false}) async {
-    if (!forceRefresh && _hasFetched && _tickets.isNotEmpty) {
+    if (!forceRefresh && _tickets.isNotEmpty) {
       return List.unmodifiable(_tickets);
     }
+
+    _isLoading = true;
+    _lastError = null;
 
     try {
       final res = await ApiClient.instance.get(ApiConstants.serviceTickets);
@@ -27,85 +43,57 @@ class SupportRepository extends ChangeNotifier {
         _tickets = rawList
             .map((e) => ServiceTicket.fromJson(e as Map<String, dynamic>))
             .toList();
-        _hasFetched = true;
         notifyListeners();
-        return List.unmodifiable(_tickets);
       }
-    } catch (_) {
-      // Fallback
-    }
-
-    if (_tickets.isEmpty) {
-      _tickets = [
-        ServiceTicket(
-          id: 'SS2842',
-          category: 'Subsidy document verification',
-          description: 'Submitted cancelled cheque for subsidy processing approval.',
-          status: 'UNDER REVIEW',
-          createdAt: DateTime.now().subtract(const Duration(hours: 18)),
-          advisorName: 'Neha Verma',
-          expectedResponse: 'Within 1 working day',
-        ),
-      ];
-      _hasFetched = true;
+    } catch (err) {
+      _lastError = err.toString();
+      // Keep real tickets; do not fabricate fake tickets
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
 
     return List.unmodifiable(_tickets);
   }
 
+  /// Creates real support ticket on server. Awaits backend confirmation before updating UI state.
   Future<ServiceTicket> createTicket({
     required String category,
     required String description,
     String? attachmentPath,
   }) async {
-    try {
-      final res = await ApiClient.instance.post(
-        ApiConstants.serviceTickets,
-        data: {
-          'issueCategory': category,
-          'description': description,
-        },
-      );
+    final activeProject = ProjectRepository.instance.activeProject;
 
-      if ((res.statusCode == 200 || res.statusCode == 201) &&
-          res.data is Map &&
-          (res.data as Map).containsKey('ticket')) {
-        final newTicket = ServiceTicket.fromJson(res.data['ticket'] as Map<String, dynamic>);
-        _tickets.insert(0, newTicket);
-
-        NotificationRepository.instance.addNotification(
-          title: 'Ticket #${newTicket.id} created',
-          message: 'Query regarding "$category" submitted. Our advisor will respond soon.',
-          category: 'Support',
-          actionRoute: 'service',
-        );
-
-        notifyListeners();
-        return newTicket;
-      }
-    } catch (_) {
-      // Fallback
+    final payload = <String, dynamic>{
+      'issueCategory': category,
+      'description': description,
+    };
+    if (activeProject != null && activeProject.id.isNotEmpty) {
+      payload['projectId'] = activeProject.id;
     }
 
-    final newTicket = ServiceTicket(
-      id: 'SS${2900 + _tickets.length + 1}',
-      category: category,
-      description: description,
-      status: 'SUBMITTED',
-      createdAt: DateTime.now(),
-      attachmentPath: attachmentPath,
+    final res = await ApiClient.instance.post(
+      ApiConstants.serviceTickets,
+      data: payload,
     );
 
-    _tickets.insert(0, newTicket);
+    if ((res.statusCode == 200 || res.statusCode == 201) &&
+        res.data is Map &&
+        (res.data as Map).containsKey('ticket')) {
+      final newTicket = ServiceTicket.fromJson(res.data['ticket'] as Map<String, dynamic>);
+      _tickets.insert(0, newTicket);
 
-    NotificationRepository.instance.addNotification(
-      title: 'Ticket #${newTicket.id} created',
-      message: 'Query regarding "$category" submitted. Our advisor will respond soon.',
-      category: 'Support',
-      actionRoute: 'service',
-    );
+      NotificationRepository.instance.addNotification(
+        title: 'Ticket #${newTicket.id} submitted',
+        message: 'Your service request has been logged. Our engineering team will review it.',
+        category: 'Support',
+        actionRoute: 'service',
+      );
 
-    notifyListeners();
-    return newTicket;
+      notifyListeners();
+      return newTicket;
+    }
+
+    throw Exception("Server failed to create support ticket.");
   }
 }

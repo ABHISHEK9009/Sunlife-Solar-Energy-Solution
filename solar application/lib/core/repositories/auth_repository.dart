@@ -4,6 +4,12 @@ import '../models/user_profile.dart';
 import '../network/api_client.dart';
 import '../storage/secure_storage_service.dart';
 import 'agent_repository.dart';
+import 'document_repository.dart';
+import 'notification_repository.dart';
+import 'payment_repository.dart';
+import 'project_repository.dart';
+import 'subsidy_repository.dart';
+import 'support_repository.dart';
 
 class OtpRequestResult {
   const OtpRequestResult({
@@ -20,7 +26,12 @@ class OtpRequestResult {
 }
 
 class AuthRepository {
-  AuthRepository._internal();
+  AuthRepository._internal() {
+    // Register global listener for expired sessions
+    ApiClient.onSessionExpired = () {
+      logout();
+    };
+  }
   static final AuthRepository instance = AuthRepository._internal();
 
   UserProfile? _currentUser;
@@ -38,11 +49,11 @@ class AuthRepository {
       final payload = {'phone': cleanPhone};
 
       final res = await ApiClient.instance.post(endpoint, data: payload);
-      if ((res.statusCode == 200 || res.statusCode == 201) && res.data is Map<String, dynamic>) {
-        final data = res.data as Map<String, dynamic>;
+      if ((res.statusCode == 200 || res.statusCode == 201) && res.data is Map) {
+        final data = Map<String, dynamic>.from(res.data as Map);
         return OtpRequestResult(
           success: true,
-          maskedEmail: data['maskedEmail'] as String?,
+          maskedEmail: (data['maskedEmail'] ?? data['maskedMobile']) as String?,
           message: data['message'] as String?,
         );
       }
@@ -77,8 +88,8 @@ class AuthRepository {
     final payload = {'phone': cleanPhone, 'otp': cleanOtp};
 
     final res = await ApiClient.instance.post(endpoint, data: payload);
-    if ((res.statusCode == 200 || res.statusCode == 201) && res.data is Map<String, dynamic>) {
-      final data = res.data as Map<String, dynamic>;
+    if ((res.statusCode == 200 || res.statusCode == 201) && res.data is Map) {
+      final data = Map<String, dynamic>.from(res.data as Map);
       final access = data['accessToken'] as String? ?? data['access_token'] as String?;
       if (access == null || access.isEmpty) {
         throw ApiException('Invalid session received from server.');
@@ -86,21 +97,21 @@ class AuthRepository {
 
       ApiClient.instance.setAuthToken(access);
 
-      final agentData = data['agent'] as Map<String, dynamic>?;
-      final customerData = data['customer'] as Map<String, dynamic>?;
+      final agentData = data['agent'] is Map ? Map<String, dynamic>.from(data['agent'] as Map) : null;
+      final customerData = data['customer'] is Map ? Map<String, dynamic>.from(data['customer'] as Map) : null;
 
       final user = isAgent
           ? UserProfile(
-              id: agentData?['employeeId'] as String? ?? agentData?['id'] as String? ?? cleanPhone,
+              id: agentData?['id'] as String? ?? agentData?['employeeId'] as String? ?? cleanPhone,
               name: agentData?['name'] as String? ?? 'Field Partner',
               phone: agentData?['phone'] as String? ?? cleanPhone,
               email: agentData?['email'] as String?,
               role: 'agent',
-              territory: agentData?['territory'] as String? ?? 'Jaipur Central',
+              territory: agentData?['territory'] as String? ?? '',
               managerName: agentData?['department'] as String? ?? 'Operations',
             )
           : UserProfile(
-              id: customerData?['customerId'] as String? ?? customerData?['id'] as String? ?? cleanPhone,
+              id: customerData?['id'] as String? ?? customerData?['customerId'] as String? ?? cleanPhone,
               name: customerData?['fullName'] as String? ?? 'Customer',
               phone: customerData?['primaryMobile'] as String? ?? cleanPhone,
               email: customerData?['email'] as String?,
@@ -146,7 +157,7 @@ class AuthRepository {
             name: userName ?? 'Field Partner',
             phone: '',
             role: 'agent',
-            territory: 'Jaipur Central',
+            territory: '',
           )
         : UserProfile(
             id: userId,
@@ -158,10 +169,19 @@ class AuthRepository {
     return _currentUser;
   }
 
+  /// Complete logout: Purges auth tokens and resets ALL user-scoped repository caches
   Future<void> logout() async {
     _currentUser = null;
     ApiClient.instance.setAuthToken(null);
     await SecureStorageService.clearSession();
+
+    // Purge all customer and agent state to ensure absolute account isolation
+    ProjectRepository.instance.reset();
+    PaymentRepository.instance.reset();
+    DocumentRepository.instance.reset();
+    SubsidyRepository.instance.reset();
+    NotificationRepository.instance.reset();
+    SupportRepository.instance.reset();
     AgentRepository.instance.reset();
   }
 }

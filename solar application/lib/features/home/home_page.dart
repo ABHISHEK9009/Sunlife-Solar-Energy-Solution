@@ -60,22 +60,23 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadData() async {
-    // Parallelize all 4 independent customer dashboard datasets
-    final results = await Future.wait([
-      ProjectRepository.instance.getCurrentProject(),
-      PaymentRepository.instance.getPaymentSummary(),
-      DocumentRepository.instance.getDocuments(),
-      SubsidyRepository.instance.getSubsidyStatus(),
-    ]);
+    try {
+      final results = await Future.wait([
+        ProjectRepository.instance.getCurrentProject(),
+        PaymentRepository.instance.getPaymentSummary(),
+        DocumentRepository.instance.getDocuments(),
+        SubsidyRepository.instance.getSubsidyStatus(),
+      ]);
 
-    if (mounted) {
-      setState(() {
-        _project = results[0] as SolarProject;
-        _paymentSummary = results[1] as PaymentSummary;
-        _documentCount = (results[2] as List).length;
-        _subsidyStage = (results[3] as SubsidyStatus).statusLabel;
-      });
-    }
+      if (mounted) {
+        setState(() {
+          _project = results[0] as SolarProject?;
+          _paymentSummary = results[1] as PaymentSummary?;
+          _documentCount = (results[2] as List).length;
+          _subsidyStage = (results[3] as SubsidyStatus).statusLabel;
+        });
+      }
+    } catch (_) {}
   }
 
   String get _greeting {

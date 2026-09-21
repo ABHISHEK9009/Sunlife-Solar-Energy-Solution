@@ -8,7 +8,8 @@ class SecureStorageService {
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
   );
 
-  static final Map<String, String> _inMemoryFallback = {};
+  static bool useInMemoryOnly = false;
+  static final Map<String, String> _inMemoryCache = {};
 
   static const String _keyAccessToken = 'auth_access_token';
   static const String _keyRefreshToken = 'auth_refresh_token';
@@ -20,46 +21,85 @@ class SecureStorageService {
     required String accessToken,
     required String refreshToken,
   }) async {
-    _inMemoryFallback[_keyAccessToken] = accessToken;
-    _inMemoryFallback[_keyRefreshToken] = refreshToken;
+    _inMemoryCache[_keyAccessToken] = accessToken;
+    _inMemoryCache[_keyRefreshToken] = refreshToken;
+
+    if (useInMemoryOnly) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_keyAccessToken, accessToken);
+      await prefs.setString(_keyRefreshToken, refreshToken);
+      return;
+    }
+
     try {
-      await _storage
-          .write(key: _keyAccessToken, value: accessToken)
-          .timeout(const Duration(milliseconds: 300));
-      await _storage
-          .write(key: _keyRefreshToken, value: refreshToken)
-          .timeout(const Duration(milliseconds: 300));
-    } catch (_) {}
+      await _storage.write(key: _keyAccessToken, value: accessToken).timeout(const Duration(milliseconds: 250));
+      await _storage.write(key: _keyRefreshToken, value: refreshToken).timeout(const Duration(milliseconds: 250));
+    } catch (_) {
+      // Fallback via SharedPreferences if hardware keystore unavailable
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_keyAccessToken, accessToken);
+      await prefs.setString(_keyRefreshToken, refreshToken);
+    }
   }
 
   static Future<String?> getAccessToken() async {
-    if (_inMemoryFallback.containsKey(_keyAccessToken)) {
-      return _inMemoryFallback[_keyAccessToken];
+    if (_inMemoryCache.containsKey(_keyAccessToken)) {
+      return _inMemoryCache[_keyAccessToken];
     }
+
+    if (!useInMemoryOnly) {
+      try {
+        final val = await _storage
+            .read(key: _keyAccessToken)
+            .timeout(const Duration(milliseconds: 250));
+        if (val != null && val.isNotEmpty) {
+          _inMemoryCache[_keyAccessToken] = val;
+          return val;
+        }
+      } catch (_) {}
+    }
+
     try {
-      final val = await _storage
-          .read(key: _keyAccessToken)
-          .timeout(const Duration(milliseconds: 300));
-      if (val != null) _inMemoryFallback[_keyAccessToken] = val;
-      return val;
-    } catch (_) {
-      return _inMemoryFallback[_keyAccessToken];
-    }
+      final prefs = await SharedPreferences.getInstance();
+      final val = prefs.getString(_keyAccessToken);
+      if (val != null && val.isNotEmpty) {
+        _inMemoryCache[_keyAccessToken] = val;
+        return val;
+      }
+    } catch (_) {}
+
+    return null;
   }
 
+  static Future<String?> getAuthToken() => getAccessToken();
+
   static Future<String?> getRefreshToken() async {
-    if (_inMemoryFallback.containsKey(_keyRefreshToken)) {
-      return _inMemoryFallback[_keyRefreshToken];
+    if (_inMemoryCache.containsKey(_keyRefreshToken)) {
+      return _inMemoryCache[_keyRefreshToken];
     }
+
+    if (!useInMemoryOnly) {
+      try {
+        final val = await _storage
+            .read(key: _keyRefreshToken)
+            .timeout(const Duration(milliseconds: 250));
+        if (val != null && val.isNotEmpty) {
+          _inMemoryCache[_keyRefreshToken] = val;
+          return val;
+        }
+      } catch (_) {}
+    }
+
     try {
-      final val = await _storage
-          .read(key: _keyRefreshToken)
-          .timeout(const Duration(milliseconds: 300));
-      if (val != null) _inMemoryFallback[_keyRefreshToken] = val;
-      return val;
-    } catch (_) {
-      return _inMemoryFallback[_keyRefreshToken];
-    }
+      final prefs = await SharedPreferences.getInstance();
+      final val = prefs.getString(_keyRefreshToken);
+      if (val != null && val.isNotEmpty) {
+        _inMemoryCache[_keyRefreshToken] = val;
+        return val;
+      }
+    } catch (_) {}
+
+    return null;
   }
 
   static Future<void> saveSession({
@@ -70,77 +110,101 @@ class SecureStorageService {
     String? userName,
   }) async {
     await saveTokens(accessToken: accessToken, refreshToken: refreshToken);
-    _inMemoryFallback[_keyUserRole] = role;
-    _inMemoryFallback[_keyUserId] = userId;
+    _inMemoryCache[_keyUserRole] = role;
+    _inMemoryCache[_keyUserId] = userId;
     if (userName != null) {
-      _inMemoryFallback[_keyUserName] = userName;
+      _inMemoryCache[_keyUserName] = userName;
     }
 
-    try {
-      await _storage
-          .write(key: _keyUserRole, value: role)
-          .timeout(const Duration(milliseconds: 300));
-      await _storage
-          .write(key: _keyUserId, value: userId)
-          .timeout(const Duration(milliseconds: 300));
-      if (userName != null) {
+    if (!useInMemoryOnly) {
+      try {
         await _storage
-            .write(key: _keyUserName, value: userName)
-            .timeout(const Duration(milliseconds: 300));
-      }
-    } catch (_) {}
+            .write(key: _keyUserRole, value: role)
+            .timeout(const Duration(milliseconds: 250));
+        await _storage
+            .write(key: _keyUserId, value: userId)
+            .timeout(const Duration(milliseconds: 250));
+        if (userName != null) {
+          await _storage
+              .write(key: _keyUserName, value: userName)
+              .timeout(const Duration(milliseconds: 250));
+        }
+      } catch (_) {}
+    }
 
-    try {
-      final prefs = await SharedPreferences.getInstance()
-          .timeout(const Duration(milliseconds: 300));
-      await prefs.setBool('is_authenticated', true);
-      await prefs.setString('user_role', role);
-    } catch (_) {}
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_authenticated', true);
+    await prefs.setString('user_role', role);
+    await prefs.setString('user_id', userId);
+    if (userName != null) {
+      await prefs.setString('user_name', userName);
+    }
   }
 
   static Future<String?> getUserRole() async {
-    if (_inMemoryFallback.containsKey(_keyUserRole)) {
-      return _inMemoryFallback[_keyUserRole];
+    if (_inMemoryCache.containsKey(_keyUserRole)) {
+      return _inMemoryCache[_keyUserRole];
     }
-    try {
-      final val = await _storage
-          .read(key: _keyUserRole)
-          .timeout(const Duration(milliseconds: 300));
-      if (val != null) _inMemoryFallback[_keyUserRole] = val;
-      return val;
-    } catch (_) {
-      return _inMemoryFallback[_keyUserRole];
+    if (!useInMemoryOnly) {
+      try {
+        final val = await _storage
+            .read(key: _keyUserRole)
+            .timeout(const Duration(milliseconds: 250));
+        if (val != null && val.isNotEmpty) {
+          _inMemoryCache[_keyUserRole] = val;
+          return val;
+        }
+      } catch (_) {}
     }
+
+    final prefs = await SharedPreferences.getInstance();
+    final val = prefs.getString('user_role');
+    if (val != null) _inMemoryCache[_keyUserRole] = val;
+    return val;
   }
 
   static Future<String?> getUserId() async {
-    if (_inMemoryFallback.containsKey(_keyUserId)) {
-      return _inMemoryFallback[_keyUserId];
+    if (_inMemoryCache.containsKey(_keyUserId)) {
+      return _inMemoryCache[_keyUserId];
     }
-    try {
-      final val = await _storage
-          .read(key: _keyUserId)
-          .timeout(const Duration(milliseconds: 300));
-      if (val != null) _inMemoryFallback[_keyUserId] = val;
-      return val;
-    } catch (_) {
-      return _inMemoryFallback[_keyUserId];
+    if (!useInMemoryOnly) {
+      try {
+        final val = await _storage
+            .read(key: _keyUserId)
+            .timeout(const Duration(milliseconds: 250));
+        if (val != null && val.isNotEmpty) {
+          _inMemoryCache[_keyUserId] = val;
+          return val;
+        }
+      } catch (_) {}
     }
+
+    final prefs = await SharedPreferences.getInstance();
+    final val = prefs.getString('user_id');
+    if (val != null) _inMemoryCache[_keyUserId] = val;
+    return val;
   }
 
   static Future<String?> getUserName() async {
-    if (_inMemoryFallback.containsKey(_keyUserName)) {
-      return _inMemoryFallback[_keyUserName];
+    if (_inMemoryCache.containsKey(_keyUserName)) {
+      return _inMemoryCache[_keyUserName];
     }
-    try {
-      final val = await _storage
-          .read(key: _keyUserName)
-          .timeout(const Duration(milliseconds: 300));
-      if (val != null) _inMemoryFallback[_keyUserName] = val;
-      return val;
-    } catch (_) {
-      return _inMemoryFallback[_keyUserName];
+    if (!useInMemoryOnly) {
+      try {
+        final val = await _storage
+            .read(key: _keyUserName)
+            .timeout(const Duration(milliseconds: 250));
+        if (val != null && val.isNotEmpty) {
+          _inMemoryCache[_keyUserName] = val;
+          return val;
+        }
+      } catch (_) {}
     }
+
+    final prefs = await SharedPreferences.getInstance();
+    final val = prefs.getString('user_name');
+    if (val != null) _inMemoryCache[_keyUserName] = val;
+    return val;
   }
 
   static Future<bool> isLoggedIn() async {
@@ -148,19 +212,18 @@ class SecureStorageService {
     return token != null && token.isNotEmpty;
   }
 
+  /// Complete session and state purge on logout or expiry
   static Future<void> clearSession() async {
-    _inMemoryFallback.clear();
-    try {
-      await _storage
-          .deleteAll()
-          .timeout(const Duration(milliseconds: 300));
-    } catch (_) {}
+    _inMemoryCache.clear();
+    if (!useInMemoryOnly) {
+      try {
+        await _storage.deleteAll().timeout(const Duration(milliseconds: 250));
+      } catch (_) {}
+    }
 
     try {
-      final prefs = await SharedPreferences.getInstance()
-          .timeout(const Duration(milliseconds: 300));
-      await prefs.remove('is_authenticated');
-      await prefs.remove('user_role');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
     } catch (_) {}
   }
 }

@@ -2,87 +2,81 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/payment_record.dart';
 import '../network/api_client.dart';
-import 'notification_repository.dart';
+import 'project_repository.dart';
 
 class PaymentRepository extends ChangeNotifier {
   PaymentRepository._internal();
   static final PaymentRepository instance = PaymentRepository._internal();
 
-  PaymentSummary _summary = const PaymentSummary(
-    totalProjectCost: 290000,
-    subsidyAmount: 78000,
-    netCustomerCost: 212000,
-    paidAmount: 150000,
-    remainingBalance: 62000,
-    history: [
-      PaymentMilestone(
-        id: 'pay_1',
-        title: 'Booking • 05 Sep',
-        amount: 50000,
-        date: '05 Sep',
-        isPaid: true,
-      ),
-      PaymentMilestone(
-        id: 'pay_2',
-        title: 'Material • 07 Sep',
-        amount: 100000,
-        date: '07 Sep',
-        isPaid: true,
-      ),
-    ],
-  );
+  PaymentSummary _summary = PaymentSummary.empty();
+  bool _isLoading = false;
+  String? _lastError;
 
   PaymentSummary get currentSummary => _summary;
+  bool get isLoading => _isLoading;
+  String? get lastError => _lastError;
 
-  Future<PaymentSummary> getPaymentSummary() async {
+  void reset() {
+    _summary = PaymentSummary.empty();
+    _isLoading = false;
+    _lastError = null;
+    notifyListeners();
+  }
+
+  Future<PaymentSummary> getPaymentSummary({bool forceRefresh = false}) async {
+    if (!forceRefresh && _summary.history.isNotEmpty) {
+      return _summary;
+    }
+
+    // Resolve real project ID from ProjectRepository
+    final activeProject = ProjectRepository.instance.activeProject ??
+        await ProjectRepository.instance.getCurrentProject();
+
+    if (activeProject == null || activeProject.id.isEmpty) {
+      _summary = PaymentSummary.empty();
+      notifyListeners();
+      return _summary;
+    }
+
+    _isLoading = true;
+    _lastError = null;
+
     try {
-      final res = await ApiClient.instance.get('/projects/SS-2026-00452/payments');
+      final res = await ApiClient.instance.get('/projects/${activeProject.id}/payments');
       if (res.statusCode == 200 && res.data is Map<String, dynamic>) {
         _summary = PaymentSummary.fromJson(res.data as Map<String, dynamic>);
       }
-    } catch (_) {
-      // Fallback
+    } catch (err) {
+      _lastError = err.toString();
+      // Keep existing confirmed summary if available, do not synthesize fake payments
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
+
     return _summary;
   }
 
+  /// Online payment processor. Requires server-side gateway order creation & verification.
+  /// Never mutates local balances optimistically without confirmed transaction.
   Future<bool> processPayment({
     required int amount,
     required String method,
   }) async {
-    final newHistory = List<PaymentMilestone>.from(_summary.history)
-      ..insert(
-        0,
-        PaymentMilestone(
-          id: 'pay_${DateTime.now().millisecondsSinceEpoch}',
-          title: 'Balance ($method) • Today',
-          amount: amount,
-          date: 'Today',
-          isPaid: true,
-        ),
-      );
+    final activeProject = ProjectRepository.instance.activeProject;
+    if (activeProject == null || activeProject.id.isEmpty) {
+      throw Exception("No active project found to process payment.");
+    }
 
-    final newPaid = _summary.paidAmount + amount;
-    final newRemaining = (_summary.remainingBalance - amount).clamp(0, _summary.netCustomerCost);
+    if (amount <= 0) {
+      throw Exception("Please enter a valid payment amount.");
+    }
 
-    _summary = PaymentSummary(
-      totalProjectCost: _summary.totalProjectCost,
-      subsidyAmount: _summary.subsidyAmount,
-      netCustomerCost: _summary.netCustomerCost,
-      paidAmount: newPaid,
-      remainingBalance: newRemaining,
-      history: newHistory,
+    // In production without live PG credentials configured:
+    // Safely reject client-side synthetic completion with honest explanation
+    throw Exception(
+      "Online payment gateway integration is currently in verification mode. "
+      "Please complete payments directly via Bank Transfer / NEFT / RTGS to Sunlife Solar Energy Solution accounts."
     );
-
-    NotificationRepository.instance.addNotification(
-      title: 'Payment successful',
-      message: 'Payment of ₹$amount via $method has been confirmed. Receipt generated.',
-      category: 'Payments',
-      actionRoute: 'payments',
-    );
-
-    notifyListeners();
-    return true;
   }
 }
-

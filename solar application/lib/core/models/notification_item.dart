@@ -36,18 +36,21 @@ class NotificationItem {
         actionRoute: actionRoute ?? this.actionRoute,
       );
 
-  factory NotificationItem.fromJson(Map<String, dynamic> json) =>
-      NotificationItem(
-        id: json['id'] as String? ?? '',
-        title: json['title'] as String? ?? '',
-        message: json['message'] as String? ?? '',
-        timestamp: json['timestamp'] != null
-            ? DateTime.tryParse(json['timestamp'].toString()) ?? DateTime.now()
-            : DateTime.now(),
-        isRead: json['is_read'] as bool? ?? false,
-        category: json['category'] as String? ?? 'Project',
-        actionRoute: json['action_route'] as String?,
-      );
+  factory NotificationItem.fromJson(Map<String, dynamic> json) {
+    final rawDate = json['createdTime'] ?? json['timestamp'] ?? json['createdAt'];
+    final parsedDate = rawDate != null ? DateTime.tryParse(rawDate.toString()) ?? DateTime.now() : DateTime.now();
+    final bool read = json['readTime'] != null || json['is_read'] == true || json['isRead'] == true;
+
+    return NotificationItem(
+      id: json['id'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      message: json['message'] as String? ?? '',
+      timestamp: parsedDate,
+      isRead: read,
+      category: json['notificationType'] as String? ?? json['category'] as String? ?? 'Project',
+      actionRoute: json['relatedScreenDeepLink'] as String? ?? json['action_route'] as String?,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,

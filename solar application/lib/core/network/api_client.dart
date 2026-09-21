@@ -11,12 +11,13 @@ class ApiException implements Exception {
   final dynamic details;
 
   @override
-  String toString() => 'ApiException: $message (code: $statusCode)';
+  String toString() => message;
 }
 
 class ApiClient {
   String? _cachedToken;
   final Map<String, Future<Response<dynamic>>> _inFlightGetRequests = {};
+  static void Function()? onSessionExpired;
 
   ApiClient._internal() {
     _dio = Dio(
@@ -35,7 +36,6 @@ class ApiClient {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          // Fast in-memory token check first (0ms synchronous)
           var token = _cachedToken;
           if (token == null || token.isEmpty) {
             token = await SecureStorageService.getAccessToken();
@@ -48,19 +48,10 @@ class ApiClient {
         },
         onError: (DioException error, handler) async {
           if (error.response?.statusCode == 401) {
-            final refreshed = await _refreshToken();
-            if (refreshed) {
-              final token = await SecureStorageService.getAccessToken();
-              _cachedToken = token;
-              final opts = error.requestOptions;
-              opts.headers['Authorization'] = 'Bearer $token';
-              try {
-                final cloneReq = await _dio.fetch(opts);
-                return handler.resolve(cloneReq);
-              } catch (_) {
-                // Refresh failed
-              }
-            }
+            // Session expired: purge credentials cleanly without recursive loop
+            _cachedToken = null;
+            await SecureStorageService.clearSession();
+            onSessionExpired?.call();
           }
           return handler.next(error);
         },
@@ -85,43 +76,11 @@ class ApiClient {
     }
   }
 
-  Future<bool> _refreshToken() async {
-    if (!enableLiveApi) return false;
-    try {
-      final refreshToken = await SecureStorageService.getRefreshToken();
-      if (refreshToken == null || refreshToken.isEmpty) return false;
-
-      final res = await _dio.post(
-        '/auth/refresh',
-        data: {'refresh_token': refreshToken},
-        options: Options(headers: {'Authorization': null}),
-      );
-
-      if (res.statusCode == 200 && res.data is Map<String, dynamic>) {
-        final newAccess = res.data['access_token'] as String?;
-        final newRefresh = res.data['refresh_token'] as String?;
-        if (newAccess != null) {
-          _cachedToken = newAccess;
-          await SecureStorageService.saveTokens(
-            accessToken: newAccess,
-            refreshToken: newRefresh ?? refreshToken,
-          );
-          return true;
-        }
-      }
-    } catch (_) {
-      _cachedToken = null;
-      await SecureStorageService.clearSession();
-    }
-    return false;
-  }
-
   Future<Response<T>> get<T>(
     String path, {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
-    // In-flight request deduplication for identical concurrent GET requests
     final cacheKey = '$path?${queryParameters?.toString() ?? ''}';
     if (_inFlightGetRequests.containsKey(cacheKey)) {
       final existing = await _inFlightGetRequests[cacheKey]!;
@@ -182,11 +141,11 @@ class ApiClient {
   }
 
   ApiException _handleDioError(DioException error) {
-    String message = 'Network connection failed. Please check your internet.';
+    String message = 'Network connection failed. Please check your internet connection.';
     if (error.type == DioExceptionType.connectionTimeout ||
         error.type == DioExceptionType.receiveTimeout ||
         error.type == DioExceptionType.sendTimeout) {
-      message = 'Connection timed out. Please try again.';
+      message = 'Connection timed out. Please check your network and try again.';
     } else if (error.response != null) {
       final statusCode = error.response?.statusCode;
       final data = error.response?.data;
@@ -200,7 +159,7 @@ class ApiClient {
             message = 'Invalid request parameters.';
             break;
           case 401:
-            message = 'Session expired. Please sign in again.';
+            message = 'Your session has expired. Please sign in again.';
             break;
           case 403:
             message = 'You do not have permission to perform this action.';
@@ -209,10 +168,10 @@ class ApiClient {
             message = 'The requested resource was not found.';
             break;
           case 500:
-            message = 'Server error. Please try again later.';
+            message = 'Unable to complete the request right now. Please try again.';
             break;
           default:
-            message = 'Request failed with code $statusCode.';
+            message = 'Request failed. Please try again.';
         }
       }
       return ApiException(message, statusCode: statusCode, details: data);

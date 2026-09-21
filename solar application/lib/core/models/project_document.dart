@@ -9,6 +9,8 @@ class ProjectDocument {
     this.isUploaded = true,
     this.uploadedAt,
     this.isRequired = false,
+    this.category,
+    this.verificationStatus = 'PENDING',
   });
 
   final String id;
@@ -20,20 +22,49 @@ class ProjectDocument {
   final bool isUploaded;
   final DateTime? uploadedAt;
   final bool isRequired;
+  final String? category;
+  final String verificationStatus;
 
-  factory ProjectDocument.fromJson(Map<String, dynamic> json) => ProjectDocument(
-        id: json['id'] as String? ?? '',
-        title: json['title'] as String? ?? '',
-        size: json['size'] as String? ?? '1.0 MB',
-        type: json['type'] as String? ?? 'pdf',
-        url: json['url'] as String?,
-        localPath: json['local_path'] as String?,
-        isUploaded: json['is_uploaded'] as bool? ?? true,
-        uploadedAt: json['uploaded_at'] != null
-            ? DateTime.tryParse(json['uploaded_at'].toString())
-            : null,
-        isRequired: json['is_required'] as bool? ?? false,
-      );
+  String get name => title;
+  bool get isApproved => verificationStatus.toUpperCase() == 'APPROVED';
+  bool get isPending => verificationStatus.toUpperCase().contains('PENDING');
+
+  static String _formatBytes(num? bytes) {
+    if (bytes == null || bytes <= 0) return '';
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  factory ProjectDocument.fromJson(Map<String, dynamic> json) {
+    final title = json['documentName'] as String? ??
+        json['title'] as String? ??
+        json['documentCategory'] as String? ??
+        'Document';
+
+    final mime = json['mimeType'] as String? ?? json['type'] as String? ?? 'pdf';
+    final isPdf = mime.toLowerCase().contains('pdf');
+
+    final sizeStr = json['size'] as String? ?? _formatBytes(json['fileSizeBytes'] as num?);
+
+    final uploadedStr = json['uploadedDate'] ??
+        json['uploaded_at'] ??
+        json['createdAt'];
+
+    return ProjectDocument(
+      id: json['id'] as String? ?? json['documentId'] as String? ?? '',
+      title: title,
+      size: sizeStr,
+      type: isPdf ? 'pdf' : 'image',
+      url: json['fileLocation'] as String? ?? json['url'] as String?,
+      localPath: json['local_path'] as String?,
+      isUploaded: json['is_uploaded'] as bool? ?? true,
+      uploadedAt: uploadedStr != null ? DateTime.tryParse(uploadedStr.toString()) : null,
+      isRequired: json['is_required'] as bool? ?? false,
+      category: json['documentCategory'] as String?,
+      verificationStatus: json['verificationStatus'] as String? ?? 'PENDING',
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -45,6 +76,8 @@ class ProjectDocument {
         'is_uploaded': isUploaded,
         'uploaded_at': uploadedAt?.toIso8601String(),
         'is_required': isRequired,
+        'category': category,
+        'verificationStatus': verificationStatus,
       };
 
   ProjectDocument copyWith({
@@ -57,6 +90,8 @@ class ProjectDocument {
     bool? isUploaded,
     DateTime? uploadedAt,
     bool? isRequired,
+    String? category,
+    String? verificationStatus,
   }) =>
       ProjectDocument(
         id: id ?? this.id,
@@ -68,5 +103,7 @@ class ProjectDocument {
         isUploaded: isUploaded ?? this.isUploaded,
         uploadedAt: uploadedAt ?? this.uploadedAt,
         isRequired: isRequired ?? this.isRequired,
+        category: category ?? this.category,
+        verificationStatus: verificationStatus ?? this.verificationStatus,
       );
 }

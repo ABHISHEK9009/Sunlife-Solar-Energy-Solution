@@ -70,6 +70,7 @@ class _OtpPageState extends State<OtpPage> {
         (_) => false,
       );
     } catch (e) {
+      debugPrint('OtpPage verify error: $e');
       if (mounted) {
         setState(() => _errorMessage = e.toString());
       }

@@ -1,137 +1,181 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac, createHash, randomInt, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
+import { dispatchCustomerOtp } from "./sms-service";
 
-const OTP_SECRET = process.env.ADMIN_PASSWORD || "sunlife_otp_jwt_secret_token_key_2026";
+function getAuthSecret(): string {
+  const secret = process.env.CUSTOMER_AUTH_SECRET || process.env.AUTH_JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("CUSTOMER_AUTH_SECRET or AUTH_JWT_SECRET must be configured in production.");
+    }
+    // Safe deterministic development secret
+    return "sunlife_customer_auth_development_secret_2026";
+  }
+  return secret;
+}
 
-// In-memory OTP store for active verification sessions
-// In production with multiple instances, use Redis or DB table
-interface OtpEntry {
-  otp: string;
+interface CustomerChallenge {
+  otpHash: string;
   expiresAt: number;
   attempts: number;
+  requestedAt: number;
 }
 
-const otpCache = new Map<string, OtpEntry>();
+declare global {
+  var __customerOtpCache: Map<string, CustomerChallenge> | undefined;
+}
 
-const enrolledCustomerPins = new Map<string, string>();
+const customerOtpCache =
+  globalThis.__customerOtpCache ||
+  (globalThis.__customerOtpCache = new Map<string, CustomerChallenge>());
 
 /**
- * Register an authoritative 6-digit login PIN for an enrolled customer
+ * Normalizes Indian mobile number to 10 digits
  */
-export function registerCustomerInitialPin(primaryMobile: string, pin: string = "123456") {
-  const cleanPhone = primaryMobile.replace(/\D/g, "");
-  enrolledCustomerPins.set(cleanPhone, pin.trim());
-  otpCache.set(cleanPhone, {
-    otp: pin.trim(),
-    expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days
-    attempts: 0,
-  });
-  console.log(`[Sunlife Customer PIN]: Initial login PIN registered for ${cleanPhone}: ${pin}`);
-  return pin.trim();
+export function normalizeIndianPhone(input: string): string {
+  const digits = (input || "").replace(/\D/g, "");
+  if (digits.length === 10) return digits;
+  if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+  if (digits.length === 11 && digits.startsWith("0")) return digits.slice(1);
+  throw new Error("Please enter a valid 10-digit mobile number.");
 }
 
 /**
- * Generate a 6-digit OTP for a verified customer mobile
+ * Generates a cryptographically secure 6-digit OTP and dispatches to customer.
+ * Enforces cooldown, attempt tracking, hashed storage, and delivery verification.
  */
-export async function sendCustomerOtp(primaryMobile: string) {
-  const cleanPhone = primaryMobile.replace(/\D/g, "");
+export async function sendCustomerOtp(rawPhone: string) {
+  const cleanPhone = normalizeIndianPhone(rawPhone);
 
-  if (cleanPhone.length < 10) {
-    throw new Error("Invalid mobile number format.");
-  }
-
-  // Verify customer exists and app access is enabled
   const customer = await prisma.customer.findUnique({
     where: { primaryMobile: cleanPhone },
   });
 
-  if (!customer) {
-    throw new Error("No registered customer account found with this mobile number. Please contact Sunlife Solar support.");
+  // Generic security response if customer does not exist or access disabled
+  if (!customer || !customer.appAccessEnabled || customer.customerStatus !== "ACTIVE") {
+    throw new Error(
+      "We could not verify this account. Please check your mobile number or contact Sunlife Solar support."
+    );
   }
 
-  if (!customer.appAccessEnabled) {
-    throw new Error("Customer mobile app access is disabled. Please contact your Sunlife representative.");
+  const now = Date.now();
+  const existing = customerOtpCache.get(cleanPhone);
+
+  // 60 seconds request cooldown
+  if (existing && existing.requestedAt && now - existing.requestedAt < 60000) {
+    const remaining = Math.ceil((60000 - (now - existing.requestedAt)) / 1000);
+    throw new Error(`Please wait ${remaining} seconds before requesting a new OTP.`);
   }
 
-  // Check if customer already has a registered PIN, else generate 6 digit numeric code
-  const existingPin = enrolledCustomerPins.get(cleanPhone);
-  let otp = existingPin || Math.floor(100000 + Math.random() * 900000).toString();
-  if (cleanPhone === "7722995100" || cleanPhone === "9876543210" || cleanPhone.endsWith("0000")) {
-    otp = "123456";
-  }
+  // Cryptographically secure 6-digit OTP
+  const otp = randomInt(100000, 1000000).toString();
+  const otpHash = createHash("sha256").update(otp).digest("hex");
+  const expiresAt = now + 10 * 60 * 1000; // 10 minutes
 
-  // Store in cache for 10 minutes (600,000 ms)
-  otpCache.set(cleanPhone, {
+  // Attempt real delivery
+  const delivery = await dispatchCustomerOtp({
+    phone: cleanPhone,
     otp,
-    expiresAt: Date.now() + 10 * 60 * 1000,
-    attempts: 0,
+    customerName: customer.fullName,
+    email: customer.email,
   });
 
-  console.log(`[Sunlife OTP Service]: Generated OTP for ${cleanPhone}: ${otp}`);
+  if (!delivery.sent) {
+    throw new Error(
+      delivery.error ||
+        "Unable to deliver OTP right now. SMS service is unavailable. Please contact support."
+    );
+  }
+
+  // Store hashed challenge in shared cache
+  customerOtpCache.set(cleanPhone, {
+    otpHash,
+    expiresAt,
+    attempts: 0,
+    requestedAt: now,
+  });
 
   return {
     success: true,
-    maskedMobile: `+91 ******${cleanPhone.slice(-4)}`,
+    maskedMobile: delivery.destination,
+    deliveryChannel: delivery.channel,
     expiresInSeconds: 600,
-    devHint: process.env.NODE_ENV !== "production" ? otp : undefined,
+    cooldownSeconds: 60,
   };
 }
 
 /**
- * Verify OTP or 6-digit Login PIN and issue authenticated session token
+ * Validates the entered OTP with single-use atomic consumption and brute-force protection.
  */
-export async function verifyCustomerOtp(primaryMobile: string, userOtp: string) {
-  const cleanPhone = primaryMobile.replace(/\D/g, "");
-  const trimmedOtp = userOtp.trim();
+export async function verifyCustomerOtp(rawPhone: string, userOtp: string) {
+  const cleanPhone = normalizeIndianPhone(rawPhone);
+  const trimmedOtp = (userOtp || "").trim();
 
-  // Verify customer exists and app access is enabled
+  if (trimmedOtp.length !== 6 || !/^\d{6}$/.test(trimmedOtp)) {
+    throw new Error("Enter a valid 6-digit OTP.");
+  }
+
   const customerRecord = await prisma.customer.findUnique({
     where: { primaryMobile: cleanPhone },
   });
 
-  if (!customerRecord) {
-    throw new Error("No registered customer account found with this mobile number. Please contact Sunlife Solar support.");
+  if (!customerRecord || !customerRecord.appAccessEnabled || customerRecord.customerStatus !== "ACTIVE") {
+    throw new Error(
+      "We could not verify this account. Please check your mobile number or contact Sunlife Solar support."
+    );
   }
 
-  if (!customerRecord.appAccessEnabled) {
-    throw new Error("Customer mobile app access is disabled. Please contact your Sunlife representative.");
+  const challenge = customerOtpCache.get(cleanPhone);
+  if (!challenge) {
+    throw new Error("No active OTP found. Please request a new verification code.");
   }
 
-  const cached = otpCache.get(cleanPhone);
-  const enrolledPin = enrolledCustomerPins.get(cleanPhone);
+  const now = Date.now();
+  if (challenge.expiresAt < now) {
+    customerOtpCache.delete(cleanPhone);
+    throw new Error("This OTP has expired. Please request a new verification code.");
+  }
 
-  const isValid =
-    (cached && cached.otp === trimmedOtp) ||
-    trimmedOtp === enrolledPin ||
-    trimmedOtp === "123456";
+  // Max 5 attempts
+  if (challenge.attempts >= 5) {
+    customerOtpCache.delete(cleanPhone);
+    throw new Error("Maximum verification attempts exceeded. Please request a new OTP.");
+  }
 
-  if (!isValid) {
-    if (cached) {
-      cached.attempts += 1;
-      if (cached.attempts > 5) {
-        otpCache.delete(cleanPhone);
-        throw new Error("Maximum verification attempts exceeded. Please request a new OTP.");
-      }
+  const incomingHash = createHash("sha256").update(trimmedOtp).digest("hex");
+  const incomingBuffer = Buffer.from(incomingHash);
+  const targetBuffer = Buffer.from(challenge.otpHash);
+
+  const isMatch =
+    incomingBuffer.length === targetBuffer.length &&
+    timingSafeEqual(incomingBuffer, targetBuffer);
+
+  if (!isMatch) {
+    challenge.attempts += 1;
+    const remaining = 5 - challenge.attempts;
+    if (remaining <= 0) {
+      customerOtpCache.delete(cleanPhone);
+      throw new Error("Maximum verification attempts exceeded. Please request a new OTP.");
     }
-    throw new Error("Incorrect 6-digit PIN / OTP entered. Please try again.");
+    throw new Error("Incorrect OTP entered. Please try again.");
   }
 
-  // Clear transient cache on success
-  otpCache.delete(cleanPhone);
+  // Single-use guarantee: Atomically consume challenge immediately
+  customerOtpCache.delete(cleanPhone);
 
   // Update customer login metadata
   const customer = await prisma.customer.update({
-    where: { primaryMobile: cleanPhone },
+    where: { id: customerRecord.id },
     data: {
       mobileVerified: true,
       lastAppLogin: new Date(),
     },
   });
 
-  // Create signed token payload: customerId:timestamp:hmac
+  // Generate signed access token
   const timestamp = Date.now();
-  const payload = `${customer.id}:${customer.customerId}:${timestamp}`;
-  const signature = createHmac("sha256", OTP_SECRET)
+  const payload = `${customer.id}:${customer.customerId}:customer:${timestamp}`;
+  const signature = createHmac("sha256", getAuthSecret())
     .update(payload)
     .digest("hex");
 
@@ -157,21 +201,38 @@ export async function verifyCustomerOtp(primaryMobile: string, userOtp: string) 
  * Validates the Authorization Bearer token from the incoming Request
  */
 export async function authenticateCustomerRequest(request: Request) {
-  const authHeader = request.headers.get("Authorization");
+  const authHeader = request.headers.get("Authorization") || request.headers.get("authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return null;
   }
 
-  const token = authHeader.split(" ")[1];
+  const token = authHeader.slice(7).trim();
   try {
     const decoded = Buffer.from(token, "base64url").toString("utf-8");
     const parts = decoded.split(":");
-    if (parts.length !== 4) return null;
+    if (parts.length !== 5) {
+      // Legacy 4-part compatibility
+      if (parts.length === 4) {
+        const [id, customerId, timestampStr, signature] = parts;
+        const payload = `${id}:${customerId}:${timestampStr}`;
+        const expectedSignature = createHmac("sha256", getAuthSecret())
+          .update(payload)
+          .digest("hex");
+        const sigBuf = Buffer.from(signature);
+        const expBuf = Buffer.from(expectedSignature);
+        if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) return null;
+        return await prisma.customer.findFirst({
+          where: { id, customerStatus: "ACTIVE", appAccessEnabled: true },
+        });
+      }
+      return null;
+    }
 
-    const [id, customerId, timestampStr, signature] = parts;
-    const payload = `${id}:${customerId}:${timestampStr}`;
+    const [id, customerId, role, timestampStr, signature] = parts;
+    if (role !== "customer") return null;
 
-    const expectedSignature = createHmac("sha256", OTP_SECRET)
+    const payload = `${id}:${customerId}:${role}:${timestampStr}`;
+    const expectedSignature = createHmac("sha256", getAuthSecret())
       .update(payload)
       .digest("hex");
 
@@ -192,7 +253,7 @@ export async function authenticateCustomerRequest(request: Request) {
       where: { id },
     });
 
-    if (!customer || !customer.appAccessEnabled) {
+    if (!customer || !customer.appAccessEnabled || customer.customerStatus !== "ACTIVE") {
       return null;
     }
 
