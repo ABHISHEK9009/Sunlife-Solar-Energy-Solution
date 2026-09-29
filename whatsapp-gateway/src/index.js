@@ -42,6 +42,8 @@ const MAX_RECONNECT_ATTEMPTS = 15;
 
 const logger = pino({ level: process.env.LOG_LEVEL || "info" });
 
+const messageStore = new Map();
+
 // Initialize WhatsApp Socket
 async function connectToWhatsApp() {
   try {
@@ -59,6 +61,12 @@ async function connectToWhatsApp() {
       browser: ["Sunlife Solar CRM", "Desktop", "1.0.0"],
       syncFullHistory: false,
       generateHighQualityLinkPreview: true,
+      getMessage: async (key) => {
+        if (key && key.id && messageStore.has(key.id)) {
+          return messageStore.get(key.id);
+        }
+        return { conversation: "Sunlife Solar Verification" };
+      },
     });
 
     sock.ev.on("creds.update", saveCreds);
@@ -279,6 +287,14 @@ async function handleSendText(req, res) {
 
     const jid = formatJid(phone);
     const sent = await sock.sendMessage(jid, { text: String(message).trim() });
+
+    if (sent?.key?.id && sent?.message) {
+      messageStore.set(sent.key.id, sent.message);
+      if (messageStore.size > 2000) {
+        const oldestKey = messageStore.keys().next().value;
+        messageStore.delete(oldestKey);
+      }
+    }
 
     return res.json({
       success: true,

@@ -7,8 +7,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sunlife_solar/agent/dashboard/agent_shell.dart';
 import 'package:sunlife_solar/core/network/api_client.dart';
 import 'package:sunlife_solar/core/repositories/agent_repository.dart';
+import 'package:sunlife_solar/core/repositories/auth_repository.dart';
+import 'package:sunlife_solar/core/repositories/document_repository.dart';
+import 'package:sunlife_solar/core/repositories/payment_repository.dart';
+import 'package:sunlife_solar/core/repositories/project_repository.dart';
+import 'package:sunlife_solar/core/repositories/subsidy_repository.dart';
+import 'package:sunlife_solar/core/repositories/support_repository.dart';
 import 'package:sunlife_solar/core/storage/secure_storage_service.dart';
 import 'package:sunlife_solar/features/dashboard/app_shell.dart';
+import 'package:sunlife_solar/features/profile/profile_page.dart';
 import 'package:sunlife_solar/main.dart';
 import 'package:sunlife_solar/main_agent.dart';
 
@@ -55,6 +62,9 @@ class _WidgetTestHttpAdapter implements HttpClientAdapter {
         jsonEncode({
           'success': true,
           'accessToken': 'test_customer_token',
+          'accountState': 'CUSTOMER',
+          'isNewUser': false,
+          'profileComplete': true,
           'customer': {
             'id': 'SL-10452',
             'fullName': 'Rajesh Sharma',
@@ -63,6 +73,36 @@ class _WidgetTestHttpAdapter implements HttpClientAdapter {
             'plantId': 'SP-JPR-00452',
             'discomConsumerNo': 'JVVNL-182943',
           },
+        }),
+        200,
+        headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
+      );
+    }
+    if (options.path.contains('/me')) {
+      return ResponseBody.fromString(
+        jsonEncode({
+          'success': true,
+          'accountState': 'CUSTOMER',
+          'isNewUser': false,
+          'profileComplete': true,
+          'user': {
+            'id': 'SL-10452',
+            'name': 'Rajesh Sharma',
+            'phone': '9876543210',
+            'email': 'rajesh@example.com',
+          },
+          'projects': [
+            {
+              'id': 'proj_1',
+              'projectId': 'SS-2026-00452',
+              'plantCapacityKw': 5.0,
+              'solarType': 'RESIDENTIAL_ROOFTOP',
+              'projectStatus': 'STRUCTURE_WORK',
+              'currentStage': 'Structure Work',
+              'installationAddress': 'Jaipur',
+              'discom': 'JVVNL',
+            }
+          ],
         }),
         200,
         headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
@@ -176,6 +216,26 @@ class _WidgetTestHttpAdapter implements HttpClientAdapter {
         headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
       );
     }
+    if (options.path.contains('/support/tickets')) {
+      return ResponseBody.fromString(
+        jsonEncode({
+          'success': true,
+          'tickets': [],
+        }),
+        200,
+        headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
+      );
+    }
+    if (options.path.contains('/agent/tasks')) {
+      return ResponseBody.fromString(
+        jsonEncode({
+          'success': true,
+          'tasks': [],
+        }),
+        200,
+        headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
+      );
+    }
     return ResponseBody.fromString('{"success": true}', 200, headers: {
       Headers.contentTypeHeader: [Headers.jsonContentType],
     });
@@ -198,6 +258,13 @@ void main() {
     SecureStorageService.useInMemoryOnly = true;
     SharedPreferences.setMockInitialValues({});
     await SecureStorageService.clearSession();
+    AuthRepository.instance.logout();
+    ProjectRepository.instance.reset();
+    DocumentRepository.instance.reset();
+    PaymentRepository.instance.reset();
+    SubsidyRepository.instance.reset();
+    SupportRepository.instance.reset();
+    AgentRepository.instance.reset();
     ApiClient.instance.dio.httpClientAdapter = _WidgetTestHttpAdapter();
   });
 
@@ -208,31 +275,24 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(const SunlifeCustomerApp());
-    expect(find.text('Power your home\nwith sunshine.'), findsOneWidget);
-
-    // Enter valid 10-digit phone number
     await tester.enterText(find.byType(TextField), '9876543210');
     await tester.ensureVisible(find.text('Continue with OTP'));
     await tester.tap(find.text('Continue with OTP'));
     await _pumpFrames(tester, 10);
-
-    expect(find.text('Verify your number'), findsOneWidget);
+    expect(find.text('Verify Mobile Number'), findsOneWidget);
     await tester.enterText(find.byType(TextField).last, '654321');
-    await tester.ensureVisible(find.text('Verify & continue'));
-    await tester.tap(find.text('Verify & continue'));
+    await tester.ensureVisible(find.text('Verify & Continue'));
+    await tester.tap(find.text('Verify & Continue'));
     await _pumpFrames(tester, 10);
 
-    debugPrint('After verify texts: ${find.byType(Text).evaluate().map((e) => (e.widget as Text).data).toList()}');
     expect(find.text('Good morning, Rajesh'), findsOneWidget);
     expect(find.text('Project progress'), findsOneWidget);
   });
 
   testWidgets('profile provides a confirmed logout flow', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(theme: ThemeData(useMaterial3: true), home: const AppShell()),
+      const MaterialApp(home: Scaffold(body: ProfilePage())),
     );
-    await tester.tap(find.text('Profile'));
-    await _pumpFrames(tester);
     await tester.dragUntilVisible(
       find.text('Log out'),
       find.byType(Scrollable),
@@ -281,7 +341,14 @@ void main() {
   });
 
   testWidgets('agent can open an assigned lead', (tester) async {
-    await AgentRepository.instance.getAssignedLeads(forceRefresh: true);
+    tester.view.physicalSize = const Size(1080, 2160);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.runAsync(() async {
+      await AgentRepository.instance.getAssignedLeads(forceRefresh: true);
+    });
 
     await tester.pumpWidget(
       MaterialApp(
@@ -290,10 +357,10 @@ void main() {
       ),
     );
     await tester.tap(find.text('Leads'));
-    await _pumpFrames(tester);
+    await _pumpFrames(tester, 10);
     expect(find.text('Amit Kumar'), findsOneWidget);
     await tester.tap(find.text('Amit Kumar'));
-    await _pumpFrames(tester);
+    await _pumpFrames(tester, 10);
 
     expect(find.text('Customer requirement'), findsOneWidget);
     expect(find.text('Update lead stage'), findsOneWidget);

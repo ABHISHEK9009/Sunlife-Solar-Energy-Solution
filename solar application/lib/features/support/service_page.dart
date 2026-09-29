@@ -25,13 +25,22 @@ class _ServicePageState extends State<ServicePage> {
   void initState() {
     super.initState();
     _loadTickets();
-    SupportRepository.instance.addListener(_loadTickets);
+    SupportRepository.instance.addListener(_onRepoChanged);
   }
 
   @override
   void dispose() {
-    SupportRepository.instance.removeListener(_loadTickets);
+    SupportRepository.instance.removeListener(_onRepoChanged);
     super.dispose();
+  }
+
+  void _onRepoChanged() {
+    if (mounted) {
+      setState(() {
+        _tickets = SupportRepository.instance.tickets;
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _loadTickets() async {

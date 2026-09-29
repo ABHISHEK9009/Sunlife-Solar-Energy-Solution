@@ -34,7 +34,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   SolarProject? _project;
   PaymentSummary? _paymentSummary;
-  int _documentCount = 6;
+  int _documentCount = 0;
   String _subsidyStage = 'Processing';
   final _currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
 
@@ -55,7 +55,11 @@ class _HomePageState extends State<HomePage> {
 
   void _handleRepoChange() {
     if (mounted) {
-      _loadData();
+      setState(() {
+        _documentCount = DocumentRepository.instance.documents.length;
+        _paymentSummary = PaymentRepository.instance.currentSummary;
+        _subsidyStage = SubsidyRepository.instance.currentStatus.statusLabel;
+      });
     }
   }
 
@@ -81,7 +85,9 @@ class _HomePageState extends State<HomePage> {
 
   String get _greeting {
     final user = AuthRepository.instance.currentUser;
-    final name = (user?.name.isNotEmpty == true) ? user!.name.split(' ').first : 'Rajesh';
+    final name = (user?.name.isNotEmpty == true)
+        ? user!.name.split(' ').first
+        : (user?.phone.isNotEmpty == true ? user!.phone : 'Valued Customer');
     return 'Good morning, $name';
   }
 
@@ -89,74 +95,169 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final project = _project;
     final payment = _paymentSummary;
+    final user = AuthRepository.instance.currentUser;
     final isChequeUploaded = DocumentRepository.instance.requiredCheque?.isUploaded ?? false;
 
     return Frame(
       _greeting,
       [
-        CardBox(
-          color: AppColors.ink,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'YOUR SOLAR PROJECT',
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
+        if (project != null) ...[
+          CardBox(
+            color: AppColors.ink,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'YOUR SOLAR PROJECT',
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                      ),
                     ),
-                  ),
-                  Pill(project?.status ?? 'IN PROGRESS', greenText: true),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Text(
-                '${project?.capacityKw ?? 5} kW Rooftop Solar',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
+                    Pill(project.status, greenText: true),
+                  ],
                 ),
-              ),
-              Text(
-                'Project ${project?.id ?? 'SS-2026-00452'} • ${project?.projectType ?? 'Residential'}',
-                style: const TextStyle(color: Colors.white60),
-              ),
-              const SizedBox(height: 18),
-              const Divider(color: Colors.white12),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: ProjectStat(
-                      'CURRENT STAGE',
-                      project?.currentStage ?? 'Net metering',
-                    ),
+                const SizedBox(height: 18),
+                Text(
+                  '${project.capacityKw} kW Rooftop Solar',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
                   ),
-                  Expanded(
-                    child: ProjectStat(
-                      'EXPECTED UPDATE',
-                      project?.expectedUpdateDays ?? '5–7 days',
+                ),
+                Text(
+                  'Project ${project.id} • ${project.projectType}',
+                  style: const TextStyle(color: Colors.white60),
+                ),
+                const SizedBox(height: 18),
+                const Divider(color: Colors.white12),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ProjectStat(
+                        'CURRENT STAGE',
+                        project.currentStage,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                    Expanded(
+                      child: ProjectStat(
+                        'EXPECTED UPDATE',
+                        project.expectedUpdateDays,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 24),
-        Heading(
-          'Project progress',
-          action: 'View details',
-          onAction: () => openPage(context, const ProjectDetailPage()),
-        ),
-        const SizedBox(height: 12),
-        CardBox(child: Progress(project: project)),
+          const SizedBox(height: 24),
+          Heading(
+            'Project progress',
+            action: 'View details',
+            onAction: () => openPage(context, const ProjectDetailPage()),
+          ),
+          const SizedBox(height: 12),
+          CardBox(child: Progress(project: project)),
+        ] else ...[
+          CardBox(
+            color: AppColors.ink,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'SOLAR PLANT STATUS',
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    Pill('ENQUIRY PENDING', greenText: true),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'No Active Solar Plant Linked Yet',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  user?.city != null
+                      ? 'Your solar enquiry for ${user!.city} is registered in our database. Live project tracking will activate here upon installation confirmation.'
+                      : 'Your enquiry is registered in our database. Live project tracking will activate here upon installation confirmation.',
+                  style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                ),
+                const SizedBox(height: 16),
+                const Divider(color: Colors.white12),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: ProjectStat('CURRENT STATUS', 'Site Survey Pending'),
+                    ),
+                    Expanded(
+                      child: ProjectStat('DATABASE SYNC', 'Real-Time Connected'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Heading('Next steps'),
+          const SizedBox(height: 12),
+          CardBox(
+            color: AppColors.softGreen,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.calendar_month_rounded, color: AppColors.deepGreen, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Free Rooftop Site Survey',
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.ink),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'A certified Sunlife solar engineer will evaluate your roof orientation, shadow patterns, and structural feasibility.',
+                  style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.4),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () => openPage(context, const SupportPage()),
+                    icon: const Icon(Icons.support_agent_rounded, size: 18),
+                    label: const Text('Contact Solar Advisor', style: TextStyle(fontWeight: FontWeight.w800)),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.deepGreen,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 24),
         const Heading('Quick access'),
         const SizedBox(height: 12),
@@ -196,52 +297,56 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        CardBox(
-          color: isChequeUploaded ? AppColors.softGreen : const Color(0xFFFFFBEB),
-          child: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: isChequeUploaded ? AppColors.green : AppColors.yellow,
-                child: Icon(
-                  isChequeUploaded ? Icons.verified_rounded : Icons.upload_file_rounded,
-                  color: Colors.white,
+        if (project != null) ...[
+          const SizedBox(height: 16),
+          CardBox(
+            color: isChequeUploaded ? AppColors.softGreen : const Color(0xFFFFFBEB),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: isChequeUploaded ? AppColors.green : AppColors.yellow,
+                  child: Icon(
+                    isChequeUploaded ? Icons.verified_rounded : Icons.upload_file_rounded,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isChequeUploaded ? 'Cheque uploaded' : 'Action needed',
-                      style: const TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      isChequeUploaded
-                          ? 'Cancelled cheque submitted · Under review for subsidy credit'
-                          : 'Upload cancelled cheque for subsidy',
-                      style: const TextStyle(color: AppColors.muted, fontSize: 13),
-                    ),
-                  ],
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isChequeUploaded ? 'Cheque uploaded' : 'Action needed',
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        isChequeUploaded
+                            ? 'Cancelled cheque submitted · Under review for subsidy credit'
+                            : 'Upload cancelled cheque for subsidy',
+                        style: const TextStyle(color: AppColors.muted, fontSize: 13),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              IconButton(
-                onPressed: () => openPage(context, const DocumentsPage()),
-                icon: const Icon(Icons.arrow_forward),
-              ),
-            ],
+                IconButton(
+                  onPressed: () => openPage(context, const DocumentsPage()),
+                  icon: const Icon(Icons.arrow_forward),
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
         const SizedBox(height: 22),
-        const Heading('Latest update'),
+        const Heading('Live status update'),
         const SizedBox(height: 12),
-        const CardBox(
+        CardBox(
           child: UpdateTile(
-            '09 Sep',
-            'Installation completed',
-            'Your installation certificate is ready in Documents.',
+            DateFormat('dd MMM').format(DateTime.now()),
+            project != null ? 'Project status: ${project.status}' : 'Connected with Database',
+            project != null
+                ? 'Current stage is ${project.currentStage}.'
+                : 'Your profile is authenticated and connected in real-time with Sunlife Solar CRM.',
             last: true,
           ),
         ),

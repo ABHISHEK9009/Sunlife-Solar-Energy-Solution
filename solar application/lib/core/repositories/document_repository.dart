@@ -29,15 +29,18 @@ class DocumentRepository extends ChangeNotifier {
     }
   }
 
+  bool _hasFetched = false;
+
   void reset() {
     _documents = [];
+    _hasFetched = false;
     _isLoading = false;
     _lastError = null;
     notifyListeners();
   }
 
   Future<List<ProjectDocument>> getDocuments({bool forceRefresh = false}) async {
-    if (!forceRefresh && _documents.isNotEmpty) {
+    if (!forceRefresh && _hasFetched) {
       return List.unmodifiable(_documents);
     }
 
@@ -46,6 +49,7 @@ class DocumentRepository extends ChangeNotifier {
 
     if (activeProject == null || activeProject.id.isEmpty) {
       _documents = [];
+      _hasFetched = true;
       notifyListeners();
       return _documents;
     }
@@ -70,6 +74,7 @@ class DocumentRepository extends ChangeNotifier {
       _lastError = err.toString();
       // Keep existing real records on network failure; do not synthesize fake documents
     } finally {
+      _hasFetched = true;
       _isLoading = false;
       notifyListeners();
     }

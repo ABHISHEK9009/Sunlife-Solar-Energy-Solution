@@ -13,7 +13,7 @@ class ReferralPage extends StatelessWidget {
 
   String get _referralCode {
     final user = AuthRepository.instance.currentUser;
-    final name = (user?.name.isNotEmpty == true) ? user!.name.split(' ').first.toUpperCase() : 'RAJESH';
+    final name = (user?.name.isNotEmpty == true) ? user!.name.split(' ').first.toUpperCase() : 'SUNLIFE';
     return '${name}3000';
   }
 

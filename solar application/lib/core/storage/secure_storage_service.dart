@@ -16,6 +16,9 @@ class SecureStorageService {
   static const String _keyUserRole = 'auth_user_role';
   static const String _keyUserId = 'auth_user_id';
   static const String _keyUserName = 'auth_user_name';
+  static const String _keyAccountState = 'auth_account_state';
+  static const String _keyUserPhone = 'auth_user_phone';
+  static const String _keyUserCity = 'auth_user_city';
 
   static Future<void> saveTokens({
     required String accessToken,
@@ -108,13 +111,17 @@ class SecureStorageService {
     required String role,
     required String userId,
     String? userName,
+    String? accountState,
+    String? userPhone,
+    String? userCity,
   }) async {
     await saveTokens(accessToken: accessToken, refreshToken: refreshToken);
     _inMemoryCache[_keyUserRole] = role;
     _inMemoryCache[_keyUserId] = userId;
-    if (userName != null) {
-      _inMemoryCache[_keyUserName] = userName;
-    }
+    if (userName != null) _inMemoryCache[_keyUserName] = userName;
+    if (accountState != null) _inMemoryCache[_keyAccountState] = accountState;
+    if (userPhone != null) _inMemoryCache[_keyUserPhone] = userPhone;
+    if (userCity != null) _inMemoryCache[_keyUserCity] = userCity;
 
     if (!useInMemoryOnly) {
       try {
@@ -129,6 +136,21 @@ class SecureStorageService {
               .write(key: _keyUserName, value: userName)
               .timeout(const Duration(milliseconds: 250));
         }
+        if (accountState != null) {
+          await _storage
+              .write(key: _keyAccountState, value: accountState)
+              .timeout(const Duration(milliseconds: 250));
+        }
+        if (userPhone != null) {
+          await _storage
+              .write(key: _keyUserPhone, value: userPhone)
+              .timeout(const Duration(milliseconds: 250));
+        }
+        if (userCity != null) {
+          await _storage
+              .write(key: _keyUserCity, value: userCity)
+              .timeout(const Duration(milliseconds: 250));
+        }
       } catch (_) {}
     }
 
@@ -136,9 +158,10 @@ class SecureStorageService {
     await prefs.setBool('is_authenticated', true);
     await prefs.setString('user_role', role);
     await prefs.setString('user_id', userId);
-    if (userName != null) {
-      await prefs.setString('user_name', userName);
-    }
+    if (userName != null) await prefs.setString('user_name', userName);
+    if (accountState != null) await prefs.setString('account_state', accountState);
+    if (userPhone != null) await prefs.setString('user_phone', userPhone);
+    if (userCity != null) await prefs.setString('user_city', userCity);
   }
 
   static Future<String?> getUserRole() async {
@@ -160,6 +183,72 @@ class SecureStorageService {
     final prefs = await SharedPreferences.getInstance();
     final val = prefs.getString('user_role');
     if (val != null) _inMemoryCache[_keyUserRole] = val;
+    return val;
+  }
+
+  static Future<String?> getAccountState() async {
+    if (_inMemoryCache.containsKey(_keyAccountState)) {
+      return _inMemoryCache[_keyAccountState];
+    }
+    if (!useInMemoryOnly) {
+      try {
+        final val = await _storage
+            .read(key: _keyAccountState)
+            .timeout(const Duration(milliseconds: 250));
+        if (val != null && val.isNotEmpty) {
+          _inMemoryCache[_keyAccountState] = val;
+          return val;
+        }
+      } catch (_) {}
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final val = prefs.getString('account_state');
+    if (val != null) _inMemoryCache[_keyAccountState] = val;
+    return val;
+  }
+
+  static Future<String?> getUserPhone() async {
+    if (_inMemoryCache.containsKey(_keyUserPhone)) {
+      return _inMemoryCache[_keyUserPhone];
+    }
+    if (!useInMemoryOnly) {
+      try {
+        final val = await _storage
+            .read(key: _keyUserPhone)
+            .timeout(const Duration(milliseconds: 250));
+        if (val != null && val.isNotEmpty) {
+          _inMemoryCache[_keyUserPhone] = val;
+          return val;
+        }
+      } catch (_) {}
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final val = prefs.getString('user_phone');
+    if (val != null) _inMemoryCache[_keyUserPhone] = val;
+    return val;
+  }
+
+  static Future<String?> getUserCity() async {
+    if (_inMemoryCache.containsKey(_keyUserCity)) {
+      return _inMemoryCache[_keyUserCity];
+    }
+    if (!useInMemoryOnly) {
+      try {
+        final val = await _storage
+            .read(key: _keyUserCity)
+            .timeout(const Duration(milliseconds: 250));
+        if (val != null && val.isNotEmpty) {
+          _inMemoryCache[_keyUserCity] = val;
+          return val;
+        }
+      } catch (_) {}
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final val = prefs.getString('user_city');
+    if (val != null) _inMemoryCache[_keyUserCity] = val;
     return val;
   }
 

@@ -32,7 +32,31 @@ class AgentLeadDetailPage extends StatefulWidget {
 }
 
 class _AgentLeadDetailPageState extends State<AgentLeadDetailPage> {
-  late String stage = widget.initialStage;
+  static const _validStages = [
+    'New lead',
+    'Contacted',
+    'Survey scheduled',
+    'Quotation sent',
+    'Documents pending',
+    'Installation',
+    'Completed',
+  ];
+
+  static String _normalizeStage(String raw) {
+    for (final s in _validStages) {
+      if (s.toLowerCase() == raw.trim().toLowerCase()) return s;
+    }
+    final lower = raw.toLowerCase();
+    if (lower.contains('survey')) return 'Survey scheduled';
+    if (lower.contains('quote') || lower.contains('quotation')) return 'Quotation sent';
+    if (lower.contains('doc')) return 'Documents pending';
+    if (lower.contains('install')) return 'Installation';
+    if (lower.contains('contact')) return 'Contacted';
+    if (lower.contains('complet') || lower.contains('won')) return 'Completed';
+    return 'New lead';
+  }
+
+  late String stage = _normalizeStage(widget.initialStage);
   bool isSaving = false;
   bool _isEnrolling = false;
 
@@ -259,15 +283,7 @@ class _AgentLeadDetailPageState extends State<AgentLeadDetailPage> {
                 borderSide: BorderSide.none,
               ),
             ),
-            items: const [
-              'New lead',
-              'Contacted',
-              'Survey scheduled',
-              'Quotation sent',
-              'Documents pending',
-              'Installation',
-              'Completed',
-            ]
+            items: _validStages
                 .map((item) => DropdownMenuItem(value: item, child: Text(item)))
                 .toList(),
             onChanged: (value) => setState(() => stage = value!),

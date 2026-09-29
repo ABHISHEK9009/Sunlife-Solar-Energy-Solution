@@ -17,18 +17,27 @@ export async function POST(req: Request) {
     const result = await verifyCustomerOtp(phone, otp);
 
     // Audit log successful app login
-    await logAuditEvent({
-      entityType: "Customer",
-      entityId: result.customer.id,
-      fieldChanged: "lastAppLogin",
-      action: "STATUS_CHANGE",
-      actorId: result.customer.customerId,
-      actorType: "CUSTOMER",
-      source: "APP",
-      newValue: "Successful Mobile App OTP Login",
-    });
+    const actorId = result.user?.id || result.user?.customerId || phone;
+    const actorType = result.accountState === "CUSTOMER" ? "CUSTOMER" : "LEAD";
 
-    return NextResponse.json(result);
+    try {
+      await logAuditEvent({
+        entityType: actorType,
+        entityId: result.user?.id || actorId,
+        fieldChanged: "lastAppLogin",
+        action: "STATUS_CHANGE",
+        actorId: actorId,
+        actorType: actorType,
+        source: "APP",
+        newValue: `Successful App Login (${result.accountState})`,
+      });
+    } catch (_) {}
+
+    return NextResponse.json({
+      ...result,
+      // Provide backwards compatibility for clients expecting customer key
+      customer: result.user,
+    });
   } catch (error: any) {
     console.error("[OTP Verify Error]:", error);
     return NextResponse.json(

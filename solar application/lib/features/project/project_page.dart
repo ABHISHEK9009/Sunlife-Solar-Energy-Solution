@@ -37,32 +37,50 @@ class _ProjectPageState extends State<ProjectPage> {
 
   @override
   Widget build(BuildContext context) {
-    final p = _project ??
-        const SolarProject(
-          id: 'SS-2026-00452',
-          capacityKw: 5,
-          projectType: 'Residential',
-          systemType: 'On-grid',
-          status: 'IN PROGRESS',
-          currentStage: 'Net metering',
-          expectedUpdateDays: '5–7 days',
-          address: 'Vaishali Nagar, Jaipur',
-          discom: 'JVVNL',
-          panels: 'Adani Solar 540W',
-          inverter: 'Sungrow 5 kW',
-          engineerName: 'Amit Sharma',
-          salesExecutive: 'Priya Verma',
-          completedStages: 4,
-          totalStages: 6,
-          stages: [
-            'Site survey',
-            'Quotation approved',
-            'Documents submitted',
-            'Installation',
-            'Net metering',
-            'Subsidy credit',
-          ],
-        );
+    final p = _project;
+
+    if (p == null) {
+      return Frame(
+        'My project',
+        [
+          CardBox(
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                const Icon(Icons.solar_power_outlined, size: 56, color: AppColors.muted),
+                const SizedBox(height: 16),
+                const Text(
+                  'No Active Solar Plant',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'You do not have an active solar installation commissioned in the CRM database yet.\n\nOnce your rooftop site survey and quotation are confirmed, your installation project will be tracked here in real-time.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.muted, height: 1.45),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: FilledButton.icon(
+                    onPressed: () => _loadProject(forceRefresh: true),
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Refresh from Database'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.deepGreen,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
+        ],
+        onRefresh: () => _loadProject(forceRefresh: true),
+      );
+    }
 
     return Frame(
       'My project',
@@ -99,35 +117,25 @@ class _ProjectPageState extends State<ProjectPage> {
         CardBox(
           child: Column(
             children: [
-              Info('Installation address', p.address),
-              Info('Assigned engineer', p.engineerName),
-              Info('Sales executive', p.salesExecutive),
-              Info('DISCOM', p.discom),
-              Info('Panels', p.panels),
-              Info('Inverter', p.inverter, last: true),
+              Info('Installation address', p.address.isNotEmpty ? p.address : 'Site Address Pending'),
+              Info('Assigned engineer', p.engineerName.isNotEmpty ? p.engineerName : 'Operations Team'),
+              Info('Sales executive', p.salesExecutive.isNotEmpty ? p.salesExecutive : 'Sunlife Desk'),
+              Info('DISCOM', p.discom.isNotEmpty ? p.discom : 'Pending Registration'),
+              Info('Panels', p.panels.isNotEmpty ? p.panels : 'Tier-1 High Efficiency'),
+              Info('Inverter', p.inverter.isNotEmpty ? p.inverter : 'Smart Solar Inverter', last: true),
             ],
           ),
         ),
         const SizedBox(height: 22),
         const Heading('Recent updates'),
         const SizedBox(height: 12),
-        const CardBox(
+        CardBox(
           child: Column(
             children: [
               UpdateTile(
-                '09 Sep',
-                'Installation completed',
-                'System tested successfully',
-              ),
-              UpdateTile(
-                '07 Sep',
-                'Material dispatched',
-                'Reached Jaipur warehouse',
-              ),
-              UpdateTile(
-                '05 Sep',
-                'Advance payment received',
-                '₹50,000 confirmed',
+                'Live',
+                'Current stage: ${p.currentStage}',
+                'Expected update within ${p.expectedUpdateDays}',
                 last: true,
               ),
             ],

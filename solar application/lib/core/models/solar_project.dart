@@ -17,10 +17,12 @@ class SolarProject {
     required this.totalStages,
     required this.stages,
     this.projectIdCode,
+    this.projectName,
   });
 
   final String id;
   final String? projectIdCode;
+  final String? projectName;
   final double capacityKw; // Support fractional capacity like 3.5 kW without cast exceptions
   final String projectType;
   final String systemType;
@@ -140,6 +142,7 @@ class SolarProject {
     return SolarProject(
       id: json['id'] as String? ?? json['projectId'] as String? ?? '',
       projectIdCode: json['projectId'] as String? ?? json['projectCode'] as String?,
+      projectName: json['projectName'] as String? ?? json['project_name'] as String?,
       capacityKw: capacity,
       projectType: json['propertyType'] as String? ??
           json['projectType'] as String? ??

@@ -26,12 +26,13 @@ class _ProgressState extends State<Progress> {
 
   @override
   Widget build(BuildContext context) {
-    final stages = widget.project?.stages ?? defaultItems;
+    final p = widget.project;
+    final stages = p?.stages ?? defaultItems;
     final total = stages.length;
-    final completed = widget.project?.completedStages ?? 4;
-    final currentStage = widget.project?.currentStage ?? 'Net metering';
-    final expectedUpdate = widget.project?.expectedUpdateDays ?? '5–7 days';
-    final status = widget.project?.status ?? 'IN PROGRESS';
+    final completed = p?.completedStages ?? 0;
+    final currentStage = p?.currentStage ?? (stages.isNotEmpty ? stages.first : 'Site survey');
+    final expectedUpdate = p?.expectedUpdateDays ?? 'Pending';
+    final status = p?.status ?? 'PENDING';
     final progressVal = total > 0 ? (completed / total).clamp(0.0, 1.0) : 0.0;
 
     return Column(

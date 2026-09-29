@@ -36,6 +36,35 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
   Widget build(BuildContext context) {
     final p = _project;
 
+    if (p == null) {
+      return SubPage(
+        title: 'Project details',
+        onRefresh: _loadProject,
+        children: const [
+          CardBox(
+            child: Column(
+              children: [
+                SizedBox(height: 20),
+                Icon(Icons.solar_power_outlined, size: 52, color: AppColors.muted),
+                SizedBox(height: 16),
+                Text(
+                  'No Active Project',
+                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'There is no active installation record for your account yet. Real-time project milestones will appear here after site survey approval.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.muted, height: 1.45),
+                ),
+                SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
     return SubPage(
       title: 'Project details',
       onRefresh: _loadProject,
@@ -44,14 +73,14 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Pill('${(p?.currentStage ?? 'NET METERING').toUpperCase()} PENDING'),
+              Pill('${p.currentStage.toUpperCase()} PENDING'),
               const SizedBox(height: 14),
               Text(
-                '${p?.capacityKw ?? 5} kW Rooftop Solar',
+                '${p.capacityKw} kW Rooftop Solar',
                 style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 5),
-              Text('Project ${p?.id ?? 'SS-2026-00452'} • ${p?.address ?? 'Jaipur'}',
+              Text('Project ${p.id} • ${p.address.isNotEmpty ? p.address : "Site Address"}',
                   style: const TextStyle(color: AppColors.muted)),
             ],
           ),
@@ -69,7 +98,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${p?.currentStage ?? 'DISCOM'} review',
+                '${p.currentStage} review',
                 style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
               ),
               const SizedBox(height: 6),
@@ -78,7 +107,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                 style: TextStyle(color: AppColors.muted, height: 1.4),
               ),
               const SizedBox(height: 12),
-              Info('Expected update', 'Within ${p?.expectedUpdateDays ?? '5–7 working days'}', last: true),
+              Info('Expected update', 'Within ${p.expectedUpdateDays}', last: true),
             ],
           ),
         ),

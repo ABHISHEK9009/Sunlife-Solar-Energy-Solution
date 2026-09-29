@@ -18,15 +18,18 @@ class SupportRepository extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get lastError => _lastError;
 
+  bool _hasFetched = false;
+
   void reset() {
     _tickets = [];
+    _hasFetched = false;
     _isLoading = false;
     _lastError = null;
     notifyListeners();
   }
 
   Future<List<ServiceTicket>> getTickets({bool forceRefresh = false}) async {
-    if (!forceRefresh && _tickets.isNotEmpty) {
+    if (!forceRefresh && _hasFetched) {
       return List.unmodifiable(_tickets);
     }
 
@@ -49,6 +52,7 @@ class SupportRepository extends ChangeNotifier {
       _lastError = err.toString();
       // Keep real tickets; do not fabricate fake tickets
     } finally {
+      _hasFetched = true;
       _isLoading = false;
       notifyListeners();
     }

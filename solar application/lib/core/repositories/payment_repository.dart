@@ -16,15 +16,18 @@ class PaymentRepository extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get lastError => _lastError;
 
+  bool _hasFetched = false;
+
   void reset() {
     _summary = PaymentSummary.empty();
+    _hasFetched = false;
     _isLoading = false;
     _lastError = null;
     notifyListeners();
   }
 
   Future<PaymentSummary> getPaymentSummary({bool forceRefresh = false}) async {
-    if (!forceRefresh && _summary.history.isNotEmpty) {
+    if (!forceRefresh && _hasFetched) {
       return _summary;
     }
 
@@ -34,6 +37,7 @@ class PaymentRepository extends ChangeNotifier {
 
     if (activeProject == null || activeProject.id.isEmpty) {
       _summary = PaymentSummary.empty();
+      _hasFetched = true;
       notifyListeners();
       return _summary;
     }
@@ -50,6 +54,7 @@ class PaymentRepository extends ChangeNotifier {
       _lastError = err.toString();
       // Keep existing confirmed summary if available, do not synthesize fake payments
     } finally {
+      _hasFetched = true;
       _isLoading = false;
       notifyListeners();
     }

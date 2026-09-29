@@ -23,6 +23,8 @@ class ApiConstants {
   static const String supportEmail = 'support@sunlifesolar.in';
   static const String supportPhone = '+917722995100';
   static const String whatsappPhone = '917722995100';
+  static const String whatsappGatewayUrl = 'https://superb-commitment-production-5b3e.up.railway.app';
+  static const String whatsappApiKey = 'sunlife_whatsapp_secret_key_2026';
 
   // Legal
   static const String privacyPolicyUrl = 'https://sunlifesolar.in/privacy-policy';
@@ -33,6 +35,10 @@ class ApiConstants {
   static const String customerVerifyOtp = '/auth/otp/verify';
   static const String agentRequestOtp = '/auth/agent/login';
   static const String agentVerifyOtp = '/auth/agent/verify';
+
+  // Identity & Dynamic Lifecycle Resolver
+  static const String me = '/me';
+  static const String leadEnquiry = '/lead/enquiry';
 
   // Customer Project Endpoints
   static const String customerProjects = '/customer/projects';

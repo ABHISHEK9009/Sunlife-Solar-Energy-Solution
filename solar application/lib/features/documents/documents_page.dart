@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/models/project_document.dart';
 import '../../core/repositories/document_repository.dart';
+import '../../core/repositories/project_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/card_box.dart';
 import '../../core/widgets/pill.dart';
@@ -114,9 +115,11 @@ class _DocumentsPageState extends State<DocumentsPage> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () {
+                        final activeProject = ProjectRepository.instance.activeProject;
+                        final prjCode = activeProject?.id.isNotEmpty == true ? 'for project ${activeProject!.id}' : 'from Sunlife Solar';
                         SharePlus.instance.share(
                           ShareParams(
-                            text: 'Sunlife Solar Document: ${doc.title} (${doc.type.toUpperCase()})\nVerified record for project SS-2026-00452',
+                            text: 'Sunlife Solar Document: ${doc.title} (${doc.type.toUpperCase()})\nVerified record $prjCode',
                             subject: doc.title,
                           ),
                         );

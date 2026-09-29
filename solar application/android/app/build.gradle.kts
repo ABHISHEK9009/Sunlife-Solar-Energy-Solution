@@ -53,6 +53,8 @@ android {
         release {
             if (hasReleaseKey) {
                 signingConfig = signingConfigs.getByName("release")
+            } else {
+                signingConfig = signingConfigs.getByName("debug")
             }
         }
     }

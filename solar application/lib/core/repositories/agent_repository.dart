@@ -36,7 +36,7 @@ class AgentRepository extends ChangeNotifier {
   }
 
   Future<List<AgentLead>> getAssignedLeads({bool forceRefresh = false}) async {
-    if (!forceRefresh && _hasFetchedLeads && _leads.isNotEmpty) {
+    if (!forceRefresh && _hasFetchedLeads) {
       return List.unmodifiable(_leads);
     }
 
@@ -55,6 +55,8 @@ class AgentRepository extends ChangeNotifier {
       }
     } catch (_) {
       // Retain confirmed list
+    } finally {
+      _hasFetchedLeads = true;
     }
 
     return List.unmodifiable(_leads);
@@ -139,7 +141,7 @@ class AgentRepository extends ChangeNotifier {
   }
 
   Future<List<FieldVisit>> getTodayVisits({bool forceRefresh = false}) async {
-    if (!forceRefresh && _hasFetchedVisits && _visits.isNotEmpty) {
+    if (!forceRefresh && _hasFetchedVisits) {
       return List.unmodifiable(_visits);
     }
 
@@ -158,6 +160,8 @@ class AgentRepository extends ChangeNotifier {
       }
     } catch (_) {
       // Retain confirmed list
+    } finally {
+      _hasFetchedVisits = true;
     }
 
     return List.unmodifiable(_visits);
@@ -245,7 +249,7 @@ class AgentRepository extends ChangeNotifier {
   }
 
   Future<List<AgentTask>> getTasks({bool forceRefresh = false}) async {
-    if (!forceRefresh && _hasFetchedTasks && _tasks.isNotEmpty) {
+    if (!forceRefresh && _hasFetchedTasks) {
       return List.unmodifiable(_tasks);
     }
 
@@ -265,6 +269,8 @@ class AgentRepository extends ChangeNotifier {
       }
     } catch (_) {
       // Keep real fetched list
+    } finally {
+      _hasFetchedTasks = true;
     }
 
     return List.unmodifiable(_tasks);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/repositories/auth_repository.dart';
 import '../../core/repositories/document_repository.dart';
+import '../../core/repositories/project_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/navigation.dart';
 import '../../core/widgets/card_box.dart';
@@ -22,10 +23,18 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = AuthRepository.instance.currentUser;
-    final name = user?.name.isNotEmpty == true ? user!.name : 'Rajesh Sharma';
-    final customerId = user?.id.isNotEmpty == true ? user!.id : 'SL-10452';
-    final phone = user?.phone.isNotEmpty == true ? user!.phone : '+91 98765 43210';
-    final initials = name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join();
+    final activeProject = ProjectRepository.instance.activeProject;
+    final name = (user?.name.isNotEmpty == true)
+        ? user!.name
+        : (user?.phone.isNotEmpty == true ? 'Customer (${user!.phone})' : 'Valued Customer');
+    final customerId = (user?.id.isNotEmpty == true) ? user!.id : 'Pending Verification';
+    final rawPhone = user?.phone ?? '';
+    final phone = rawPhone.isNotEmpty
+        ? (rawPhone.startsWith('+91') ? rawPhone : '+91 $rawPhone')
+        : 'Not provided';
+    final initials = (user?.name.isNotEmpty == true)
+        ? user!.name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join()
+        : 'SL';
 
     return Frame('Profile', [
       CardBox(
@@ -35,7 +44,7 @@ class ProfilePage extends StatelessWidget {
               radius: 30,
               backgroundColor: AppColors.ink,
               child: Text(
-                initials.isNotEmpty ? initials : 'RS',
+                initials.isNotEmpty ? initials : 'SL',
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
@@ -69,11 +78,17 @@ class ProfilePage extends StatelessWidget {
       CardBox(
         child: Column(
           children: [
-            Info('Mobile', phone.startsWith('+91') ? phone : '+91 $phone'),
-            Info('Email', user?.email ?? 'rajesh@example.com'),
-            Info('Solar plant ID', user?.plantId ?? 'SP-JPR-00452'),
-            Info('DISCOM consumer no.', user?.discomConsumerNo ?? 'JVVNL-182943'),
-            Info('Subsidy bank', user?.subsidyBankMasked ?? 'XXXXXX2341', last: true),
+            Info('Mobile', phone),
+            Info('Email', (user?.email?.isNotEmpty == true) ? user!.email! : 'Not provided'),
+            Info('Solar plant ID', (user?.plantId?.isNotEmpty == true)
+                ? user!.plantId!
+                : (activeProject?.id ?? 'Pending Survey')),
+            Info('DISCOM consumer no.', (user?.discomConsumerNo?.isNotEmpty == true)
+                ? user!.discomConsumerNo!
+                : 'Pending Application'),
+            Info('Subsidy bank', (user?.subsidyBankMasked?.isNotEmpty == true)
+                ? user!.subsidyBankMasked!
+                : 'Pending Verification', last: true),
           ],
         ),
       ),

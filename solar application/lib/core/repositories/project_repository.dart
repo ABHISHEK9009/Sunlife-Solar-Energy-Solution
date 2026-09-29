@@ -9,23 +9,40 @@ class ProjectRepository extends ChangeNotifier {
 
   List<SolarProject> _projects = [];
   SolarProject? _activeProject;
+  Map<String, dynamic>? _openEnquiry;
   bool _hasFetched = false;
   String? _lastError;
 
   List<SolarProject> get allProjects => List.unmodifiable(_projects);
   List<SolarProject> get currentProjects => allProjects;
   SolarProject? get activeProject => _activeProject;
+  Map<String, dynamic>? get openEnquiry => _openEnquiry;
   bool get hasFetched => _hasFetched;
   String? get lastError => _lastError;
+  bool get hasMultipleProperties => _projects.length > 1 || (_projects.isNotEmpty && _openEnquiry != null);
 
-  Future<List<SolarProject>> getProjects({bool forceRefresh = false}) async {
-    await getCurrentProject(forceRefresh: forceRefresh);
-    return allProjects;
+  void setProjects(List<SolarProject> projects) {
+    _projects = projects;
+    if (_projects.isNotEmpty) {
+      if (_activeProject == null || !_projects.any((p) => p.id == _activeProject!.id)) {
+        _activeProject = _projects.first;
+      }
+    } else {
+      _activeProject = null;
+    }
+    _hasFetched = true;
+    notifyListeners();
+  }
+
+  void setOpenEnquiry(Map<String, dynamic>? enquiry) {
+    _openEnquiry = enquiry;
+    notifyListeners();
   }
 
   void reset() {
     _projects = [];
     _activeProject = null;
+    _openEnquiry = null;
     _hasFetched = false;
     _lastError = null;
     notifyListeners();
@@ -34,6 +51,11 @@ class ProjectRepository extends ChangeNotifier {
   void setActiveProject(SolarProject project) {
     _activeProject = project;
     notifyListeners();
+  }
+
+  Future<List<SolarProject>> getProjects({bool forceRefresh = false}) async {
+    await getCurrentProject(forceRefresh: forceRefresh);
+    return allProjects;
   }
 
   Future<SolarProject?> getCurrentProject({bool forceRefresh = false}) async {
@@ -53,7 +75,6 @@ class ProjectRepository extends ChangeNotifier {
             .toList();
 
         if (_projects.isNotEmpty) {
-          // If activeProject is set, retain selection, else select first
           final activeId = data['activeProjectId'] as String?;
           _activeProject = _projects.firstWhere(
             (p) => p.id == activeId || p.projectIdCode == activeId,
@@ -69,7 +90,6 @@ class ProjectRepository extends ChangeNotifier {
       }
     } catch (e) {
       _lastError = e.toString();
-      // If we already have a cached project from the current session, keep it
       if (_activeProject != null) {
         return _activeProject;
       }

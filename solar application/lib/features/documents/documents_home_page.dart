@@ -26,13 +26,22 @@ class _DocumentsHomePageState extends State<DocumentsHomePage> {
   void initState() {
     super.initState();
     _loadState();
-    DocumentRepository.instance.addListener(_loadState);
+    DocumentRepository.instance.addListener(_onRepoChanged);
   }
 
   @override
   void dispose() {
-    DocumentRepository.instance.removeListener(_loadState);
+    DocumentRepository.instance.removeListener(_onRepoChanged);
     super.dispose();
+  }
+
+  void _onRepoChanged() {
+    if (mounted) {
+      setState(() {
+        _cheque = DocumentRepository.instance.requiredCheque;
+        _documents = DocumentRepository.instance.documents;
+      });
+    }
   }
 
   Future<void> _loadState() async {

@@ -15,15 +15,18 @@ class SubsidyRepository extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get lastError => _lastError;
 
+  bool _hasFetched = false;
+
   void reset() {
     _status = SubsidyStatus.notInitiated();
+    _hasFetched = false;
     _isLoading = false;
     _lastError = null;
     notifyListeners();
   }
 
   Future<SubsidyStatus> getSubsidyStatus({bool forceRefresh = false}) async {
-    if (!forceRefresh && _status.isInitiated) {
+    if (!forceRefresh && _hasFetched) {
       return _status;
     }
 
@@ -32,6 +35,7 @@ class SubsidyRepository extends ChangeNotifier {
 
     if (activeProject == null || activeProject.id.isEmpty) {
       _status = SubsidyStatus.notInitiated();
+      _hasFetched = true;
       notifyListeners();
       return _status;
     }
@@ -53,6 +57,7 @@ class SubsidyRepository extends ChangeNotifier {
       _lastError = err.toString();
       // Keep existing status if available; do not synthesize fake subsidy data
     } finally {
+      _hasFetched = true;
       _isLoading = false;
       notifyListeners();
     }
