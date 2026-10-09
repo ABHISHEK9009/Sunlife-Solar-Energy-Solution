@@ -100,4 +100,58 @@ class SupportRepository extends ChangeNotifier {
 
     throw Exception("Server failed to create support ticket.");
   }
+
+  /// Confirms that service work has been completed satisfactorily.
+  Future<void> confirmResolution(String ticketId) async {
+    final res = await ApiClient.instance.patch(
+      ApiConstants.serviceTickets,
+      data: {
+        'ticketId': ticketId,
+        'action': 'CONFIRM_RESOLUTION',
+      },
+    );
+
+    if (res.statusCode == 200) {
+      await getTickets(forceRefresh: true);
+    } else {
+      throw Exception("Failed to confirm ticket resolution.");
+    }
+  }
+
+  /// Disputes service resolution or reopens an unresolved ticket.
+  Future<void> reopenTicket(String ticketId, {String? reason}) async {
+    final res = await ApiClient.instance.patch(
+      ApiConstants.serviceTickets,
+      data: {
+        'ticketId': ticketId,
+        'action': 'REOPEN',
+        'customerRemarks': reason,
+      },
+    );
+
+    if (res.statusCode == 200) {
+      await getTickets(forceRefresh: true);
+    } else {
+      throw Exception("Failed to reopen ticket.");
+    }
+  }
+
+  /// Submits customer rating and feedback for a service ticket.
+  Future<void> rateTicket(String ticketId, int rating, {String? feedback}) async {
+    final res = await ApiClient.instance.patch(
+      ApiConstants.serviceTickets,
+      data: {
+        'ticketId': ticketId,
+        'customerRating': rating,
+        'customerRemarks': feedback,
+      },
+    );
+
+    if (res.statusCode == 200) {
+      await getTickets(forceRefresh: true);
+    } else {
+      throw Exception("Failed to submit ticket rating.");
+    }
+  }
 }
+

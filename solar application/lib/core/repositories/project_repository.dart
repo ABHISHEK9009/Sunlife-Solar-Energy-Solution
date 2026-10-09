@@ -20,12 +20,22 @@ class ProjectRepository extends ChangeNotifier {
   bool get hasFetched => _hasFetched;
   String? get lastError => _lastError;
   bool get hasMultipleProperties => _projects.length > 1 || (_projects.isNotEmpty && _openEnquiry != null);
+  bool get isEnquirySelected => _activeProject == null && (_openEnquiry != null || _projects.isEmpty);
+  bool get hasCommissionedPlant => _projects.any((p) => p.isCommissioned);
+  bool get hasActiveInstallation => _projects.any((p) => p.isInstallationInProgress);
+
+  void selectEnquiry() {
+    _activeProject = null;
+    notifyListeners();
+  }
 
   void setProjects(List<SolarProject> projects) {
     _projects = projects;
     if (_projects.isNotEmpty) {
       if (_activeProject == null || !_projects.any((p) => p.id == _activeProject!.id)) {
         _activeProject = _projects.first;
+      } else {
+        _activeProject = _projects.firstWhere((p) => p.id == _activeProject!.id);
       }
     } else {
       _activeProject = null;

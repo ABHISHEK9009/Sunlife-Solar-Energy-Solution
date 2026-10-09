@@ -340,7 +340,18 @@ class AgentRepository extends ChangeNotifier {
     );
   }
 
-  /// Punches attendance in/out via /api/attendance
+  /// Fetches today's attendance summary for the authenticated agent
+  Future<Map<String, dynamic>> getTodayAttendance() async {
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.agentAttendanceToday);
+      if (res.statusCode == 200 && res.data is Map && (res.data as Map).containsKey('today')) {
+        return Map<String, dynamic>.from(res.data['today'] as Map);
+      }
+    } catch (_) {}
+    return <String, dynamic>{};
+  }
+
+  /// Punches attendance in/out via /agent/attendance or /api/attendance
   Future<Map<String, dynamic>> punchAttendance({
     required String action, // "punch-in" or "punch-out"
     double? latitude,
@@ -351,17 +362,31 @@ class AgentRepository extends ChangeNotifier {
       throw Exception("Agent must be logged in to record attendance.");
     }
 
-    final res = await ApiClient.instance.post(
-      '/api/attendance',
-      data: {
-        'memberId': user.id,
-        'action': action,
-        'latitude': latitude,
-        'longitude': longitude,
-      },
-    );
+    dynamic res;
+    try {
+      res = await ApiClient.instance.post(
+        ApiConstants.agentAttendance,
+        data: {
+          'action': action,
+          'latitude': latitude,
+          'longitude': longitude,
+        },
+      );
+    } catch (_) {
+      // Fallback to legacy path if route differs
+      res = await ApiClient.instance.post(
+        '/api/attendance',
+        data: {
+          'memberId': user.id,
+          'action': action,
+          'latitude': latitude,
+          'longitude': longitude,
+        },
+      );
+    }
 
     if (res.statusCode == 200 || res.statusCode == 201) {
+      notifyListeners();
       return res.data is Map ? Map<String, dynamic>.from(res.data as Map) : <String, dynamic>{};
     }
 
@@ -372,3 +397,4 @@ class AgentRepository extends ChangeNotifier {
     );
   }
 }
+

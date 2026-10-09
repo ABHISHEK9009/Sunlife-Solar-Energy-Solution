@@ -2,6 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { authenticateAdminRequest } from "@/lib/crm/admin-auth";
+import { authenticateAgentRequest } from "@/lib/crm/agent-auth";
 
 const allowedStatuses = new Set(["Present", "On Survey", "Half Day", "Absent", "Leave"]);
 
@@ -48,8 +50,33 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get("date");
+
+    // Authenticate caller (Admin session or Employee Bearer token)
+    const [isAdmin, agent] = await Promise.all([
+      authenticateAdminRequest(request),
+      authenticateAgentRequest(request),
+    ]);
+
+    if (!isAdmin && !agent) {
+      return NextResponse.json(
+        { error: "Unauthorized: Attendance records require authentication." },
+        { status: 401 }
+      );
+    }
+
+    // Role-based visibility
+    const whereClause: any = {};
+    if (date) {
+      whereClause.date = toDate(date);
+    }
+
+    // Standard field agents can only inspect their own attendance history
+    if (!isAdmin && agent && agent.role !== "Admin" && agent.role !== "Manager") {
+      whereClause.memberId = agent.id;
+    }
+
     const records = await prisma.attendance.findMany({
-      where: date ? { date: toDate(date) } : undefined,
+      where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
       orderBy: [{ date: "desc" }, { memberId: "asc" }],
     });
     return NextResponse.json({ records: records.map(toRecord) });
@@ -61,6 +88,14 @@ export async function GET(request: Request) {
 
 export async function PUT(request: Request) {
   try {
+    const isAdmin = await authenticateAdminRequest(request);
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: "Unauthorized: Bulk attendance management requires administrator privileges." },
+        { status: 401 }
+      );
+    }
+
     const { records } = await request.json();
     if (!Array.isArray(records)) {
       return NextResponse.json({ error: "Attendance records are required." }, { status: 400 });
@@ -110,10 +145,56 @@ export async function PUT(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { memberId, action } = await request.json();
+    // Verify caller identity: Must be authenticated Admin or authenticated Agent
+    const [isAdmin, agent] = await Promise.all([
+      authenticateAdminRequest(request),
+      authenticateAgentRequest(request),
+    ]);
+
+    if (!isAdmin && !agent) {
+      return NextResponse.json(
+        { error: "Unauthorized: Attendance punch requires an active employee or administrator session." },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+    const { memberId, action, latitude, longitude, siteName } = body;
+
     if (!memberId || (action !== "punch-in" && action !== "punch-out")) {
       return NextResponse.json({ error: "A member and valid punch action are required." }, { status: 400 });
     }
+
+    // Authorization check: If not admin/manager, employee can ONLY punch for their own member ID
+    if (!isAdmin) {
+      const isPrivileged = agent.role === "Admin" || agent.role === "Manager";
+      if (!isPrivileged && agent.id !== memberId) {
+        return NextResponse.json(
+          { error: "Forbidden: You cannot record attendance for another employee." },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Validate GPS location if supplied
+    let locationRemark = "Self mobile punch";
+    if (latitude !== undefined || longitude !== undefined) {
+      if (
+        typeof latitude !== "number" ||
+        typeof longitude !== "number" ||
+        latitude < -90 ||
+        latitude > 90 ||
+        longitude < -180 ||
+        longitude > 180
+      ) {
+        return NextResponse.json(
+          { error: "Invalid GPS coordinates provided for attendance location." },
+          { status: 400 }
+        );
+      }
+      locationRemark = `GPS: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+    }
+
     const member = await prisma.teamMember.findUnique({ where: { id: memberId } });
     if (!member) return NextResponse.json({ error: "Team member not found." }, { status: 404 });
 
@@ -133,13 +214,25 @@ export async function POST(request: Request) {
     const workingMinutes = action === "punch-out" && existing
       ? Math.max(0, (minutesFromTime(now.time) || 0) - (minutesFromTime(existing.checkIn) || 0))
       : existing?.workingMinutes || 0;
+
+    const assignedSite = siteName || `${member.territory} Solar Site`;
     const record = await prisma.attendance.upsert({
       where: { memberId_date: { memberId, date } },
       create: {
-        memberId, date, status: "Present", checkIn: now.time, checkOut: "--", workingMinutes: 0,
-        assignedSite: `${member.territory} Solar Site`, remarks: "Self mobile punch",
+        memberId,
+        date,
+        status: "Present",
+        checkIn: now.time,
+        checkOut: "--",
+        workingMinutes: 0,
+        assignedSite,
+        remarks: locationRemark,
       },
-      update: { checkOut: now.time, workingMinutes, remarks: "Shift finished on field" },
+      update: {
+        checkOut: now.time,
+        workingMinutes,
+        remarks: `${existing?.remarks ? existing.remarks + " | " : ""}${locationRemark} (Shift finished)`,
+      },
     });
     return NextResponse.json({ record: toRecord(record) });
   } catch (error) {

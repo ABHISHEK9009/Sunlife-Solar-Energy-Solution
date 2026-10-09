@@ -29,6 +29,27 @@ export async function GET(req: Request) {
             systemHealth: true,
           },
         },
+        assignedEngineer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            role: true,
+          },
+        },
+        assignedSalesExecutive: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            role: true,
+          },
+        },
+        timeline: {
+          where: { visibleToCustomer: true },
+          orderBy: { eventDateTime: "desc" },
+          take: 10,
+        },
         _count: {
           select: {
             tickets: { where: { status: { notIn: ["RESOLVED", "CANCELLED"] } } },

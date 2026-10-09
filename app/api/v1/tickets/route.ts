@@ -100,25 +100,63 @@ export async function PATCH(req: Request) {
 
   try {
     const body = await req.json();
-    const { ticketId, customerRating, customerRemarks } = body;
+    const { ticketId, action, customerRating, customerRemarks } = body;
 
-    if (!ticketId || customerRating === undefined) {
-      return NextResponse.json({ error: "ticketId and customerRating are required." }, { status: 400 });
+    if (!ticketId) {
+      return NextResponse.json({ error: "ticketId is required." }, { status: 400 });
     }
 
-    const updated = await prisma.serviceTicket.update({
+    const existingTicket = await prisma.serviceTicket.findFirst({
       where: {
-        id: ticketId,
+        OR: [{ id: ticketId }, { ticketId }],
         customerId: customer.id,
-      },
-      data: {
-        customerRating: Math.min(5, Math.max(1, parseInt(customerRating, 10))),
-        customerVisibleNotes: customerRemarks || undefined,
       },
     });
 
+    if (!existingTicket) {
+      return NextResponse.json({ error: "Ticket not found or unauthorized access." }, { status: 404 });
+    }
+
+    const updateData: any = {};
+
+    if (action === "CONFIRM_RESOLUTION") {
+      updateData.status = "RESOLVED";
+      updateData.resolvedDate = new Date();
+    } else if (action === "DISPUTE" || action === "REOPEN") {
+      updateData.status = "REOPENED";
+    }
+
+    if (customerRating !== undefined && customerRating !== null) {
+      updateData.customerRating = Math.min(5, Math.max(1, parseInt(customerRating, 10)));
+    }
+
+    if (customerRemarks !== undefined && customerRemarks !== null) {
+      updateData.customerVisibleNotes = customerRemarks;
+    }
+
+    const updated = await prisma.serviceTicket.update({
+      where: { id: existingTicket.id },
+      data: updateData,
+    });
+
+    if (action) {
+      await logAuditEvent({
+        entityType: "ServiceTicket",
+        entityId: existingTicket.id,
+        fieldChanged: "status",
+        previousValue: existingTicket.status,
+        newValue: updated.status,
+        action: "STATUS_CHANGE",
+        actorId: customer.customerId,
+        actorType: "CUSTOMER",
+        source: "APP",
+        newValue: `Customer ${action === "CONFIRM_RESOLUTION" ? "confirmed resolution" : "reopened ticket"}`,
+      });
+    }
+
     return NextResponse.json({ success: true, ticket: updated });
   } catch (error: any) {
-    return NextResponse.json({ error: "Failed to submit feedback." }, { status: 500 });
+    console.error("[Customer Ticket PATCH Error]:", error);
+    return NextResponse.json({ error: "Failed to update service ticket." }, { status: 500 });
   }
 }

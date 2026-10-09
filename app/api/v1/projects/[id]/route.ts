@@ -40,6 +40,10 @@ export async function GET(
         },
         subsidy: true,
         monitoring: true,
+        timeline: {
+          where: { visibleToCustomer: true },
+          orderBy: { eventDateTime: "desc" },
+        },
       },
     });
 

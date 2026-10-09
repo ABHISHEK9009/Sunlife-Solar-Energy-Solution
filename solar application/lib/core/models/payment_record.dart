@@ -87,6 +87,7 @@ class PaymentSummary {
   final List<PaymentMilestone> history;
 
   int get totalCost => totalProjectCost;
+  int get totalContractValue => totalProjectCost;
   int get totalPaid => paidAmount;
   List<PaymentMilestone> get milestones => history;
 

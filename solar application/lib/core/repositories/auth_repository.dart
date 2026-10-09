@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../constants/api_constants.dart';
@@ -53,11 +52,6 @@ class AuthRepository extends ChangeNotifier {
   UserProfile? _currentUser;
   bool _isResolvingIdentity = false;
 
-  // Real WhatsApp OTP Challenge State
-  String? _pendingPhone;
-  String? _pendingOtp;
-  DateTime? _otpExpiresAt;
-
   UserProfile? get currentUser => _currentUser;
   bool get isResolvingIdentity => _isResolvingIdentity;
   bool get isLead => _currentUser?.isLead ?? false;
@@ -68,6 +62,12 @@ class AuthRepository extends ChangeNotifier {
     bool isAgent = false,
   }) async {
     final cleanPhone = identifier.trim().replaceAll(RegExp(r'\s+'), '');
+    if (cleanPhone.isEmpty) {
+      return const OtpRequestResult(
+        success: false,
+        error: 'Please enter a valid mobile number.',
+      );
+    }
 
     if (isAgent) {
       try {
@@ -85,57 +85,40 @@ class AuthRepository extends ChangeNotifier {
         final errorMsg = data?['error']?.toString() ?? 'Unable to send OTP.';
         return OtpRequestResult(success: false, error: errorMsg);
       } catch (e) {
+        if (e is ApiException) {
+          return OtpRequestResult(success: false, error: e.message);
+        }
         return OtpRequestResult(success: false, error: e.toString());
       }
     }
 
-    // ─── CUSTOMER AUTHENTIC WHATSAPP OTP DISPATCH ───
-    final random = Random.secure();
-    final generatedOtp = (100000 + random.nextInt(900000)).toString();
-
-    bool waDelivered = false;
+    // Customer OTP Request via CRM Server (Server-side WhatsApp/SMS Dispatch)
     try {
-      final waPhone = cleanPhone.startsWith('91') ? cleanPhone : '91$cleanPhone';
-      final waRes = await ApiClient.instance.post(
-        '${ApiConstants.whatsappGatewayUrl}/send-message',
-        data: {
-          'phone': waPhone,
-          'message': '☀️ *Sunlife Solar Verification*\n\nYour login verification code is: *$generatedOtp*\n\nValid for 10 minutes. Please do not share this code with anyone.\n\n_Sunlife Solar Energy Solution_',
-        },
-        options: Options(
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': ApiConstants.whatsappApiKey,
-          },
-        ),
-      );
-      final waData = _toMap(waRes.data);
-      if (waData?['success'] == true || waData?['status'] == 'SENT') {
-        waDelivered = true;
+      final endpoint = ApiConstants.customerRequestOtp;
+      final payload = {'phone': cleanPhone};
+      final res = await ApiClient.instance.post(endpoint, data: payload);
+      final data = _toMap(res.data);
+      if ((res.statusCode == 200 || res.statusCode == 201) && data != null && data['success'] == true) {
+        final destination = (data['maskedMobile'] ?? data['maskedDestination']) as String?;
+        final channel = data['deliveryChannel'] as String? ?? 'WhatsApp / SMS';
+        final message = data['message'] as String? ??
+            (destination != null
+                ? 'Verification code dispatched to $destination via $channel.'
+                : 'A 6-digit verification code has been dispatched.');
+        return OtpRequestResult(
+          success: true,
+          maskedEmail: destination,
+          message: message,
+        );
       }
-    } catch (waErr) {
-      debugPrint('[WhatsApp Gateway Dispatch Error]: $waErr');
+      final errorMsg = data?['error']?.toString() ?? 'Unable to send verification code. Please try again.';
+      return OtpRequestResult(success: false, error: errorMsg);
+    } catch (e) {
+      if (e is ApiException) {
+        return OtpRequestResult(success: false, error: e.message);
+      }
+      return OtpRequestResult(success: false, error: e.toString());
     }
-
-    // Also trigger CRM backend in parallel
-    try {
-      await ApiClient.instance.post(
-        ApiConstants.customerRequestOtp,
-        data: {'phone': cleanPhone},
-      );
-    } catch (_) {}
-
-    // Store authoritative challenge
-    _pendingPhone = cleanPhone;
-    _pendingOtp = generatedOtp;
-    _otpExpiresAt = DateTime.now().add(const Duration(minutes: 10));
-
-    return OtpRequestResult(
-      success: true,
-      message: waDelivered
-          ? 'Verification code sent to your WhatsApp.'
-          : 'A 6-digit verification code has been dispatched to your WhatsApp (+91 $cleanPhone).',
-    );
   }
 
   Future<UserProfile> verifyOtp({
@@ -150,11 +133,6 @@ class AuthRepository extends ChangeNotifier {
       throw ApiException('Enter a valid 6-digit OTP');
     }
 
-    final isLocalMatch = _pendingPhone == cleanPhone &&
-        _pendingOtp == cleanOtp &&
-        _otpExpiresAt != null &&
-        DateTime.now().isBefore(_otpExpiresAt!);
-
     try {
       final endpoint =
           isAgent ? ApiConstants.agentVerifyOtp : ApiConstants.customerVerifyOtp;
@@ -162,7 +140,7 @@ class AuthRepository extends ChangeNotifier {
 
       final res = await ApiClient.instance.post(endpoint, data: payload);
       final data = _toMap(res.data);
-      if ((res.statusCode == 200 || res.statusCode == 201) && data != null) {
+      if ((res.statusCode == 200 || res.statusCode == 201) && data != null && data['success'] == true) {
         final access = data['accessToken'] as String? ?? data['access_token'] as String?;
         if (access == null || access.isEmpty) {
           throw ApiException('Invalid session received from server.');
@@ -191,7 +169,6 @@ class AuthRepository extends ChangeNotifier {
           );
 
           _currentUser = user;
-          _pendingOtp = null;
           notifyListeners();
           return user;
         }
@@ -241,49 +218,17 @@ class AuthRepository extends ChangeNotifier {
         }
 
         _currentUser = user;
-        _pendingOtp = null;
         notifyListeners();
         return user;
       }
 
-      final errorMsg = res.data is Map && (res.data as Map)['error'] != null
-          ? (res.data as Map)['error'].toString()
+      final errorMsg = (data != null && data['error'] != null)
+          ? data['error'].toString()
           : 'Incorrect verification code. Please try again.';
       throw ApiException(errorMsg);
     } catch (e) {
-      if (!isAgent && isLocalMatch) {
-        final user = UserProfile(
-          id: 'lead_${cleanPhone}_${DateTime.now().millisecondsSinceEpoch}',
-          name: '',
-          phone: cleanPhone,
-          role: 'customer',
-          accountState: 'LEAD',
-          isNewUser: true,
-          profileComplete: false,
-          city: 'Narmadapuram',
-          leadStatus: 'WHATSAPP_VERIFIED',
-        );
-
-        await SecureStorageService.saveSession(
-          accessToken: 'wa_token_$cleanPhone',
-          refreshToken: 'wa_refresh_$cleanPhone',
-          role: 'customer',
-          userId: user.id,
-          userName: user.name,
-          accountState: 'LEAD',
-          userPhone: cleanPhone,
-          userCity: 'Narmadapuram',
-        );
-
-        _currentUser = user;
-        _pendingOtp = null;
-        notifyListeners();
-        return user;
-      }
-      if (!isLocalMatch) {
-        throw ApiException('Incorrect verification code. Please check the OTP sent to your WhatsApp.');
-      }
-      rethrow;
+      if (e is ApiException) rethrow;
+      throw ApiException('Unable to verify OTP. Please check your connection and try again.');
     }
   }
 
@@ -328,6 +273,13 @@ class AuthRepository extends ChangeNotifier {
               .map((e) => SolarProject.fromJson(Map<String, dynamic>.from(e as Map)))
               .toList();
           ProjectRepository.instance.setProjects(prjs);
+        }
+
+        if (data.containsKey('openEnquiry')) {
+          final rawEnquiry = data['openEnquiry'] is Map
+              ? Map<String, dynamic>.from(data['openEnquiry'] as Map)
+              : null;
+          ProjectRepository.instance.setOpenEnquiry(rawEnquiry);
         }
 
         _currentUser = updatedUser;

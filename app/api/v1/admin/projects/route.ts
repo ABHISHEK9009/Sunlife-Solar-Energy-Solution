@@ -96,6 +96,31 @@ export async function PATCH(req: Request) {
 
     const oldStatus = currentProject.projectStatus;
 
+    // Completion gates for ACTIVE status (Task 5: Correct Project Completion)
+    if (newStatus === "ACTIVE") {
+      const isLegacyActive = oldStatus === "ACTIVE" || currentProject.commissioningDate !== null;
+      const bypassGates = Boolean(body.bypassCompletionGates || body.isLegacyImport);
+      const isInstallationDone =
+        currentProject.installationDate !== null ||
+        [
+          "INSTALLATION_COMPLETED",
+          "NET_METERING_PENDING",
+          "NET_METER_INSTALLED",
+          "SUBSIDY_PROCESSING",
+        ].includes(oldStatus);
+
+      if (!isLegacyActive && !bypassGates && !isInstallationDone) {
+        return NextResponse.json(
+          {
+            error:
+              "Completion gate failed: Cannot transition project to ACTIVE. Physical installation, testing, and applicable grid approvals must be completed before a plant is marked operational.",
+            requiredStep: "INSTALLATION_COMPLETED",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     return await prisma.$transaction(async (tx) => {
       // 1. Update project status
       const updatedProject = await tx.solarProject.update({

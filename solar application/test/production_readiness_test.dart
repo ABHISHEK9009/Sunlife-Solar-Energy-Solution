@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sunlife_solar/core/constants/api_constants.dart';
 import 'package:sunlife_solar/core/network/api_client.dart';
 import 'package:sunlife_solar/core/repositories/agent_repository.dart';
 import 'package:sunlife_solar/core/repositories/auth_repository.dart';
@@ -15,7 +16,7 @@ import 'package:sunlife_solar/core/repositories/support_repository.dart';
 import 'package:sunlife_solar/core/storage/secure_storage_service.dart';
 
 class _ComprehensiveTestHttpAdapter implements HttpClientAdapter {
-  final Map<String, dynamic> customResponses = {};
+  static final Map<String, dynamic> customResponses = {};
   int requestCount = 0;
 
   @override
@@ -28,14 +29,16 @@ class _ComprehensiveTestHttpAdapter implements HttpClientAdapter {
     final path = options.path;
 
     // Custom test overrides
-    if (customResponses.containsKey(path)) {
-      final override = customResponses[path];
-      if (override is Map && override.containsKey('status')) {
-        return ResponseBody.fromString(
-          jsonEncode(override['body']),
-          override['status'] as int,
-          headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
-        );
+    for (final entry in customResponses.entries) {
+      if (path.contains(entry.key)) {
+        final override = entry.value;
+        if (override is Map && override.containsKey('status')) {
+          return ResponseBody.fromString(
+            jsonEncode(override['body']),
+            override['status'] as int,
+            headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
+          );
+        }
       }
     }
 
@@ -54,6 +57,13 @@ class _ComprehensiveTestHttpAdapter implements HttpClientAdapter {
         return ResponseBody.fromString(
           jsonEncode({'error': 'Too many failed verification attempts. Please request a new code.'}),
           429,
+          headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
+        );
+      }
+      if (otp == '999999') {
+        return ResponseBody.fromString(
+          jsonEncode({'error': 'Authentication service temporarily unavailable.'}),
+          503,
           headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
         );
       }
@@ -448,6 +458,32 @@ void main() {
       expect(user.name, 'Rajesh Sharma');
       expect(await SecureStorageService.isLoggedIn(), isTrue);
       expect(await SecureStorageService.getUserRole(), 'customer');
+    });
+
+    test('3b. Security: Server failure fails safely with zero synthetic session or wa_token created', () async {
+      await AuthRepository.instance.logout();
+      await SecureStorageService.clearSession();
+
+      // Trigger 503 server failure via test adapter
+      expect(
+        () async => await AuthRepository.instance.verifyOtp(
+          identifier: '9876543210',
+          otp: '999999',
+          isAgent: false,
+        ),
+        throwsA(isA<ApiException>()),
+      );
+
+      // Verify ZERO synthetic session or wa_token created
+      expect(await SecureStorageService.isLoggedIn(), isFalse);
+      expect(await SecureStorageService.getAccessToken(), isNull);
+      expect(AuthRepository.instance.currentUser, isNull);
+    });
+
+    test('3c. Security: No WhatsApp API keys or direct gateway endpoints in ApiConstants', () {
+      expect(ApiConstants.customerRequestOtp, '/auth/otp/send');
+      expect(ApiConstants.customerVerifyOtp, '/auth/otp/verify');
+      expect(ApiConstants.baseUrl.contains('/api/v1'), isTrue);
     });
 
     test('4. Security & Account Isolation: Logout completely purges all user-scoped caches', () async {

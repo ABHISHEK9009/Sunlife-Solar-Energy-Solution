@@ -3,11 +3,8 @@ import '../../core/models/user_profile.dart';
 import '../../core/repositories/auth_repository.dart';
 import '../../core/repositories/project_repository.dart';
 import '../../core/theme/app_colors.dart';
-import '../calculator/calculator_page.dart';
 import '../documents/documents_home_page.dart';
-import '../enquiry/enquiry_dashboard_view.dart';
 import '../enquiry/new_property_enquiry_sheet.dart';
-import '../enquiry/solar_services_page.dart';
 import '../home/home_page.dart';
 import '../profile/profile_page.dart';
 import '../project/project_page.dart';
@@ -21,8 +18,7 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  int _customerIndex = 0;
-  int _leadIndex = 0;
+  int _tabIndex = 0;
 
   @override
   void initState() {
@@ -49,6 +45,7 @@ class _AppShellState extends State<AppShell> {
     final prjs = ProjectRepository.instance.allProjects;
     final active = ProjectRepository.instance.activeProject;
     final openEnquiry = ProjectRepository.instance.openEnquiry;
+    final isEnquirySelected = ProjectRepository.instance.isEnquirySelected;
 
     showModalBottomSheet<void>(
       context: context,
@@ -65,37 +62,42 @@ class _AppShellState extends State<AppShell> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'My Solar Properties',
+                'My Solar Properties & Enquiries',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.ink),
               ),
               const SizedBox(height: 6),
               const Text(
-                'Switch between your installation sites or track new enquiries.',
+                'Switch between your installation sites or track new property consultations.',
                 style: TextStyle(color: AppColors.muted, fontSize: 13),
               ),
               const SizedBox(height: 18),
 
-              // Linked Projects
+              // Linked Customer Projects
               for (final p in prjs)
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                     side: BorderSide(
-                      color: active?.id == p.id ? AppColors.green : AppColors.cardBorder,
-                      width: active?.id == p.id ? 2 : 1,
+                      color: active?.id == p.id && !isEnquirySelected ? AppColors.green : AppColors.cardBorder,
+                      width: active?.id == p.id && !isEnquirySelected ? 2 : 1,
                     ),
                   ),
                   leading: CircleAvatar(
-                    backgroundColor: active?.id == p.id ? AppColors.softGreen : AppColors.canvas,
-                    child: Icon(Icons.solar_power_rounded, color: active?.id == p.id ? AppColors.deepGreen : AppColors.muted),
+                    backgroundColor: active?.id == p.id && !isEnquirySelected ? AppColors.softGreen : AppColors.canvas,
+                    child: Icon(
+                      Icons.solar_power_rounded,
+                      color: active?.id == p.id && !isEnquirySelected ? AppColors.deepGreen : AppColors.muted,
+                    ),
                   ),
                   title: Text(
                     (p.projectName?.isNotEmpty == true) ? p.projectName! : '${p.capacityKw} kW Solar',
                     style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                   ),
-                  subtitle: Text('${p.address.isNotEmpty ? p.address : "Installed Site"} • ${p.status}'),
-                  trailing: active?.id == p.id
+                  subtitle: Text(
+                    '${p.address.isNotEmpty ? p.address : "Installed Site"} • ${p.isCommissioned ? "OPERATIONAL" : p.status}',
+                  ),
+                  trailing: active?.id == p.id && !isEnquirySelected
                       ? const Icon(Icons.check_circle_rounded, color: AppColors.green)
                       : null,
                   onTap: () {
@@ -104,24 +106,33 @@ class _AppShellState extends State<AppShell> {
                   },
                 ),
 
+              // Open Enquiry / Consultation
               if (openEnquiry != null) ...[
                 const SizedBox(height: 8),
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
-                    side: const BorderSide(color: AppColors.orange, width: 1.5),
+                    side: BorderSide(
+                      color: isEnquirySelected ? AppColors.orange : AppColors.cardBorder,
+                      width: isEnquirySelected ? 2 : 1,
+                    ),
                   ),
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFFEF3C7),
-                    child: Icon(Icons.pending_actions_rounded, color: AppColors.orange),
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(0xFFFEF3C7),
+                    child: Icon(Icons.pending_actions_rounded,
+                        color: isEnquirySelected ? AppColors.orange : AppColors.muted),
                   ),
                   title: Text(
-                    '${openEnquiry['propertyType'] ?? 'Commercial'} Solar Enquiry',
+                    '${openEnquiry['propertyType'] ?? 'Solar'} Consultation',
                     style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                   ),
                   subtitle: Text('${openEnquiry['city'] ?? "Site"} • ${openEnquiry['status'] ?? "Survey Pending"}'),
+                  trailing: isEnquirySelected
+                      ? const Icon(Icons.check_circle_rounded, color: AppColors.orange)
+                      : null,
                   onTap: () {
+                    ProjectRepository.instance.selectEnquiry();
                     Navigator.pop(sheetContext);
                   },
                 ),
@@ -158,104 +169,34 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    final user = AuthRepository.instance.currentUser;
-    final projects = ProjectRepository.instance.allProjects;
-    final isExplicitLead = user?.isLead ?? true;
-    final hasProjects = projects.isNotEmpty;
-    // Real-time synchronization check:
-    // If user is a lead or has no active solar plant installed in the CRM database,
-    // present the New Customer Journey Hub.
-    final isLead = isExplicitLead || (ProjectRepository.instance.hasFetched && !hasProjects);
     final activeProject = ProjectRepository.instance.activeProject;
+    final openEnquiry = ProjectRepository.instance.openEnquiry;
+    final isEnquiry = ProjectRepository.instance.isEnquirySelected;
 
-    // ─── 1. LEAD EXPERIENCE (4-Tab Dynamic Shell) ──────────────────────
-    if (isLead) {
-      final leadPages = [
-        EnquiryDashboardView(user: user ?? const UserProfile(id: '', name: 'Valued Customer', phone: '', role: 'customer')),
-        const SolarServicesPage(),
-        const CalculatorPage(),
-        const ProfilePage(),
-      ];
-
-      return Scaffold(
-        appBar: AppBar(
-          backgroundColor: AppColors.canvas,
-          elevation: 0,
-          title: InkWell(
-            borderRadius: BorderRadius.circular(20),
-            onTap: () => _showPropertySwitcher(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.softGreen,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.green.withValues(alpha: .3)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.solar_power, color: AppColors.deepGreen, size: 16),
-                  const SizedBox(width: 8),
-                  Text(
-                    user?.city != null ? '${user!.city} Consultation' : 'Solar Consultation',
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.deepGreen),
-                  ),
-                  const Icon(Icons.arrow_drop_down, color: AppColors.deepGreen, size: 18),
-                ],
-              ),
-            ),
-          ),
-        ),
-        body: IndexedStack(index: _leadIndex, children: leadPages),
-        bottomNavigationBar: NavigationBar(
-          height: 70,
-          selectedIndex: _leadIndex,
-          indicatorColor: AppColors.green.withValues(alpha: .18),
-          onDestinationSelected: (v) => setState(() => _leadIndex = v),
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.track_changes_outlined),
-              selectedIcon: Icon(Icons.track_changes),
-              label: 'My Journey',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.grid_view_outlined),
-              selectedIcon: Icon(Icons.grid_view_rounded),
-              label: 'Services',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.calculate_outlined),
-              selectedIcon: Icon(Icons.calculate),
-              label: 'Calculator',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person),
-              label: 'Profile',
-            ),
-          ],
-        ),
-      );
-    }
-
-    // ─── 2. ACTIVE CUSTOMER EXPERIENCE (5-Tab Standard Shell) ────────────
-    const customerPages = [
+    // 5-Tab Consistent Client Portal Pages
+    const portalPages = [
       HomePage(),
       ProjectPage(),
-      DocumentsHomePage(),
       ServicePage(),
+      DocumentsHomePage(),
       ProfilePage(),
     ];
 
-    final propertyLabel = activeProject != null
-        ? '${activeProject.capacityKw} kW • ${activeProject.projectType}'
-        : 'My Solar Plant';
+    // Dynamic top bar label
+    String propertyLabel;
+    if (activeProject != null && !isEnquiry) {
+      propertyLabel = '${activeProject.capacityKw} kW • ${activeProject.projectName ?? activeProject.projectType}';
+    } else if (openEnquiry != null) {
+      propertyLabel = '${openEnquiry['propertyType'] ?? 'Solar'} Consultation';
+    } else {
+      propertyLabel = 'My Solar';
+    }
 
     return PopScope(
-      canPop: _customerIndex == 0,
+      canPop: _tabIndex == 0,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _customerIndex != 0) {
-          setState(() => _customerIndex = 0);
+        if (!didPop && _tabIndex != 0) {
+          setState(() => _tabIndex = 0);
         }
       },
       child: Scaffold(
@@ -275,7 +216,11 @@ class _AppShellState extends State<AppShell> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.home_outlined, color: AppColors.deepGreen, size: 16),
+                  Icon(
+                    isEnquiry ? Icons.pending_actions_rounded : Icons.home_outlined,
+                    color: isEnquiry ? AppColors.orange : AppColors.deepGreen,
+                    size: 16,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     propertyLabel,
@@ -294,12 +239,12 @@ class _AppShellState extends State<AppShell> {
             ),
           ],
         ),
-        body: IndexedStack(index: _customerIndex, children: customerPages),
+        body: IndexedStack(index: _tabIndex, children: portalPages),
         bottomNavigationBar: NavigationBar(
           height: 70,
-          selectedIndex: _customerIndex,
+          selectedIndex: _tabIndex,
           indicatorColor: AppColors.green.withValues(alpha: .18),
-          onDestinationSelected: (v) => setState(() => _customerIndex = v),
+          onDestinationSelected: (v) => setState(() => _tabIndex = v),
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.home_outlined),
@@ -307,9 +252,14 @@ class _AppShellState extends State<AppShell> {
               label: 'Home',
             ),
             NavigationDestination(
-              icon: Icon(Icons.route_outlined),
-              selectedIcon: Icon(Icons.route),
-              label: 'Project',
+              icon: Icon(Icons.solar_power_outlined),
+              selectedIcon: Icon(Icons.solar_power),
+              label: 'My Solar',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.support_agent_outlined),
+              selectedIcon: Icon(Icons.support_agent),
+              label: 'Support',
             ),
             NavigationDestination(
               icon: Icon(Icons.folder_outlined),
@@ -317,14 +267,9 @@ class _AppShellState extends State<AppShell> {
               label: 'Documents',
             ),
             NavigationDestination(
-              icon: Icon(Icons.support_agent_outlined),
-              selectedIcon: Icon(Icons.support_agent),
-              label: 'Service',
-            ),
-            NavigationDestination(
               icon: Icon(Icons.person_outline),
               selectedIcon: Icon(Icons.person),
-              label: 'Profile',
+              label: 'Account',
             ),
           ],
         ),

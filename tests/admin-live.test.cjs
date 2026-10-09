@@ -87,7 +87,12 @@ test("invalid bulk attendance rolls back earlier records", async () => {
   };
   const route = load("app/api/attendance/route.ts", {
     console: { error() {} },
-    require: (name) => name === "next/server" ? { NextResponse: { json: (body, init) => Response.json(body, init) } } : { prisma },
+    require: (name) => {
+      if (name === "next/server") return { NextResponse: { json: (body, init) => Response.json(body, init) } };
+      if (name.includes("admin-auth")) return { authenticateAdminRequest: async () => true };
+      if (name.includes("agent-auth")) return { authenticateAgentRequest: async () => null };
+      return { prisma };
+    },
   });
   const records = [
     { memberId: "one", date: "2026-09-18", status: "Present" },

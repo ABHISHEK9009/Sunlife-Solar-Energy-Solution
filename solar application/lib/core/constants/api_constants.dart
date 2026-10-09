@@ -23,8 +23,6 @@ class ApiConstants {
   static const String supportEmail = 'support@sunlifesolar.in';
   static const String supportPhone = '+917722995100';
   static const String whatsappPhone = '917722995100';
-  static const String whatsappGatewayUrl = 'https://superb-commitment-production-5b3e.up.railway.app';
-  static const String whatsappApiKey = 'sunlife_whatsapp_secret_key_2026';
 
   // Legal
   static const String privacyPolicyUrl = 'https://sunlifesolar.in/privacy-policy';
@@ -50,4 +48,7 @@ class ApiConstants {
   static const String agentLeads = '/agent/leads';
   static const String agentVisits = '/agent/visits';
   static const String agentTasks = '/agent/tasks';
+  static const String agentTickets = '/agent/tickets';
+  static const String agentAttendance = '/agent/attendance';
+  static const String agentAttendanceToday = '/agent/attendance/today';
 }

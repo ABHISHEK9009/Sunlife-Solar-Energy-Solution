@@ -323,7 +323,7 @@ export async function PATCH(
     const { id } = params;
     const body = await req.json();
 
-    const customer = await resolveClient(id);
+    const customer = await resolveClient(id, true);
 
     if (!customer) {
       return NextResponse.json({ error: "Customer not found." }, { status: 404 });
@@ -427,6 +427,20 @@ export async function POST(
           data: { customerStatus: stage === "ACTIVE" || stage === "COMPLETED" ? "ACTIVE" : "ACTIVE" },
         });
       } else {
+        // Completion Gate: Prevent premature transition to ACTIVE without physical completion
+        if (stage === "ACTIVE") {
+          const isLegacyOrCommissioned = activeProject.commissioningDate !== null || activeProject.projectStatus === "ACTIVE";
+          const isPhysicallyCompleted = activeProject.installationDate !== null || 
+                                       activeProject.projectStatus === "INSTALLATION_COMPLETED" || 
+                                       activeProject.projectStatus === "HANDOVER";
+          if (!isLegacyOrCommissioned && !isPhysicallyCompleted) {
+            return NextResponse.json(
+              { error: "Cannot transition project to ACTIVE: Installation and testing milestones have not been verified." },
+              { status: 400 }
+            );
+          }
+        }
+
         // Update existing project status
         const updateData: any = {
           projectStatus: stage,
