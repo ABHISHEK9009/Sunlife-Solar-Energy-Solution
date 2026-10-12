@@ -1,3 +1,4 @@
+import '../../core/widgets/data_state.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -125,6 +126,15 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final error = ProjectRepository.instance.lastError ?? PaymentRepository.instance.lastError ?? DocumentRepository.instance.lastError ?? SubsidyRepository.instance.lastError;
+    if (error != null) return DataState(message: error, onRetry: () async {
+      await ProjectRepository.instance.getCurrentProject(forceRefresh: true);
+      await PaymentRepository.instance.getPaymentSummary(forceRefresh: true);
+      await DocumentRepository.instance.getDocuments(forceRefresh: true);
+      await SubsidyRepository.instance.getSubsidyStatus(forceRefresh: true);
+      await _loadData();
+    });
+    if (!ProjectRepository.instance.hasFetched) return const DataState();
     final project = _project;
     final user = AuthRepository.instance.currentUser;
     final isEnquiryContext = project == null || ProjectRepository.instance.isEnquirySelected;
@@ -186,7 +196,7 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Your rooftop solar assessment for $city is registered in Sunlife CRM.',
+                'View your rooftop solar assessment for $city.',
                 style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.35),
               ),
               const SizedBox(height: 14),
@@ -357,13 +367,13 @@ class _HomePageState extends State<HomePage> {
         ),
         const SizedBox(height: 22),
 
-        const Heading('CRM Connection'),
+        const Heading('Your solar enquiry'),
         const SizedBox(height: 12),
         CardBox(
           child: UpdateTile(
             DateFormat('dd MMM yyyy').format(DateTime.now()),
-            'Authoritative CRM Connection Active',
-            'Your enquiry records are synchronized in real-time with Sunlife Solar CRM.',
+            'Authoritative Your solar enquiry Active',
+            'Contact your advisor for help with your enquiry.',
             last: true,
           ),
         ),
@@ -413,7 +423,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               Text(
-                'Project ${project.id} • ${project.projectType} • ${project.systemType}',
+                'Project • ${project.projectType} • ${project.systemType}',
                 style: const TextStyle(color: Colors.white60),
               ),
               const SizedBox(height: 18),
@@ -688,7 +698,7 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                const Text('Data source: Live Inverter Telemetry / Inverter API', style: TextStyle(color: AppColors.muted, fontSize: 11)),
+                const Text('Latest available inverter readings', style: TextStyle(color: AppColors.muted, fontSize: 11)),
               ] else ...[
                 Row(
                   children: [
@@ -702,12 +712,12 @@ class _HomePageState extends State<HomePage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Active Generation Verified',
+                            'Performance information is not available yet',
                             style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
                           ),
                           SizedBox(height: 2),
                           Text(
-                            'Inverter is grid-synchronized. Remote telemetry data logger link is being verified with your advisor.',
+                            'Contact your advisor for help with your plant performance information.',
                             style: TextStyle(color: AppColors.muted, fontSize: 12, height: 1.3),
                           ),
                         ],

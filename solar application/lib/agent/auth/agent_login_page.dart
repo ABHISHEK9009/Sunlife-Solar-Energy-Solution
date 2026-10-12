@@ -238,7 +238,7 @@ class _AgentLoginPageState extends State<AgentLoginPage> {
               const SizedBox(height: 18),
               const Center(
                 child: Text(
-                  'Only active employees registered in CRM can sign in',
+                  'Only active Sunlife Solar employees can sign in',
                   style: TextStyle(
                     color: AppColors.muted,
                     fontSize: 12,

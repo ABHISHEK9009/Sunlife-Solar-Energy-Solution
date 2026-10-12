@@ -77,8 +77,7 @@ class _AgentDocumentsPageState extends State<AgentDocumentsPage> {
                           )
                         : TextButton(
                             onPressed: () {
-                              setState(() => received.add(i));
-                              _message('${documents[i]} uploaded');
+                              _message('Document upload is unavailable here. Please contact your team manager to submit this document.');
                             },
                             child: const Text('Upload'),
                           ),

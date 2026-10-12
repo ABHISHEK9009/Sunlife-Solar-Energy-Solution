@@ -1,3 +1,4 @@
+import '../../core/widgets/data_state.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/agent_lead.dart';
@@ -125,6 +126,11 @@ class _AgentTasksPageState extends State<AgentTasksPage> {
 
   @override
   Widget build(BuildContext context) {
+    final loadError = AgentRepository.instance.tasksError;
+    if (loadError != null) return Scaffold(
+      appBar: AppBar(title: const Text('Sunlife Solar')),
+      body: DataState(message: loadError, onRetry: () async { await _loadTasks(force: true); }),
+    );
     final remainingCount = _tasks.where((t) => !t.isCompleted).length;
 
     return Frame(
@@ -150,7 +156,7 @@ class _AgentTasksPageState extends State<AgentTasksPage> {
                     Text(
                       remainingCount == 0
                           ? 'All tasks completed! 🎉'
-                          : '$remainingCount CRM tasks pending today',
+                          : '$remainingCount tasks pending today',
                       style: const TextStyle(
                         fontWeight: FontWeight.w900,
                         fontSize: 16,
@@ -158,7 +164,7 @@ class _AgentTasksPageState extends State<AgentTasksPage> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Synced in real-time with your assigned leads',
+                      'Tasks for your assigned leads',
                       style: TextStyle(
                         color: Colors.black.withValues(alpha: 0.6),
                         fontSize: 12,
@@ -191,7 +197,7 @@ class _AgentTasksPageState extends State<AgentTasksPage> {
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    'No pending tasks assigned to you in CRM',
+                    'No pending tasks assigned to you',
                     style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                   ),
                   const SizedBox(height: 6),

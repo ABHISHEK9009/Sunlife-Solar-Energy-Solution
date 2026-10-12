@@ -1,3 +1,5 @@
+import '../errors/error_feedback.dart';
+import '../errors/app_error.dart';
 import 'package:flutter/foundation.dart';
 import '../constants/api_constants.dart';
 import '../models/notification_item.dart';
@@ -12,6 +14,7 @@ class NotificationRepository {
 
   List<NotificationItem> _notifications = [];
   bool _isLoading = false;
+  String? lastError;
 
   final ValueNotifier<int> _unreadCountNotifier = ValueNotifier<int>(0);
   final ValueNotifier<List<NotificationItem>> _notificationsNotifier =
@@ -25,6 +28,7 @@ class NotificationRepository {
   bool get isLoading => _isLoading;
 
   void reset() {
+    lastError = null;
     _notifications = [];
     _isLoading = false;
     _syncNotifiers();
@@ -36,6 +40,7 @@ class NotificationRepository {
     }
 
     _isLoading = true;
+    lastError = null;
     try {
       final res = await ApiClient.instance.get(ApiConstants.notifications);
       if (res.statusCode == 200 && res.data is Map<String, dynamic>) {
@@ -46,41 +51,33 @@ class NotificationRepository {
             .toList();
         _syncNotifiers();
       }
-    } catch (_) {
-      // Keep real fetched list on error; do not fabricate fake notifications
+    } catch (e) {
+      lastError = ErrorMapper.message(e);
     } finally {
       _isLoading = false;
+      _syncNotifiers();
     }
 
     return List.unmodifiable(_notifications);
   }
 
   Future<void> markAllAsRead() async {
-    for (var i = 0; i < _notifications.length; i++) {
-      _notifications[i] = _notifications[i].copyWith(isRead: true);
-    }
-    _syncNotifiers();
-
     try {
-      await ApiClient.instance.patch(
-        ApiConstants.notifications,
-        data: {'markAllRead': true},
-      );
-    } catch (_) {}
+      await ApiClient.instance.patch(ApiConstants.notifications, data: {'markAllRead': true});
+      _notifications = _notifications.map((n) => n.copyWith(isRead: true)).toList();
+      _syncNotifiers();
+    } catch (e) {
+      ErrorFeedback.show(e);
+    }
   }
 
   Future<void> markAsRead(String id) async {
-    final index = _notifications.indexWhere((n) => n.id == id);
-    if (index != -1 && !_notifications[index].isRead) {
-      _notifications[index] = _notifications[index].copyWith(isRead: true);
+    try {
+      await ApiClient.instance.patch(ApiConstants.notifications, data: {'notificationId': id});
+      _notifications = _notifications.map((n) => n.id == id ? n.copyWith(isRead: true) : n).toList();
       _syncNotifiers();
-
-      try {
-        await ApiClient.instance.patch(
-          ApiConstants.notifications,
-          data: {'notificationId': id},
-        );
-      } catch (_) {}
+    } catch (e) {
+      ErrorFeedback.show(e);
     }
   }
 

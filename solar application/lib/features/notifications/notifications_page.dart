@@ -1,3 +1,4 @@
+import '../../core/widgets/data_state.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/models/notification_item.dart';
@@ -15,6 +16,12 @@ class NotificationsPage extends StatefulWidget {
 
 class _NotificationsPageState extends State<NotificationsPage> {
   String _selectedCategory = 'All';
+  @override
+  void initState() {
+    super.initState();
+    NotificationRepository.instance.getNotifications(forceRefresh: true);
+  }
+
 
   String _formatTimestamp(DateTime time) {
     final now = DateTime.now();
@@ -49,6 +56,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Widget build(BuildContext context) => ValueListenableBuilder<List<NotificationItem>>(
         valueListenable: NotificationRepository.instance.notificationsNotifier,
         builder: (context, notifications, _) {
+          final error = NotificationRepository.instance.lastError;
+          if (error != null) return Scaffold(appBar: AppBar(title: const Text('Notifications')), body: DataState(message: error, onRetry: () async { await NotificationRepository.instance.getNotifications(forceRefresh: true); }));
+          if (NotificationRepository.instance.isLoading) return const Scaffold(body: DataState());
           final filtered = _selectedCategory == 'All'
               ? notifications
               : notifications.where((n) => n.category == _selectedCategory).toList();

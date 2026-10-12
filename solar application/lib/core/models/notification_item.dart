@@ -1,3 +1,4 @@
+import '../errors/app_error.dart';
 class NotificationItem {
   const NotificationItem({
     required this.id,
@@ -43,8 +44,8 @@ class NotificationItem {
 
     return NotificationItem(
       id: json['id'] as String? ?? '',
-      title: json['title'] as String? ?? '',
-      message: json['message'] as String? ?? '',
+      title: AppMessages.notificationTitle,
+      message: AppMessages.notificationBody,
       timestamp: parsedDate,
       isRead: read,
       category: json['notificationType'] as String? ?? json['category'] as String? ?? 'Project',

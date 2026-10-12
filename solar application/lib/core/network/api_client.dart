@@ -1,17 +1,12 @@
+import '../errors/app_error.dart';
 import 'dart:async';
 import 'package:dio/dio.dart';
 import '../constants/api_constants.dart';
 import '../storage/secure_storage_service.dart';
 
-class ApiException implements Exception {
-  ApiException(this.message, {this.statusCode, this.details});
-
-  final String message;
-  final int? statusCode;
-  final dynamic details;
-
-  @override
-  String toString() => message;
+class ApiException extends AppFailure {
+  ApiException(String diagnostic, {int? statusCode, dynamic details, FailureKind? kind})
+      : super(kind ?? ErrorMapper.fromStatus(statusCode).kind, statusCode: statusCode);
 }
 
 class ApiClient {
@@ -45,6 +40,16 @@ class ApiClient {
             options.headers['Authorization'] = 'Bearer $token';
           }
           return handler.next(options);
+        },
+        onResponse: (response, handler) {
+          if (response.data is Map && response.data['success'] == false) {
+            return handler.reject(DioException(
+              requestOptions: response.requestOptions,
+              type: DioExceptionType.unknown,
+              error: const AppFailure(FailureKind.unknown),
+            ));
+          }
+          handler.next(response);
         },
         onError: (DioException error, handler) async {
           if (error.response?.statusCode == 401) {
@@ -83,8 +88,12 @@ class ApiClient {
   }) async {
     final cacheKey = '$path?${queryParameters?.toString() ?? ''}';
     if (_inFlightGetRequests.containsKey(cacheKey)) {
-      final existing = await _inFlightGetRequests[cacheKey]!;
-      return existing as Response<T>;
+      try {
+        final existing = await _inFlightGetRequests[cacheKey]!;
+        return existing as Response<T>;
+      } on DioException catch (e) {
+        throw _handleDioError(e);
+      }
     }
 
     final future = _dio.get<T>(
@@ -141,41 +150,7 @@ class ApiClient {
   }
 
   ApiException _handleDioError(DioException error) {
-    String message = 'Network connection failed. Please check your internet connection.';
-    if (error.type == DioExceptionType.connectionTimeout ||
-        error.type == DioExceptionType.receiveTimeout ||
-        error.type == DioExceptionType.sendTimeout) {
-      message = 'Connection timed out. Please check your network and try again.';
-    } else if (error.response != null) {
-      final statusCode = error.response?.statusCode;
-      final data = error.response?.data;
-      if (data is Map && data.containsKey('error')) {
-        message = data['error'].toString();
-      } else if (data is Map && data.containsKey('message')) {
-        message = data['message'].toString();
-      } else {
-        switch (statusCode) {
-          case 400:
-            message = 'Invalid request parameters.';
-            break;
-          case 401:
-            message = 'Your session has expired. Please sign in again.';
-            break;
-          case 403:
-            message = 'You do not have permission to perform this action.';
-            break;
-          case 404:
-            message = 'The requested resource was not found.';
-            break;
-          case 500:
-            message = 'Unable to complete the request right now. Please try again.';
-            break;
-          default:
-            message = 'Request failed. Please try again.';
-        }
-      }
-      return ApiException(message, statusCode: statusCode, details: data);
-    }
-    return ApiException(message);
+    final failure = ErrorMapper.map(error);
+    return ApiException('', statusCode: failure.statusCode, kind: failure.kind);
   }
 }

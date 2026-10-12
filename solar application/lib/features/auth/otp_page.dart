@@ -1,3 +1,4 @@
+import '../../core/errors/app_error.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/repositories/auth_repository.dart';
@@ -49,6 +50,7 @@ class _OtpPageState extends State<OtpPage> {
   }
 
   Future<void> _verify() async {
+    if (_isLoading) return;
     final code = controller.text.trim();
     if (code.length != 6) {
       setState(() => _errorMessage = 'Please enter a 6-digit verification code');
@@ -87,9 +89,9 @@ class _OtpPageState extends State<OtpPage> {
         );
       }
     } catch (e) {
-      debugPrint('OtpPage verify error: $e');
+
       if (mounted) {
-        setState(() => _errorMessage = e.toString());
+        setState(() => _errorMessage = ErrorMapper.message(e));
       }
     } finally {
       if (mounted) {
@@ -105,7 +107,7 @@ class _OtpPageState extends State<OtpPage> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(res.message ?? 'A new verification code has been dispatched'),
+          content: Text(res.success ? AppMessages.codeSent : (res.error ?? AppMessages.failure(FailureKind.unknown))),
         ),
       );
     }

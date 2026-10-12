@@ -1,3 +1,5 @@
+import '../../core/widgets/data_state.dart';
+import '../../core/errors/app_error.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/models/payment_record.dart';
@@ -29,7 +31,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
   }
 
   Future<void> _loadPayments() async {
-    final summary = await PaymentRepository.instance.getPaymentSummary();
+    final summary = await PaymentRepository.instance.getPaymentSummary(forceRefresh: true);
     if (mounted) {
       setState(() {
         _summary = summary;
@@ -39,6 +41,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
   }
 
   Future<void> _handlePayment() async {
+    if (_isPaying) return;
     final summary = _summary;
     if (summary == null || summary.remainingBalance <= 0) return;
 
@@ -52,39 +55,32 @@ class _PaymentsPageState extends State<PaymentsPage> {
     if (method != null && mounted) {
       setState(() => _isPaying = true);
 
-      final success = await PaymentRepository.instance.processPayment(
-        amount: summary.remainingBalance,
-        method: method,
-      );
-
-      if (mounted) {
-        setState(() => _isPaying = false);
-        if (success) {
-          await _loadPayments();
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                backgroundColor: AppColors.deepGreen,
-                content: Text('Payment via $method confirmed. Receipt generated!'),
-              ),
-            );
-          }
-        }
+      try {
+        final success = await PaymentRepository.instance.processPayment(
+          amount: summary.remainingBalance, method: method,
+        );
+        if (success && mounted) await _loadPayments();
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ErrorMapper.message(e))),
+        );
+      } finally {
+        if (mounted) setState(() => _isPaying = false);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final summary = _summary ??
-        const PaymentSummary(
-          totalProjectCost: 290000,
-          subsidyAmount: 78000,
-          netCustomerCost: 212000,
-          paidAmount: 150000,
-          remainingBalance: 62000,
-          history: [],
-        );
+    if (_isLoading && PaymentRepository.instance.lastError == null) {
+      return const Scaffold(body: DataState());
+    }
+    final loadError = PaymentRepository.instance.lastError;
+    if (loadError != null) return Scaffold(
+      appBar: AppBar(title: const Text('Sunlife Solar')),
+      body: DataState(message: loadError, onRetry: () async { await _loadPayments(); }),
+    );
+    final summary = _summary ?? PaymentSummary.empty();
 
     final progress = summary.netCustomerCost > 0
         ? (summary.paidAmount / summary.netCustomerCost).clamp(0.0, 1.0)
@@ -222,7 +218,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
                                         fontWeight: FontWeight.w900,
                                         color: AppColors.deepGreen)),
                                 const SizedBox(height: 14),
-                                Info('Transaction ID', 'TXN-${item.id}'),
+                                
                                 Info('Date', item.date),
                                 Info('Payment status', 'Success', last: true),
                               ],

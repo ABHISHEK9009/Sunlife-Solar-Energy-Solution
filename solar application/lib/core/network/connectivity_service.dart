@@ -53,7 +53,7 @@ class OfflineBanner extends StatelessWidget {
                 Icon(Icons.wifi_off_rounded, color: Colors.white, size: 16),
                 SizedBox(width: 8),
                 Text(
-                  'Working offline • Cached data displayed',
+                  'You are offline. Saved information may not be current.',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 12,

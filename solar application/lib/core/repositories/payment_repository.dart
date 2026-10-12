@@ -1,3 +1,4 @@
+import '../errors/app_error.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/payment_record.dart';
@@ -35,9 +36,10 @@ class PaymentRepository extends ChangeNotifier {
     final activeProject = ProjectRepository.instance.activeProject ??
         await ProjectRepository.instance.getCurrentProject();
 
+    _lastError = ProjectRepository.instance.lastError;
     if (activeProject == null || activeProject.id.isEmpty) {
       _summary = PaymentSummary.empty();
-      _hasFetched = true;
+      _hasFetched = _lastError == null;
       notifyListeners();
       return _summary;
     }
@@ -51,10 +53,10 @@ class PaymentRepository extends ChangeNotifier {
         _summary = PaymentSummary.fromJson(res.data as Map<String, dynamic>);
       }
     } catch (err) {
-      _lastError = err.toString();
+      _lastError = ErrorMapper.message(err);
       // Keep existing confirmed summary if available, do not synthesize fake payments
     } finally {
-      _hasFetched = true;
+      _hasFetched = _lastError == null;
       _isLoading = false;
       notifyListeners();
     }
@@ -69,6 +71,7 @@ class PaymentRepository extends ChangeNotifier {
     required String method,
   }) async {
     final activeProject = ProjectRepository.instance.activeProject;
+    _lastError = ProjectRepository.instance.lastError;
     if (activeProject == null || activeProject.id.isEmpty) {
       throw Exception("No active project found to process payment.");
     }
@@ -79,9 +82,6 @@ class PaymentRepository extends ChangeNotifier {
 
     // In production without live PG credentials configured:
     // Safely reject client-side synthetic completion with honest explanation
-    throw Exception(
-      "Online payment gateway integration is currently in verification mode. "
-      "Please complete payments directly via Bank Transfer / NEFT / RTGS to Sunlife Solar Energy Solution accounts."
-    );
+    throw const AppFailure(FailureKind.paymentUnavailable);
   }
 }

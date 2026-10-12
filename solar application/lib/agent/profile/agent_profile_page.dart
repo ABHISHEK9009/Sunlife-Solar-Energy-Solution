@@ -18,8 +18,7 @@ class AgentProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = AuthRepository.instance.currentUser;
     final name = user?.name.isNotEmpty == true ? user!.name : 'Field Partner';
-    final agentId = user?.id.isNotEmpty == true ? user!.id : 'CRM Employee';
-    final territory = user?.territory ?? 'Jaipur Central';
+    final territory = user?.territory ?? 'Not assigned yet';
     final manager = user?.managerName ?? 'Operations';
     final phone = user?.phone.isNotEmpty == true ? user!.phone : '';
     final initials = name
@@ -61,7 +60,7 @@ class AgentProfilePage extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'Field Sales Agent · $agentId',
+                    'Sunlife Solar field partner',
                     style: const TextStyle(color: Colors.white70),
                   ),
                 ],
@@ -78,7 +77,7 @@ class AgentProfilePage extends StatelessWidget {
             Info('Territory', territory),
             Info('Team manager', manager),
             Info('Mobile', phone),
-            const Info('CRM access', 'Connected', last: true),
+            const Info('Account', 'Signed in', last: true),
           ],
         ),
       ),
@@ -123,12 +122,12 @@ class AgentProfilePage extends StatelessWidget {
           children: [
             MenuTile(
               Icons.sync_rounded,
-              'CRM sync',
-              'Last synced just now',
+              'Refresh information',
+              'Get your latest information',
               onTap: () async {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Syncing CRM records with server…'),
+                    content: Text('Getting your latest information…'),
                     duration: Duration(seconds: 1),
                   ),
                 );
@@ -139,10 +138,7 @@ class AgentProfilePage extends StatelessWidget {
                 ]);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      backgroundColor: AppColors.deepGreen,
-                      content: Text('All CRM records synced in real-time!'),
-                    ),
+                    SnackBar(content: Text(AgentRepository.instance.hasLoadError ? 'Some information could not be updated. Please try again.' : 'Your information is up to date.')),
                   );
                 }
               },
@@ -169,7 +165,7 @@ class AgentProfilePage extends StatelessWidget {
             builder: (dialogContext) => AlertDialog(
               title: const Text('Log out of agent portal?'),
               content: const Text(
-                'Any unsynced field updates should be saved before logging out.',
+                'Save your field updates before logging out.',
               ),
               actions: [
                 TextButton(

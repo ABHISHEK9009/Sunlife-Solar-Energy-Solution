@@ -1,3 +1,4 @@
+import '../../core/errors/app_error.dart';
 import 'package:flutter/material.dart';
 import '../../core/repositories/auth_repository.dart';
 import '../../core/theme/app_colors.dart';
@@ -91,6 +92,7 @@ class _EnquiryOnboardingPageState extends State<EnquiryOnboardingPage> {
   }
 
   Future<void> _handleStep1Next() async {
+    if (_isLoading) return;
     final name = _nameController.text.trim();
     final city = _cityController.text.trim();
 
@@ -126,7 +128,7 @@ class _EnquiryOnboardingPageState extends State<EnquiryOnboardingPage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _currentStep = 2; // Allow moving forward gracefully
+          _errorMessage = ErrorMapper.message(e);
           _isLoading = false;
         });
       }
@@ -134,6 +136,7 @@ class _EnquiryOnboardingPageState extends State<EnquiryOnboardingPage> {
   }
 
   Future<void> _handleStep2Submit() async {
+    if (_isLoading) return;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -146,7 +149,13 @@ class _EnquiryOnboardingPageState extends State<EnquiryOnboardingPage> {
         'roofSize': _roofSizeController.text.trim(),
         'step': 'REQUIREMENT',
       });
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) setState(() {
+        _errorMessage = ErrorMapper.message(e);
+        _isLoading = false;
+      });
+      return;
+    }
 
     if (!mounted) return;
 
@@ -166,7 +175,7 @@ class _EnquiryOnboardingPageState extends State<EnquiryOnboardingPage> {
             SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Solar Survey Booked! 🎉',
+                'Your enquiry has been received',
                 style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
               ),
             ),

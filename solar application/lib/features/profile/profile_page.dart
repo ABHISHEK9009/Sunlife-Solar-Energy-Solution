@@ -27,7 +27,6 @@ class ProfilePage extends StatelessWidget {
     final name = (user?.name.isNotEmpty == true)
         ? user!.name
         : (user?.phone.isNotEmpty == true ? 'Customer (${user!.phone})' : 'Valued Customer');
-    final customerId = (user?.id.isNotEmpty == true) ? user!.id : 'Pending Verification';
     final rawPhone = user?.phone ?? '';
     final phone = rawPhone.isNotEmpty
         ? (rawPhone.startsWith('+91') ? rawPhone : '+91 $rawPhone')
@@ -63,7 +62,7 @@ class ProfilePage extends StatelessWidget {
                     style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
                   ),
                   Text(
-                    'Customer ID: $customerId',
+                    'Sunlife Solar customer',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: AppColors.muted),
@@ -82,7 +81,7 @@ class ProfilePage extends StatelessWidget {
             Info('Email', (user?.email?.isNotEmpty == true) ? user!.email! : 'Not provided'),
             Info('Solar plant ID', (user?.plantId?.isNotEmpty == true)
                 ? user!.plantId!
-                : (activeProject?.id ?? 'Pending Survey')),
+                : (activeProject?.projectIdCode ?? 'Information is not available yet.')),
             Info('DISCOM consumer no.', (user?.discomConsumerNo?.isNotEmpty == true)
                 ? user!.discomConsumerNo!
                 : 'Pending Application'),

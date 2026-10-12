@@ -1,3 +1,4 @@
+import '../../core/widgets/data_state.dart';
 import 'package:flutter/material.dart';
 import '../../core/models/service_ticket.dart';
 import '../../core/repositories/support_repository.dart';
@@ -44,7 +45,7 @@ class _ServicePageState extends State<ServicePage> {
   }
 
   Future<void> _loadTickets() async {
-    final list = await SupportRepository.instance.getTickets();
+    final list = await SupportRepository.instance.getTickets(forceRefresh: true);
     if (mounted) {
       setState(() {
         _tickets = list;
@@ -68,7 +69,7 @@ class _ServicePageState extends State<ServicePage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('#${ticket.id}',
+                  Text('Service request',
                       style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
                   Pill(ticket.status),
                 ],
@@ -95,7 +96,10 @@ class _ServicePageState extends State<ServicePage> {
   }
 
   @override
-  Widget build(BuildContext context) => Frame(
+  Widget build(BuildContext context) {
+    final loadError = SupportRepository.instance.lastError;
+    if (loadError != null) return Scaffold(body: DataState(message: loadError, onRetry: () async { await _loadTickets(); }));
+    return Frame(
         'Help & service',
         [
           const CardBox(
@@ -204,7 +208,7 @@ class _ServicePageState extends State<ServicePage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('#${ticket.id}', style: const TextStyle(color: AppColors.muted)),
+                          Text('Service request', style: const TextStyle(color: AppColors.muted)),
                           Pill(ticket.status),
                         ],
                       ),
@@ -232,6 +236,7 @@ class _ServicePageState extends State<ServicePage> {
         ],
         onRefresh: _loadTickets,
       );
+  }
 }
 
 

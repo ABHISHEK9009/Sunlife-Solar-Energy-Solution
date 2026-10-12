@@ -1,3 +1,4 @@
+import '../../core/errors/app_error.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -52,6 +53,7 @@ class _ServiceRequestPageState extends State<ServiceRequestPage> {
   }
 
   Future<void> _submit() async {
+    if (_isSubmitting) return;
     final text = description.text.trim();
     if (text.isEmpty) {
       setState(() => _validationError = 'Please describe your query or request');
@@ -80,7 +82,7 @@ class _ServiceRequestPageState extends State<ServiceRequestPage> {
       if (mounted) {
         setState(() {
           _isSubmitting = false;
-          _validationError = e.toString();
+          _validationError = ErrorMapper.message(e);
         });
       }
     }
@@ -98,7 +100,7 @@ class _ServiceRequestPageState extends State<ServiceRequestPage> {
           const SizedBox(height: 20),
           Center(
             child: Text(
-              'Ticket #${ticket.id} created',
+              'Service request received',
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
             ),
           ),

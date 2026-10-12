@@ -1,3 +1,4 @@
+import '../../core/errors/app_error.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/repositories/agent_repository.dart';
@@ -67,9 +68,9 @@ class _AgentLeadDetailPageState extends State<AgentLeadDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Enroll as CRM Customer?'),
+        title: const Text('Enroll as a customer?'),
         content: Text(
-          'This will register ${widget.name} (${widget.phone}) as an official customer in the Sunlife Solar CRM and initialize their project record.',
+          'This will register ${widget.name} (${widget.phone}) as a Sunlife Solar customer and create their project.',
         ),
         actions: [
           TextButton(
@@ -94,7 +95,7 @@ class _AgentLeadDetailPageState extends State<AgentLeadDetailPage> {
         (widget.lead?.approxCapacity ?? '5').replaceAll(RegExp(r'[^\d.]'), ''),
       ) ?? 5.0;
 
-      final res = await AgentRepository.instance.enrollClient(
+      await AgentRepository.instance.enrollClient(
         fullName: widget.name,
         primaryMobile: _cleanPhone,
         installationAddress: widget.location,
@@ -105,18 +106,16 @@ class _AgentLeadDetailPageState extends State<AgentLeadDetailPage> {
       );
 
       if (mounted) {
-        final custCode = res['customer']?['customerId'] ?? '';
-        final projCode = res['project']?['projectId'] ?? '';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppColors.deepGreen,
-            content: Text('Successfully enrolled $custCode ($projCode) in CRM!'),
+            content: Text('Customer enrolled successfully.'),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        final message = e.toString().replaceAll('Exception:', '').trim();
+        final message = ErrorMapper.message(e);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: Colors.red.shade700,
@@ -161,16 +160,19 @@ class _AgentLeadDetailPageState extends State<AgentLeadDetailPage> {
   }
 
   Future<void> _saveStage() async {
+    if (isSaving) return;
     setState(() => isSaving = true);
-    await AgentRepository.instance.updateLeadStage(widget.name, stage);
-    if (mounted) {
-      setState(() => isSaving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: AppColors.deepGreen,
-          content: Text('${widget.name} updated to "$stage" in CRM'),
-        ),
+    try {
+      await AgentRepository.instance.updateLeadStage(widget.lead?.id ?? widget.name, stage);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppMessages.saved)),
       );
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ErrorMapper.message(e))),
+      );
+    } finally {
+      if (mounted) setState(() => isSaving = false);
     }
   }
 
@@ -191,7 +193,7 @@ class _AgentLeadDetailPageState extends State<AgentLeadDetailPage> {
                   )
                 : const Icon(Icons.cloud_done_outlined),
             label: const Text(
-              'Save to CRM',
+              'Save changes',
               style: TextStyle(fontWeight: FontWeight.w900),
             ),
           ),
@@ -318,13 +320,13 @@ class _AgentLeadDetailPageState extends State<AgentLeadDetailPage> {
                   'Schedule follow-up',
                   'Set reminder',
                   onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Follow-up scheduled in CRM')),
+                    const SnackBar(content: Text('To arrange a follow-up, contact your team manager.')),
                   ),
                 ),
                 MenuTile(
                   Icons.how_to_reg_rounded,
-                  'Enroll as CRM Customer',
-                  'Register client & create project in CRM',
+                  'Enroll as a customer',
+                  'Register customer and create project',
                   onTap: _enrollAsCustomer,
                   last: true,
                 ),

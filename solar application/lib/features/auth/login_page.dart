@@ -1,3 +1,4 @@
+import '../../core/errors/app_error.dart';
 import 'package:flutter/material.dart';
 import '../../agent/auth/agent_login_page.dart';
 import '../../core/repositories/auth_repository.dart';
@@ -30,6 +31,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _submit() async {
+    if (_isLoading) return;
     final phone = _phoneController.text.trim().replaceAll(' ', '');
     if (phone.isEmpty) {
       setState(() => _errorMessage = 'Please enter your mobile number');
@@ -57,7 +59,7 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _errorMessage = e.toString());
+        setState(() => _errorMessage = ErrorMapper.message(e));
       }
     } finally {
       if (mounted) {

@@ -1,3 +1,4 @@
+import '../../core/errors/app_error.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -166,6 +167,7 @@ class _AgentVisitDetailPageState extends State<AgentVisitDetailPage> {
   }
 
   Future<void> _completeVisit() async {
+    if (_isSaving) return;
     setState(() => _isSaving = true);
 
     try {
@@ -181,7 +183,7 @@ class _AgentVisitDetailPageState extends State<AgentVisitDetailPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppColors.deepGreen,
-            content: Text('${widget.customer} site survey completed & saved to CRM'),
+            content: Text('Site survey completed and saved.'),
           ),
         );
         Navigator.pop(context, true);
@@ -192,7 +194,7 @@ class _AgentVisitDetailPageState extends State<AgentVisitDetailPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: Colors.red.shade700,
-            content: Text('Failed to complete survey: $e'),
+            content: Text(ErrorMapper.message(e)),
           ),
         );
       }

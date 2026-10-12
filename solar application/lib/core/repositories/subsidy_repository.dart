@@ -1,3 +1,4 @@
+import '../errors/app_error.dart';
 import 'package:flutter/foundation.dart';
 import '../models/subsidy_status.dart';
 import '../network/api_client.dart';
@@ -33,9 +34,10 @@ class SubsidyRepository extends ChangeNotifier {
     final activeProject = ProjectRepository.instance.activeProject ??
         await ProjectRepository.instance.getCurrentProject();
 
+    _lastError = ProjectRepository.instance.lastError;
     if (activeProject == null || activeProject.id.isEmpty) {
       _status = SubsidyStatus.notInitiated();
-      _hasFetched = true;
+      _hasFetched = _lastError == null;
       notifyListeners();
       return _status;
     }
@@ -54,10 +56,10 @@ class SubsidyRepository extends ChangeNotifier {
         }
       }
     } catch (err) {
-      _lastError = err.toString();
+      _lastError = ErrorMapper.message(err);
       // Keep existing status if available; do not synthesize fake subsidy data
     } finally {
-      _hasFetched = true;
+      _hasFetched = _lastError == null;
       _isLoading = false;
       notifyListeners();
     }

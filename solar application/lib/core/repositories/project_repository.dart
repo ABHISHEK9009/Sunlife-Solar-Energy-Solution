@@ -1,3 +1,4 @@
+import '../errors/app_error.dart';
 import 'package:flutter/foundation.dart';
 import '../constants/api_constants.dart';
 import '../models/solar_project.dart';
@@ -99,11 +100,12 @@ class ProjectRepository extends ChangeNotifier {
         return _activeProject;
       }
     } catch (e) {
-      _lastError = e.toString();
+      _lastError = ErrorMapper.message(e);
       if (_activeProject != null) {
         return _activeProject;
       }
-      rethrow;
+      notifyListeners();
+      return null;
     }
 
     return _activeProject;

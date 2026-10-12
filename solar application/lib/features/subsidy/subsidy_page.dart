@@ -1,3 +1,4 @@
+import '../../core/widgets/data_state.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/models/subsidy_status.dart';
@@ -27,7 +28,7 @@ class _SubsidyPageState extends State<SubsidyPage> {
   }
 
   Future<void> _loadStatus() async {
-    final status = await SubsidyRepository.instance.getSubsidyStatus();
+    final status = await SubsidyRepository.instance.getSubsidyStatus(forceRefresh: true);
     if (mounted) {
       setState(() => _status = status);
     }
@@ -35,24 +36,15 @@ class _SubsidyPageState extends State<SubsidyPage> {
 
   @override
   Widget build(BuildContext context) {
-    final s = _status ??
-        const SubsidyStatus(
-          amount: 78000,
-          statusLabel: 'PROCESSING',
-          bankAccountMasked: 'XXXXXX2341',
-          completedStagesCount: 6,
-          stages: [
-            'Portal registration',
-            'DISCOM application',
-            'Feasibility approval',
-            'Installation',
-            'Inspection',
-            'Net meter installed',
-            'Subsidy processing',
-            'Subsidy credited',
-          ],
-          note: 'Processing usually takes 30–45 days after net-meter installation.',
-        );
+    if (_status == null && SubsidyRepository.instance.lastError == null) {
+      return const Scaffold(body: DataState());
+    }
+    final loadError = SubsidyRepository.instance.lastError;
+    if (loadError != null) return Scaffold(
+      appBar: AppBar(title: const Text('Sunlife Solar')),
+      body: DataState(message: loadError, onRetry: () async { await _loadStatus(); }),
+    );
+    final s = _status ?? SubsidyStatus.notInitiated();
 
     return SubPage(
       title: 'PM Surya Ghar subsidy',

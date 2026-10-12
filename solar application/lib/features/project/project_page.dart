@@ -1,3 +1,4 @@
+import '../../core/widgets/data_state.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/api_constants.dart';
@@ -57,6 +58,14 @@ class _ProjectPageState extends State<ProjectPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (!ProjectRepository.instance.hasFetched && ProjectRepository.instance.lastError == null) {
+      return const Scaffold(body: DataState());
+    }
+    final loadError = ProjectRepository.instance.lastError;
+    if (loadError != null) return Scaffold(
+      appBar: AppBar(title: const Text('Sunlife Solar')),
+      body: DataState(message: loadError, onRetry: () async { await _loadProject(forceRefresh: true); }),
+    );
     final p = _project;
     final user = AuthRepository.instance.currentUser;
     final isEnquiryContext = p == null || ProjectRepository.instance.isEnquirySelected;
@@ -176,7 +185,7 @@ class _ProjectPageState extends State<ProjectPage> {
           child: FilledButton.icon(
             onPressed: () => _loadProject(forceRefresh: true),
             icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Refresh from CRM Database'),
+            label: const Text('Refresh project details'),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.deepGreen,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -202,7 +211,7 @@ class _ProjectPageState extends State<ProjectPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(p.id, style: const TextStyle(color: AppColors.muted)),
+                  Text(p.projectIdCode ?? 'Solar project', style: const TextStyle(color: AppColors.muted)),
                   Pill('${p.currentStage.toUpperCase()} PENDING'),
                 ],
               ),
@@ -310,7 +319,7 @@ class _ProjectPageState extends State<ProjectPage> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Plant ID: ${p.id} • ${p.systemType}',
+                'Solar plant • ${p.systemType}',
                 style: const TextStyle(color: Colors.white60),
               ),
               const SizedBox(height: 16),

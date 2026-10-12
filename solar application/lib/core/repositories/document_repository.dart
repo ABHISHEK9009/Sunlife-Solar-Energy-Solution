@@ -1,3 +1,4 @@
+import '../errors/app_error.dart';
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -47,9 +48,10 @@ class DocumentRepository extends ChangeNotifier {
     final activeProject = ProjectRepository.instance.activeProject ??
         await ProjectRepository.instance.getCurrentProject();
 
+    _lastError = ProjectRepository.instance.lastError;
     if (activeProject == null || activeProject.id.isEmpty) {
       _documents = [];
-      _hasFetched = true;
+      _hasFetched = _lastError == null;
       notifyListeners();
       return _documents;
     }
@@ -71,10 +73,10 @@ class DocumentRepository extends ChangeNotifier {
             .toList();
       }
     } catch (err) {
-      _lastError = err.toString();
+      _lastError = ErrorMapper.message(err);
       // Keep existing real records on network failure; do not synthesize fake documents
     } finally {
-      _hasFetched = true;
+      _hasFetched = _lastError == null;
       _isLoading = false;
       notifyListeners();
     }
@@ -93,38 +95,29 @@ class DocumentRepository extends ChangeNotifier {
     final activeProject = ProjectRepository.instance.activeProject ??
         await ProjectRepository.instance.getCurrentProject();
 
+    _lastError = ProjectRepository.instance.lastError;
     if (activeProject == null || activeProject.id.isEmpty) {
       throw Exception("No active project found for document attachment.");
     }
 
     final fileName = filePath.split(RegExp(r'[\\/]')).last;
-    final isPdf = fileName.toLowerCase().endsWith('.pdf');
-    final mimeType = isPdf ? 'application/pdf' : 'image/jpeg';
 
     FormData formData;
     try {
       final multipart = fileBytes != null
           ? MultipartFile.fromBytes(fileBytes, filename: fileName)
           : await MultipartFile.fromFile(filePath, filename: fileName);
-
       formData = FormData.fromMap({
         'file': multipart,
         'documentCategory': category,
         'documentName': title,
         'projectId': activeProject.id,
       });
-    } catch (fileErr) {
-      // If file cannot be read directly from local path, provide metadata fallback
-      formData = FormData.fromMap({
-        'documentCategory': category,
-        'documentName': title,
-        'projectId': activeProject.id,
-        'fileLocation': '/uploads/docs/$fileName',
-        'mimeType': mimeType,
-      });
+    } catch (_) {
+      throw const AppFailure(FailureKind.upload);
     }
 
-    final res = await ApiClient.instance.dio.post(
+    final res = await ApiClient.instance.post(
       '/projects/${activeProject.id}/documents',
       data: formData,
     );
@@ -134,14 +127,11 @@ class DocumentRepository extends ChangeNotifier {
     }
 
     final resData = res.data is Map<String, dynamic> ? res.data as Map<String, dynamic> : {};
-    final docData = resData['document'] as Map<String, dynamic>? ?? {
-      'id': 'doc_${DateTime.now().millisecondsSinceEpoch}',
-      'documentName': title,
-      'fileLocation': '/uploads/docs/$fileName',
-      'mimeType': mimeType,
-      'documentCategory': category,
-      'verificationStatus': 'PENDING',
-    };
+    if (resData['document'] is! Map<String, dynamic> ||
+        (resData['document']['id'] as String? ?? '').isEmpty) {
+      throw const AppFailure(FailureKind.upload);
+    }
+    final docData = resData['document'] as Map<String, dynamic>;
 
     final savedDoc = ProjectDocument.fromJson(docData);
     _documents.insert(0, savedDoc);

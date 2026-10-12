@@ -1,3 +1,5 @@
+import '../errors/error_feedback.dart';
+import '../errors/app_error.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../constants/api_constants.dart';
@@ -11,6 +13,8 @@ class AgentRepository extends ChangeNotifier {
   AgentRepository._internal();
   static final AgentRepository instance = AgentRepository._internal();
 
+  String? leadsError, visitsError, tasksError;
+  bool get hasLoadError => leadsError != null || visitsError != null || tasksError != null;
   List<AgentLead> _leads = [];
   List<FieldVisit> _visits = [];
   List<AgentTask> _tasks = [];
@@ -25,6 +29,7 @@ class AgentRepository extends ChangeNotifier {
   List<AgentTask> get currentTasks => List.unmodifiable(_tasks);
 
   void reset() {
+    leadsError = visitsError = tasksError = null;
     _leads = [];
     _visits = [];
     _tasks = [];
@@ -40,6 +45,7 @@ class AgentRepository extends ChangeNotifier {
       return List.unmodifiable(_leads);
     }
 
+    leadsError = null;
     try {
       final res = await ApiClient.instance.get(ApiConstants.agentLeads);
       if (res.statusCode == 200 && res.data != null) {
@@ -53,10 +59,11 @@ class AgentRepository extends ChangeNotifier {
         _hasFetchedLeads = true;
         notifyListeners();
       }
-    } catch (_) {
-      // Retain confirmed list
+    } catch (e) {
+      leadsError = ErrorMapper.message(e);
     } finally {
-      _hasFetchedLeads = true;
+      _hasFetchedLeads = leadsError == null;
+      notifyListeners();
     }
 
     return List.unmodifiable(_leads);
@@ -115,28 +122,26 @@ class AgentRepository extends ChangeNotifier {
   /// Updates lead stage with rollback on failure.
   Future<void> updateLeadStage(String leadId, String newStage) async {
     final index = _leads.indexWhere((l) => l.id == leadId || l.name == leadId);
-    if (index == -1) return;
+    if (index == -1) throw const AppFailure(FailureKind.notFound);
 
     final targetLead = _leads[index];
     final originalStage = targetLead.stage;
 
-    // Optimistic local update
-    _leads[index] = targetLead.copyWith(stage: newStage);
-    notifyListeners();
-
     try {
-      final res = await ApiClient.instance.dio.patch(
+      final res = await ApiClient.instance.patch(
         '${ApiConstants.agentLeads}/${targetLead.id}',
         data: {'stage': newStage},
       );
       if (res.statusCode != 200) {
         throw Exception("Server returned ${res.statusCode}");
       }
+      _leads[index] = targetLead.copyWith(stage: newStage);
+      notifyListeners();
     } catch (err) {
       // Roll back on failure
       _leads[index] = targetLead.copyWith(stage: originalStage);
       notifyListeners();
-      throw Exception("Could not update lead status: ${err.toString()}");
+      throw ErrorMapper.map(err);
     }
   }
 
@@ -145,6 +150,7 @@ class AgentRepository extends ChangeNotifier {
       return List.unmodifiable(_visits);
     }
 
+    visitsError = null;
     try {
       final res = await ApiClient.instance.get(ApiConstants.agentVisits);
       if (res.statusCode == 200 && res.data != null) {
@@ -158,10 +164,11 @@ class AgentRepository extends ChangeNotifier {
         _hasFetchedVisits = true;
         notifyListeners();
       }
-    } catch (_) {
-      // Retain confirmed list
+    } catch (e) {
+      visitsError = ErrorMapper.message(e);
     } finally {
-      _hasFetchedVisits = true;
+      _hasFetchedVisits = visitsError == null;
+      notifyListeners();
     }
 
     return List.unmodifiable(_visits);
@@ -208,15 +215,6 @@ class AgentRepository extends ChangeNotifier {
     final visit = _visits[i];
     final originalCompleted = visit.isCompleted;
 
-    // Optimistic UI
-    _visits[i] = visit.copyWith(
-      isCompleted: true,
-      latitude: latitude ?? visit.latitude,
-      longitude: longitude ?? visit.longitude,
-      photoPaths: photoPaths ?? visit.photoPaths,
-    );
-    notifyListeners();
-
     try {
       final res = await ApiClient.instance.post(
         '${ApiConstants.agentVisits}/${visit.id}/complete',
@@ -229,11 +227,19 @@ class AgentRepository extends ChangeNotifier {
       if (res.statusCode != 200 && res.statusCode != 201) {
         throw Exception("Server returned ${res.statusCode}");
       }
+    _visits[i] = visit.copyWith(
+      isCompleted: true,
+      latitude: latitude ?? visit.latitude,
+      longitude: longitude ?? visit.longitude,
+      photoPaths: photoPaths ?? visit.photoPaths,
+    );
+    notifyListeners();
+
     } catch (err) {
       // Roll back
       _visits[i] = visit.copyWith(isCompleted: originalCompleted);
       notifyListeners();
-      throw Exception("Failed to complete visit on server: ${err.toString()}");
+      throw ErrorMapper.map(err);
     }
   }
 
@@ -253,6 +259,7 @@ class AgentRepository extends ChangeNotifier {
       return List.unmodifiable(_tasks);
     }
 
+    tasksError = null;
     try {
       final res = await ApiClient.instance.get(ApiConstants.agentTasks);
       if (res.statusCode == 200 && res.data != null) {
@@ -267,10 +274,11 @@ class AgentRepository extends ChangeNotifier {
         notifyListeners();
         return List.unmodifiable(_tasks);
       }
-    } catch (_) {
-      // Keep real fetched list
+    } catch (e) {
+      tasksError = ErrorMapper.message(e);
     } finally {
-      _hasFetchedTasks = true;
+      _hasFetchedTasks = tasksError == null;
+      notifyListeners();
     }
 
     return List.unmodifiable(_tasks);
@@ -281,8 +289,6 @@ class AgentRepository extends ChangeNotifier {
     if (index != -1) {
       final current = _tasks[index];
       final newStatus = !current.isCompleted;
-      _tasks[index] = current.copyWith(isCompleted: newStatus);
-      notifyListeners();
 
       try {
         await ApiClient.instance.patch(
@@ -292,7 +298,10 @@ class AgentRepository extends ChangeNotifier {
             'isCompleted': newStatus,
           },
         );
-      } catch (_) {
+        _tasks[index] = current.copyWith(isCompleted: newStatus);
+        notifyListeners();
+      } catch (e) {
+        ErrorFeedback.show(e);
         // Rollback
         _tasks[index] = current;
         notifyListeners();
@@ -333,11 +342,7 @@ class AgentRepository extends ChangeNotifier {
       return data;
     }
 
-    throw Exception(
-      res.data is Map && (res.data as Map).containsKey('error')
-          ? res.data['error'].toString()
-          : "Failed to enroll client.",
-    );
+    throw const AppFailure(FailureKind.unknown);
   }
 
   /// Fetches today's attendance summary for the authenticated agent
@@ -347,8 +352,10 @@ class AgentRepository extends ChangeNotifier {
       if (res.statusCode == 200 && res.data is Map && (res.data as Map).containsKey('today')) {
         return Map<String, dynamic>.from(res.data['today'] as Map);
       }
-    } catch (_) {}
-    return <String, dynamic>{};
+    } catch (e) {
+      throw ErrorMapper.map(e);
+    }
+    throw const AppFailure(FailureKind.notFound);
   }
 
   /// Punches attendance in/out via /agent/attendance or /api/attendance
@@ -372,7 +379,8 @@ class AgentRepository extends ChangeNotifier {
           'longitude': longitude,
         },
       );
-    } catch (_) {
+    } on AppFailure catch (e) {
+      if (e.statusCode != 404) rethrow;
       // Fallback to legacy path if route differs
       res = await ApiClient.instance.post(
         '/api/attendance',
@@ -390,11 +398,7 @@ class AgentRepository extends ChangeNotifier {
       return res.data is Map ? Map<String, dynamic>.from(res.data as Map) : <String, dynamic>{};
     }
 
-    throw Exception(
-      res.data is Map && (res.data as Map).containsKey('error')
-          ? res.data['error'].toString()
-          : "Failed to record attendance.",
-    );
+    throw const AppFailure(FailureKind.unknown);
   }
 }
 

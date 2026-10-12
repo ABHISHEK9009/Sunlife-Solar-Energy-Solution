@@ -1,3 +1,4 @@
+import '../../core/errors/app_error.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/repositories/agent_repository.dart';
@@ -155,6 +156,7 @@ class _AgentLeadCapturePageState extends State<AgentLeadCapturePage> {
   }
 
   Future<void> _save() async {
+    if (_isSaving) return;
     if (!_validate()) return;
 
     setState(() => _isSaving = true);
@@ -198,7 +200,7 @@ class _AgentLeadCapturePageState extends State<AgentLeadCapturePage> {
       if (mounted) {
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving lead: $e')),
+          SnackBar(content: Text(ErrorMapper.message(e))),
         );
       }
     }
@@ -230,7 +232,7 @@ class _AgentLeadCapturePageState extends State<AgentLeadCapturePage> {
                       ),
                     )
                   : const Text(
-                      'Save Lead to CRM',
+                      'Save lead',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,

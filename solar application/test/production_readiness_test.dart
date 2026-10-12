@@ -535,7 +535,7 @@ void main() {
       // Attempting online payment without gateway must fail honestly
       expect(
         () async => await PaymentRepository.instance.processPayment(amount: 50000, method: 'UPI'),
-        throwsA(predicate((e) => e.toString().contains('gateway integration is currently in verification mode'))),
+        throwsA(predicate((e) => e.toString().contains('Online payments are currently unavailable'))),
       );
 
       // Balance must NOT have been modified locally
@@ -551,6 +551,7 @@ void main() {
       final uploaded = await DocumentRepository.instance.uploadDocument(
         title: 'Electricity Bill',
         filePath: 'test_path/bill.pdf',
+        fileBytes: Uint8List.fromList([37, 80, 68, 70]),
         fileSize: '100 KB',
       );
 

@@ -1,8 +1,10 @@
+import '../../core/errors/app_error.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../core/widgets/data_state.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/models/project_document.dart';
 import '../../core/repositories/document_repository.dart';
-import '../../core/repositories/project_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/card_box.dart';
 import '../../core/widgets/pill.dart';
@@ -27,7 +29,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
   }
 
   Future<void> _loadDocuments() async {
-    final docs = await DocumentRepository.instance.getDocuments();
+    final docs = await DocumentRepository.instance.getDocuments(forceRefresh: true);
     if (mounted) {
       setState(() {
         _docs = docs;
@@ -71,7 +73,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
                     backgroundColor: AppColors.softGreen,
                     child: Icon(_iconForDoc(doc.title), color: AppColors.deepGreen),
                   ),
-                  const Pill('VERIFIED DOCUMENT', greenText: true),
+                  Pill(doc.isApproved ? 'Approved' : 'Awaiting review', greenText: doc.isApproved),
                 ],
               ),
               const SizedBox(height: 16),
@@ -81,7 +83,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
               ),
               const SizedBox(height: 4),
               Text(
-                '${doc.type.toUpperCase()} • ${doc.size.isNotEmpty ? doc.size : "450 KB"} • Issued by Sunlife Solar Pvt. Ltd.',
+                '${doc.type.toUpperCase()} • ${doc.size.isNotEmpty ? doc.size : "Size unavailable"} • Issued by Sunlife Solar Pvt. Ltd.',
                 style: const TextStyle(color: AppColors.muted, fontSize: 13),
               ),
               const SizedBox(height: 18),
@@ -103,7 +105,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'Digitally signed & encrypted for security',
+                      'Your project document',
                       style: TextStyle(color: AppColors.muted, fontSize: 11),
                     ),
                   ],
@@ -115,11 +117,10 @@ class _DocumentsPageState extends State<DocumentsPage> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () {
-                        final activeProject = ProjectRepository.instance.activeProject;
-                        final prjCode = activeProject?.id.isNotEmpty == true ? 'for project ${activeProject!.id}' : 'from Sunlife Solar';
+                        const prjCode = 'from Sunlife Solar';
                         SharePlus.instance.share(
                           ShareParams(
-                            text: 'Sunlife Solar Document: ${doc.title} (${doc.type.toUpperCase()})\nVerified record $prjCode',
+                            text: 'Sunlife Solar Document: ${doc.title} (${doc.type.toUpperCase()})\nDocument $prjCode',
                             subject: doc.title,
                           ),
                         );
@@ -149,22 +150,27 @@ class _DocumentsPageState extends State<DocumentsPage> {
     );
   }
 
-  void _handleDownload(ProjectDocument doc) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: AppColors.deepGreen,
-        content: Text('${doc.title} saved to Downloads folder'),
-        action: SnackBarAction(
-          label: 'View',
-          textColor: Colors.white,
-          onPressed: () => _handleOpen(doc),
-        ),
-      ),
-    );
+  Future<void> _handleDownload(ProjectDocument doc) async {
+    try {
+      final uri = Uri.tryParse(doc.url ?? '');
+      if (uri == null || uri.scheme != 'https' || !uri.hasAuthority || uri.userInfo.isNotEmpty) {
+        throw const AppFailure(FailureKind.notFound);
+      }
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        throw const AppFailure(FailureKind.unknown);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ErrorMapper.message(e))));
+      }
+    }
   }
 
   @override
-  Widget build(BuildContext context) => SubPage(
+  Widget build(BuildContext context) {
+    final loadError = DocumentRepository.instance.lastError;
+    if (loadError != null) return Scaffold(body: DataState(message: loadError, onRetry: () async { await _loadDocuments(); }));
+    return SubPage(
         title: 'My documents',
         onRefresh: _loadDocuments,
         children: [
@@ -209,5 +215,6 @@ class _DocumentsPageState extends State<DocumentsPage> {
             ),
         ],
       );
+  }
 }
 

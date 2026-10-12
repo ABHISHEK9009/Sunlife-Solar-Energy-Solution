@@ -1,3 +1,5 @@
+import '../../core/widgets/data_state.dart';
+import '../../core/errors/app_error.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../../core/models/project_document.dart';
@@ -45,7 +47,7 @@ class _DocumentsHomePageState extends State<DocumentsHomePage> {
   }
 
   Future<void> _loadState() async {
-    final docs = await DocumentRepository.instance.getDocuments();
+    final docs = await DocumentRepository.instance.getDocuments(forceRefresh: true);
     if (mounted) {
       setState(() {
         _cheque = DocumentRepository.instance.requiredCheque;
@@ -55,6 +57,7 @@ class _DocumentsHomePageState extends State<DocumentsHomePage> {
   }
 
   Future<void> _pickAndUploadCheque() async {
+    if (_isUploading) return;
     setState(() => _isUploading = true);
 
     try {
@@ -82,17 +85,10 @@ class _DocumentsHomePageState extends State<DocumentsHomePage> {
           );
         }
       }
-    } catch (_) {
-      // Direct mock upload fallback if native picker fails in testing
-      final uploaded = await DocumentRepository.instance.uploadDocument(
-        title: 'Cancelled cheque',
-        filePath: 'mock_cheque.pdf',
-        fileSize: '450 KB',
-      );
+    } catch (e) {
       if (mounted) {
-        setState(() => _cheque = uploaded);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cancelled cheque uploaded for verification')),
+          SnackBar(content: Text(ErrorMapper.message(e))),
         );
       }
     } finally {
@@ -115,6 +111,11 @@ class _DocumentsHomePageState extends State<DocumentsHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final loadError = DocumentRepository.instance.lastError;
+    if (loadError != null) return Scaffold(
+      appBar: AppBar(title: const Text('Sunlife Solar')),
+      body: DataState(message: loadError, onRetry: () async { await _loadState(); }),
+    );
     final previewDocs = _documents.take(4).toList();
 
     return Frame(
@@ -220,7 +221,7 @@ class _DocumentsHomePageState extends State<DocumentsHomePage> {
                 MenuTile(
                   _iconForDoc(previewDocs[i].title),
                   previewDocs[i].title,
-                  '${previewDocs[i].type.toUpperCase()} • ${previewDocs[i].size.isNotEmpty ? previewDocs[i].size : "450 KB"}',
+                  '${previewDocs[i].type.toUpperCase()} • ${previewDocs[i].size.isNotEmpty ? previewDocs[i].size : "Size unavailable"}',
                   onTap: () => openPage(context, const DocumentsPage()),
                   last: i == previewDocs.length - 1,
                 ),

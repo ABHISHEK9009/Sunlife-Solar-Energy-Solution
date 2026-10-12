@@ -80,7 +80,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                 style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 5),
-              Text('Project ${p.id} • ${p.address.isNotEmpty ? p.address : "Site Address"}',
+              Text('Project • ${p.address.isNotEmpty ? p.address : "Site Address"}',
                   style: const TextStyle(color: AppColors.muted)),
             ],
           ),

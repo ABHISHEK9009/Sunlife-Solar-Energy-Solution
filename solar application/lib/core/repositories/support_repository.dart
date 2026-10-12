@@ -1,3 +1,4 @@
+import '../errors/app_error.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../constants/api_constants.dart';
@@ -49,10 +50,10 @@ class SupportRepository extends ChangeNotifier {
         notifyListeners();
       }
     } catch (err) {
-      _lastError = err.toString();
+      _lastError = ErrorMapper.message(err);
       // Keep real tickets; do not fabricate fake tickets
     } finally {
-      _hasFetched = true;
+      _hasFetched = _lastError == null;
       _isLoading = false;
       notifyListeners();
     }
@@ -88,7 +89,7 @@ class SupportRepository extends ChangeNotifier {
       _tickets.insert(0, newTicket);
 
       NotificationRepository.instance.addNotification(
-        title: 'Ticket #${newTicket.id} submitted',
+        title: 'Service request submitted',
         message: 'Your service request has been logged. Our engineering team will review it.',
         category: 'Support',
         actionRoute: 'service',

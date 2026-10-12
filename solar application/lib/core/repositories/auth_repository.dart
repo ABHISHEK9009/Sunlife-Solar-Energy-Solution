@@ -1,6 +1,7 @@
+import '../errors/error_feedback.dart';
+import '../errors/app_error.dart';
 import 'dart:async';
 import 'dart:convert';
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../constants/api_constants.dart';
 import '../models/solar_project.dart';
@@ -75,20 +76,20 @@ class AuthRepository extends ChangeNotifier {
         final payload = {'phone': cleanPhone};
         final res = await ApiClient.instance.post(endpoint, data: payload);
         final data = _toMap(res.data);
-        if ((res.statusCode == 200 || res.statusCode == 201) && data != null) {
+        if ((res.statusCode == 200 || res.statusCode == 201) && data != null && data['success'] == true) {
           return OtpRequestResult(
             success: true,
             maskedEmail: (data['maskedEmail'] ?? data['maskedMobile']) as String?,
-            message: data['message'] as String?,
+            message: AppMessages.codeSent,
           );
         }
-        final errorMsg = data?['error']?.toString() ?? 'Unable to send OTP.';
+        final errorMsg = AppMessages.failure(FailureKind.unknown);
         return OtpRequestResult(success: false, error: errorMsg);
       } catch (e) {
         if (e is ApiException) {
           return OtpRequestResult(success: false, error: e.message);
         }
-        return OtpRequestResult(success: false, error: e.toString());
+        return OtpRequestResult(success: false, error: ErrorMapper.message(e));
       }
     }
 
@@ -100,24 +101,20 @@ class AuthRepository extends ChangeNotifier {
       final data = _toMap(res.data);
       if ((res.statusCode == 200 || res.statusCode == 201) && data != null && data['success'] == true) {
         final destination = (data['maskedMobile'] ?? data['maskedDestination']) as String?;
-        final channel = data['deliveryChannel'] as String? ?? 'WhatsApp / SMS';
-        final message = data['message'] as String? ??
-            (destination != null
-                ? 'Verification code dispatched to $destination via $channel.'
-                : 'A 6-digit verification code has been dispatched.');
+        const message = AppMessages.codeSent;
         return OtpRequestResult(
           success: true,
           maskedEmail: destination,
           message: message,
         );
       }
-      final errorMsg = data?['error']?.toString() ?? 'Unable to send verification code. Please try again.';
+      final errorMsg = AppMessages.failure(FailureKind.unknown);
       return OtpRequestResult(success: false, error: errorMsg);
     } catch (e) {
       if (e is ApiException) {
         return OtpRequestResult(success: false, error: e.message);
       }
-      return OtpRequestResult(success: false, error: e.toString());
+      return OtpRequestResult(success: false, error: ErrorMapper.message(e));
     }
   }
 
@@ -130,7 +127,7 @@ class AuthRepository extends ChangeNotifier {
     final cleanOtp = otp.trim();
 
     if (cleanOtp.length != 6 || !RegExp(r'^\d{6}$').hasMatch(cleanOtp)) {
-      throw ApiException('Enter a valid 6-digit OTP');
+      throw const AppFailure(FailureKind.validation);
     }
 
     try {
@@ -222,12 +219,9 @@ class AuthRepository extends ChangeNotifier {
         return user;
       }
 
-      final errorMsg = (data != null && data['error'] != null)
-          ? data['error'].toString()
-          : 'Incorrect verification code. Please try again.';
-      throw ApiException(errorMsg);
+      throw const AppFailure(FailureKind.validation);
     } catch (e) {
-      if (e is ApiException) rethrow;
+      if (e is AppFailure) rethrow;
       throw ApiException('Unable to verify OTP. Please check your connection and try again.');
     }
   }
@@ -301,7 +295,7 @@ class AuthRepository extends ChangeNotifier {
         return updatedUser;
       }
     } catch (err) {
-      debugPrint('[fetchMe Error]: $err');
+
     } finally {
       _isResolvingIdentity = false;
       notifyListeners();
@@ -334,21 +328,9 @@ class AuthRepository extends ChangeNotifier {
         return true;
       }
     } catch (err) {
-      debugPrint('[submitLeadEnquiryChunk Error]: $err');
-      if (_currentUser != null) {
-        _currentUser = _currentUser!.copyWith(
-          name: chunkData['name'] as String? ?? _currentUser!.name,
-          city: chunkData['city'] as String? ?? _currentUser!.city,
-          propertyType: chunkData['propertyType'] as String? ?? _currentUser!.propertyType,
-          monthlyBill: chunkData['monthlyBill'] as String? ?? _currentUser!.monthlyBill,
-          profileComplete: chunkData['step'] == 'REQUIREMENT' || _currentUser!.profileComplete,
-        );
-        notifyListeners();
-        return true;
-      }
-      rethrow;
+      throw ErrorMapper.map(err);
     }
-    return false;
+    throw const AppFailure(FailureKind.save);
   }
 
   Future<UserProfile?> loadStoredSession() async {

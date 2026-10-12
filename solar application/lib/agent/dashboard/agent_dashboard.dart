@@ -1,3 +1,5 @@
+import '../../core/widgets/data_state.dart';
+import '../../core/errors/app_error.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -57,19 +59,19 @@ class _AgentDashboardState extends State<AgentDashboard> {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        throw Exception('Location services are disabled. Please enable GPS on your device.');
+        throw const AppFailure(FailureKind.locationDisabled);
       }
 
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          throw Exception('Location permission is required for attendance.');
+          throw const AppFailure(FailureKind.locationPermission);
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        throw Exception('Location permissions are permanently denied. Please allow in app settings.');
+        throw const AppFailure(FailureKind.locationPermission);
       }
 
       final position = await Geolocator.getCurrentPosition(
@@ -97,7 +99,7 @@ class _AgentDashboardState extends State<AgentDashboard> {
       }
     } catch (e) {
       if (mounted) {
-        final message = e.toString().replaceAll('Exception:', '').trim();
+        final message = ErrorMapper.message(e);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: Colors.red.shade700,
@@ -156,6 +158,8 @@ class _AgentDashboardState extends State<AgentDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final error = AgentRepository.instance.leadsError ?? AgentRepository.instance.visitsError;
+    if (error != null) return DataState(message: error, onRetry: () => _loadData(force: true));
     final user = AuthRepository.instance.currentUser;
     final firstName = user?.name.trim().split(' ').first;
     final greetingName = (firstName != null && firstName.isNotEmpty) ? firstName : 'Partner';
