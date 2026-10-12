@@ -163,12 +163,12 @@ export async function enqueueWhatsAppMessage(options: EnqueueMessageOptions) {
     },
   });
 
-  // 3. Asynchronously trigger worker without blocking caller
-  setTimeout(() => {
+  // 3. Reliably trigger worker without relying on serverless setTimeout
+  queueMicrotask(() => {
     dispatchQueuedMessages().catch((err) => {
       console.error("[WhatsApp Dispatcher Background Error]:", err);
     });
-  }, 50);
+  });
 
   return {
     success: true,
@@ -191,23 +191,59 @@ export async function dispatchQueuedMessages(limit = 10) {
   try {
     const provider = getWhatsAppProvider();
 
-    // Check if gateway is reachable
+    // Check if gateway is reachable and authorized
     const status = await provider.getStatus();
-    if (!status.isConnected) {
-      // Gateway is offline; keep messages in QUEUED state for future retry
-      return { dispatched: 0, reason: `Gateway offline (${status.status})` };
+    if (!status.isConnected || status.accountMismatch) {
+      // Gateway is offline or connected to unauthorized foreign account!
+      // Fail-closed: KEEP messages in QUEUED state. NEVER send through an unauthorized account!
+      return {
+        dispatched: 0,
+        reason: status.accountMismatch
+          ? `Fail-Closed Guard: ${status.error}`
+          : `Gateway offline (${status.status})`,
+      };
     }
 
-    // Fetch queued messages or stale sending messages (>2 minutes old)
+    // 1. Audit & reconcile stale SENDING messages (>2 minutes old) where acknowledgment was missing.
+    // Preserves uncertain state: NEVER blindly resend without authoritative confirmation.
     const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+    const staleSending = await prisma.whatsAppMessage.findMany({
+      where: {
+        direction: "OUTBOUND",
+        status: "SENDING",
+        updatedAt: { lt: twoMinutesAgo },
+      },
+      take: 20,
+    });
+
+    for (const stale of staleSending) {
+      if (stale.gatewayMessageId || stale.providerMessageId) {
+        // Authoritative confirmation exists: mark SENT
+        await prisma.whatsAppMessage.update({
+          where: { id: stale.id },
+          data: { status: "SENT", sentAt: stale.sentAt || stale.updatedAt },
+        });
+      } else {
+        // Missing acknowledgment: preserve UNCERTAIN transmission state.
+        // DO NOT resend automatically to prevent duplicate customer messages.
+        // Escalate for operator verification / manual recovery.
+        await prisma.whatsAppMessage.update({
+          where: { id: stale.id },
+          data: {
+            status: "FAILED",
+            failureCode: "TRANSMISSION_UNCONFIRMED",
+            failureReason: "Gateway transmission unconfirmed; acknowledgment missing. Preserved for operator verification to prevent double-send.",
+          },
+        });
+      }
+    }
+
+    // 2. Fetch strictly QUEUED messages for orderly dispatch
     const pendingMessages = await prisma.whatsAppMessage.findMany({
       where: {
         direction: "OUTBOUND",
+        status: "QUEUED",
         retryCount: { lt: MAX_RETRIES },
-        OR: [
-          { status: "QUEUED" },
-          { status: "SENDING", updatedAt: { lt: twoMinutesAgo } },
-        ],
       },
       take: limit,
       orderBy: { createdAt: "asc" },
@@ -217,11 +253,26 @@ export async function dispatchQueuedMessages(limit = 10) {
 
     for (const msg of pendingMessages) {
       try {
-        // Transition: QUEUED -> SENDING
-        await prisma.whatsAppMessage.update({
-          where: { id: msg.id },
-          data: { status: "SENDING" },
+        // Concurrency Guard: Atomically claim message from QUEUED
+        const claimed = await prisma.whatsAppMessage.updateMany({
+          where: { id: msg.id, status: "QUEUED" },
+          data: { status: "SENDING", updatedAt: new Date() },
         });
+
+        if (claimed.count === 0) {
+          // Already claimed by another worker; skip
+          continue;
+        }
+
+        // Reconciliation Guard: Never blindly resend if message was already transmitted
+        if (msg.gatewayMessageId || msg.providerMessageId) {
+          await prisma.whatsAppMessage.update({
+            where: { id: msg.id },
+            data: { status: "SENT", sentAt: msg.sentAt || new Date() },
+          });
+          successCount++;
+          continue;
+        }
 
         let sendResult;
         if (msg.messageType === "DOCUMENT" && msg.mediaUrl) {
@@ -230,26 +281,45 @@ export async function dispatchQueuedMessages(limit = 10) {
             documentUrl: msg.mediaUrl,
             fileName: msg.fileName || "document.pdf",
             caption: msg.caption || msg.content,
+            crmMessageId: msg.id,
           });
         } else if (msg.messageType === "IMAGE" && msg.mediaUrl) {
           sendResult = await provider.sendMedia({
             phone: msg.phone,
             mediaUrl: msg.mediaUrl,
             caption: msg.caption || msg.content,
+            crmMessageId: msg.id,
           });
         } else {
-          sendResult = await provider.sendText(msg.phone, msg.content);
+          sendResult = await provider.sendText(msg.phone, msg.content, { crmMessageId: msg.id });
         }
 
         if (sendResult.success) {
+          const gwId = sendResult.messageId || null;
+          if (gwId) {
+            // Defense-in-depth: If companion sync arrived while HTTP response was in flight
+            // and created a companion duplicate, remove the duplicate so the CRM record prevails
+            const companionDuplicate = await prisma.whatsAppMessage.findFirst({
+              where: {
+                gatewayMessageId: gwId,
+                id: { not: msg.id },
+              },
+            });
+            if (companionDuplicate) {
+              await prisma.whatsAppMessage.delete({
+                where: { id: companionDuplicate.id },
+              }).catch(() => {});
+            }
+          }
+
           // Transition: SENDING -> SENT
           await prisma.whatsAppMessage.update({
             where: { id: msg.id },
             data: {
               status: "SENT",
               sentAt: new Date(),
-              providerMessageId: sendResult.messageId || null,
-              gatewayMessageId: sendResult.messageId || null,
+              providerMessageId: gwId,
+              gatewayMessageId: gwId,
               failureCode: null,
               failureReason: null,
             },
@@ -262,16 +332,26 @@ export async function dispatchQueuedMessages(limit = 10) {
             await new Promise((resolve) => setTimeout(resolve, throttleMs));
           }
         } else {
-          // Failed dispatch: increment retry or mark FAILED
+          // Failed dispatch: distinguish confirmed permanent error vs recoverable network error
+          const errText = (sendResult.error || "").toLowerCase();
+          const isConfirmedPermanent =
+            errText.includes("invalid") ||
+            errText.includes("not on whatsapp") ||
+            sendResult.statusCode === 400;
+
           const nextRetry = msg.retryCount + 1;
-          const isFinal = nextRetry >= MAX_RETRIES;
+          const isFinal = isConfirmedPermanent || nextRetry >= MAX_RETRIES;
 
           await prisma.whatsAppMessage.update({
             where: { id: msg.id },
             data: {
               status: isFinal ? "FAILED" : "QUEUED",
               retryCount: nextRetry,
-              failureCode: isFinal ? "MAX_RETRIES_EXCEEDED" : "GATEWAY_ERROR",
+              failureCode: isConfirmedPermanent
+                ? "INVALID_RECIPIENT"
+                : isFinal
+                ? "MAX_RETRIES_EXCEEDED"
+                : "GATEWAY_ERROR",
               failureReason: sendResult.error || "Gateway dispatch failed",
             },
           });

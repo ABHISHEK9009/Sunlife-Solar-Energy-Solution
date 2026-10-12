@@ -90,15 +90,25 @@ export async function GET(req: Request) {
     // 2. Lead account (Pre-conversion / Enquiry experience)
     const lead = await prisma.lead.findUnique({
       where: { id: entity.id },
-      include: {
-        assignedSalesExecutive: {
-          select: { id: true, name: true, phone: true, territory: true },
-        },
-      },
     });
 
     if (!lead) {
       return NextResponse.json({ error: "Lead record not found" }, { status: 404 });
+    }
+
+    let assignedAdvisor = null;
+    if (lead.assignedSalesExecutiveId) {
+      const exec = await prisma.teamMember.findUnique({
+        where: { id: lead.assignedSalesExecutiveId },
+        select: { id: true, name: true, phone: true, territory: true },
+      });
+      if (exec) {
+        assignedAdvisor = {
+          name: exec.name,
+          phone: exec.phone,
+          territory: exec.territory,
+        };
+      }
     }
 
     const isProfileComplete = Boolean(
@@ -122,13 +132,7 @@ export async function GET(req: Request) {
         status: lead.status,
         surveyRequestedDate: lead.surveyRequestedDate,
       },
-      assignedAdvisor: lead.assignedSalesExecutive
-        ? {
-            name: lead.assignedSalesExecutive.name,
-            phone: lead.assignedSalesExecutive.phone,
-            territory: lead.assignedSalesExecutive.territory,
-          }
-        : null,
+      assignedAdvisor,
       profileComplete: isProfileComplete,
       projects: [],
       activeProjectId: null,

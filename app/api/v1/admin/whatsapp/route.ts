@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { enqueueWhatsAppMessage, normalizePhone } from "@/lib/whatsapp/queue";
+import { enqueueWhatsAppMessage, normalizePhone, dispatchQueuedMessages } from "@/lib/whatsapp/queue";
 import { getWhatsAppProvider } from "@/lib/whatsapp/provider";
 
 export async function GET(req: NextRequest) {
@@ -49,17 +49,21 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search")?.trim() || "";
     const assignedToId = searchParams.get("assignedToId");
 
-    // Strict Privacy: Only return conversations belonging to registered clients (Customer or Lead)
-    const where: any = {
-      AND: [
-        {
-          OR: [
-            { customerId: { not: null } },
-            { leadId: { not: null } },
-          ],
-        },
-      ],
-    };
+    // Conversation filtering: Default to registered clients (Privacy Filter).
+    // If filter === "unmatched", show only unmatched incoming enquiries awaiting triage.
+    const where: any =
+      filter === "unmatched"
+        ? { status: "UNMATCHED" }
+        : {
+            AND: [
+              {
+                OR: [
+                  { customerId: { not: null } },
+                  { leadId: { not: null } },
+                ],
+              },
+            ],
+          };
 
     if (filter === "unread") {
       where.unreadCount = { gt: 0 };
@@ -248,11 +252,130 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    // 5. Gateway Logout
+    // 5. Convert Unmatched Enquiry to CRM Lead
+    if (action === "convert_to_lead") {
+      const { conversationId, name, interestedSolution } = body;
+      if (!conversationId) {
+        return NextResponse.json({ error: "conversationId is required" }, { status: 400 });
+      }
+
+      const conv = await prisma.whatsAppConversation.findUnique({
+        where: { id: conversationId },
+      });
+      if (!conv) {
+        return NextResponse.json({ error: "Conversation not found" }, { status: 400 });
+      }
+
+      const leadCount = await prisma.lead.count();
+      const leadCode = `SL-LEAD-${new Date().getFullYear()}-${String(leadCount + 1).padStart(4, "0")}`;
+
+      const lead = await prisma.lead.create({
+        data: {
+          leadId: leadCode,
+          name: (name || "WhatsApp Inquirer").trim(),
+          phone: conv.phone,
+          status: "NEW",
+          source: "WhatsApp Inbound",
+          leadSource: "WhatsApp Inbound",
+          interestedSolution: interestedSolution || "Rooftop Solar",
+        },
+      });
+
+      const updatedConv = await prisma.whatsAppConversation.update({
+        where: { id: conversationId },
+        data: {
+          leadId: lead.id,
+          status: "OPEN",
+        },
+      });
+
+      await prisma.whatsAppMessage.updateMany({
+        where: { conversationId },
+        data: { leadId: lead.id },
+      });
+
+      return NextResponse.json({
+        success: true,
+        lead,
+        conversation: updatedConv,
+      });
+    }
+
+    // 6. Dismiss Unmatched Enquiry (Mark Resolved / Archived without polluting CRM Leads)
+    if (action === "dismiss_unmatched") {
+      const { conversationId } = body;
+      if (!conversationId) {
+        return NextResponse.json({ error: "conversationId is required" }, { status: 400 });
+      }
+
+      await prisma.whatsAppConversation.update({
+        where: { id: conversationId },
+        data: { status: "RESOLVED" },
+      });
+
+      return NextResponse.json({ success: true });
+    }
+
+    // 7. Gateway Logout
     if (action === "gateway_logout") {
       const provider = getWhatsAppProvider();
       const result = await provider.logout();
       return NextResponse.json(result);
+    }
+
+    // 8. Reconcile Uncertain Outbound Transmission (Operator Recovery Handling)
+    if (action === "reconcile_uncertain") {
+      const { messageId, resolution } = body;
+      if (!messageId || !resolution) {
+        return NextResponse.json({ error: "messageId and resolution are required" }, { status: 400 });
+      }
+
+      const existingMsg = await prisma.whatsAppMessage.findUnique({
+        where: { id: messageId },
+      });
+
+      if (!existingMsg) {
+        return NextResponse.json({ error: "Message not found" }, { status: 404 });
+      }
+
+      if (resolution === "CONFIRM_SENT") {
+        const updated = await prisma.whatsAppMessage.update({
+          where: { id: messageId },
+          data: {
+            status: "SENT",
+            sentAt: new Date(),
+            failureCode: null,
+            failureReason: "Manually confirmed as sent by authorized staff",
+          },
+        });
+        return NextResponse.json({ success: true, message: updated });
+      } else if (resolution === "RESEND") {
+        const updated = await prisma.whatsAppMessage.update({
+          where: { id: messageId },
+          data: {
+            status: "QUEUED",
+            retryCount: 0,
+            failureCode: null,
+            failureReason: null,
+          },
+        });
+        queueMicrotask(() => {
+          dispatchQueuedMessages().catch(console.error);
+        });
+        return NextResponse.json({ success: true, message: updated });
+      } else if (resolution === "CANCEL") {
+        const updated = await prisma.whatsAppMessage.update({
+          where: { id: messageId },
+          data: {
+            status: "FAILED",
+            failureCode: "MANUALLY_CANCELLED",
+            failureReason: "Cancelled by authorized staff",
+          },
+        });
+        return NextResponse.json({ success: true, message: updated });
+      } else {
+        return NextResponse.json({ error: "Invalid resolution option" }, { status: 400 });
+      }
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });

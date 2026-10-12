@@ -103,7 +103,7 @@ export async function convertLeadToProspectCustomer(options: ConfirmSurveyOption
     fieldChanged: "projectStatus",
     action: "CREATE",
     actorId,
-    actorType: "STAFF",
+    actorType: "EMPLOYEE",
     source: "CRM",
     newValue: `Created Project ${project.projectId} for ${customer.fullName}`,
   });

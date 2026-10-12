@@ -150,7 +150,6 @@ export async function PATCH(req: Request) {
         actorId: customer.customerId,
         actorType: "CUSTOMER",
         source: "APP",
-        newValue: `Customer ${action === "CONFIRM_RESOLUTION" ? "confirmed resolution" : "reopened ticket"}`,
       });
     }
 

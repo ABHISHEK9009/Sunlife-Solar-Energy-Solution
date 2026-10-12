@@ -18,16 +18,16 @@ export async function POST(req: Request) {
 
     // Audit log successful app login
     const actorId = result.user?.id || result.user?.customerId || phone;
-    const actorType = result.accountState === "CUSTOMER" ? "CUSTOMER" : "LEAD";
+    const entityType = result.accountState === "CUSTOMER" ? "Customer" : "Lead";
 
     try {
       await logAuditEvent({
-        entityType: actorType,
+        entityType,
         entityId: result.user?.id || actorId,
         fieldChanged: "lastAppLogin",
         action: "STATUS_CHANGE",
         actorId: actorId,
-        actorType: actorType,
+        actorType: "CUSTOMER",
         source: "APP",
         newValue: `Successful App Login (${result.accountState})`,
       });

@@ -177,7 +177,6 @@ export async function PATCH(
       actorId,
       actorType: "EMPLOYEE",
       source: "APP",
-      newValue: `Technician updated ticket to ${status || ticket.status}`,
     });
 
     const refreshed = await prisma.serviceTicket.findUnique({

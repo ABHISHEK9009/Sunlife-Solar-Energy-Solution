@@ -20,6 +20,8 @@ export interface GatewayStatus {
   name: string | null;
   hasQr: boolean;
   error?: string;
+  isAuthorized?: boolean;
+  accountMismatch?: boolean;
 }
 
 export interface QrResult {
@@ -30,13 +32,14 @@ export interface QrResult {
 }
 
 export interface WhatsAppProvider {
-  sendText(phone: string, text: string): Promise<SendResult>;
+  sendText(phone: string, text: string, options?: { crmMessageId?: string }): Promise<SendResult>;
   sendMedia(params: {
     phone: string;
     mediaUrl: string;
     caption?: string;
     fileName?: string;
     mimeType?: string;
+    crmMessageId?: string;
   }): Promise<SendResult>;
   sendDocument(params: {
     phone: string;
@@ -44,6 +47,7 @@ export interface WhatsAppProvider {
     fileName?: string;
     mimeType?: string;
     caption?: string;
+    crmMessageId?: string;
   }): Promise<SendResult>;
   getStatus(): Promise<GatewayStatus>;
   getQrCode(): Promise<QrResult>;
@@ -90,13 +94,13 @@ export class HttpGatewayProvider implements WhatsAppProvider {
     }
   }
 
-  async sendText(phone: string, text: string): Promise<SendResult> {
+  async sendText(phone: string, text: string, options?: { crmMessageId?: string }): Promise<SendResult> {
     try {
       const result = await this.request<{ success: boolean; messageId?: string }>(
         "/send-message",
         {
           method: "POST",
-          body: JSON.stringify({ phone, message: text }),
+          body: JSON.stringify({ phone, message: text, crmMessageId: options?.crmMessageId }),
         }
       );
       return { success: true, messageId: result.messageId };
@@ -159,7 +163,39 @@ export class HttpGatewayProvider implements WhatsAppProvider {
   async getStatus(): Promise<GatewayStatus> {
     try {
       const result = await this.request<GatewayStatus>("/status", { method: "GET" });
-      return result;
+
+      // FAIL-CLOSED ACCOUNT ISOLATION SAFEGUARD:
+      // Prevent routing Sunlife Solar messages through foreign or unverified WhatsApp accounts
+      const BLOCKED_FOREIGN_ACCOUNTS = ["916232003262", "6232003262"]; // Bima Headquarter
+      const cleanPhone = String(result.phone || "").replace(/\D/g, "");
+
+      if (cleanPhone && BLOCKED_FOREIGN_ACCOUNTS.includes(cleanPhone)) {
+        return {
+          ...result,
+          isConnected: false,
+          isAuthorized: false,
+          accountMismatch: true,
+          error: "Fail-Closed: Connected gateway belongs to Bima Headquarter (+91 62320 ***62). Sunlife Solar messaging blocked to protect external account.",
+        };
+      }
+
+      // If AUTHORIZED_WHATSAPP_PHONE is specified, enforce strict match
+      const authorizedPhone = String(process.env.AUTHORIZED_WHATSAPP_PHONE || "").replace(/\D/g, "");
+      if (authorizedPhone && cleanPhone && cleanPhone !== authorizedPhone && cleanPhone !== `91${authorizedPhone}`) {
+        return {
+          ...result,
+          isConnected: false,
+          isAuthorized: false,
+          accountMismatch: true,
+          error: `Fail-Closed: Connected gateway account (${cleanPhone}) does not match authorized Sunlife account (${authorizedPhone}). Messaging blocked.`,
+        };
+      }
+
+      return {
+        ...result,
+        isAuthorized: true,
+        accountMismatch: false,
+      };
     } catch (err: any) {
       return {
         status: "OFFLINE",
@@ -167,6 +203,8 @@ export class HttpGatewayProvider implements WhatsAppProvider {
         phone: null,
         name: null,
         hasQr: false,
+        isAuthorized: false,
+        accountMismatch: false,
         error: err.message || "Gateway offline or unreachable",
       };
     }

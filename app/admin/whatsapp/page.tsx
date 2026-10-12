@@ -36,7 +36,7 @@ interface ConversationItem {
   leadId?: string | null;
   assignedToId?: string | null;
   lastHandledById?: string | null;
-  status: "OPEN" | "RESOLVED";
+  status: "OPEN" | "RESOLVED" | "UNMATCHED" | "QUARANTINED" | string;
   unreadCount: number;
   lastMessageText?: string | null;
   lastMessageAt?: string | null;
@@ -88,6 +88,7 @@ interface MessageItem {
   caption?: string | null;
   fileName?: string | null;
   status: "QUEUED" | "SENDING" | "SENT" | "DELIVERED" | "READ" | "FAILED";
+  failureCode?: string | null;
   failureReason?: string | null;
   templateName?: string | null;
   createdAt: string;
@@ -99,6 +100,9 @@ interface GatewayStatus {
   phone: string | null;
   name: string | null;
   hasQr: boolean;
+  isAuthorized?: boolean;
+  accountMismatch?: boolean;
+  error?: string;
 }
 
 export default function WhatsAppInboxPage() {
@@ -108,7 +112,7 @@ export default function WhatsAppInboxPage() {
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [teamMembers, setTeamMembers] = useState<{ id: string; name: string; role: string }[]>([]);
 
-  const [filter, setFilter] = useState<"all" | "unread" | "open" | "resolved" | "unassigned">("all");
+  const [filter, setFilter] = useState<"all" | "unread" | "open" | "resolved" | "unassigned" | "unmatched">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
 
@@ -116,6 +120,9 @@ export default function WhatsAppInboxPage() {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [inputText, setInputText] = useState("");
+
+  const isFetchingConvRef = useRef(false);
+  const isFetchingMsgRef = useRef(false);
 
   // Gateway status & QR Modal
   const [gatewayStatus, setGatewayStatus] = useState<GatewayStatus>({
@@ -161,8 +168,10 @@ export default function WhatsAppInboxPage() {
     }
   };
 
-  // Fetch Conversations
+  // Fetch Conversations (with non-overlapping guard)
   const fetchConversations = async (keepActive = true) => {
+    if (isFetchingConvRef.current) return;
+    isFetchingConvRef.current = true;
     try {
       let url = `/api/v1/admin/whatsapp?action=conversations&filter=${filter}`;
       if (searchQuery.trim()) url += `&search=${encodeURIComponent(searchQuery.trim())}`;
@@ -182,12 +191,15 @@ export default function WhatsAppInboxPage() {
     } catch (e) {
       console.error("Failed to load conversations:", e);
     } finally {
+      isFetchingConvRef.current = false;
       setIsLoadingConversations(false);
     }
   };
 
-  // Fetch Messages for active conversation
+  // Fetch Messages for active conversation (with non-overlapping guard)
   const fetchMessages = async (conversationId: string, isSilent = false) => {
+    if (isFetchingMsgRef.current) return;
+    isFetchingMsgRef.current = true;
     if (!isSilent) setIsLoadingMessages(true);
     try {
       const res = await fetch(`/api/v1/admin/whatsapp?action=messages&conversationId=${conversationId}`);
@@ -198,6 +210,7 @@ export default function WhatsAppInboxPage() {
     } catch (e) {
       console.error("Failed to load messages:", e);
     } finally {
+      isFetchingMsgRef.current = false;
       if (!isSilent) setIsLoadingMessages(false);
     }
   };
@@ -422,6 +435,65 @@ export default function WhatsAppInboxPage() {
     }
   };
 
+  // Reconcile Uncertain Outbound Transmission (Operator Recovery Action)
+  const handleReconcileUncertain = async (messageId: string, resolution: "CONFIRM_SENT" | "RESEND" | "CANCEL") => {
+    if (!activeConversation) return;
+    try {
+      const res = await fetch("/api/v1/admin/whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reconcile_uncertain", messageId, resolution }),
+      });
+      if (res.ok) {
+        fetchMessages(activeConversation.id, true);
+        fetchConversations(true);
+      }
+    } catch (e) {
+      console.error("Failed to reconcile uncertain message:", e);
+    }
+  };
+
+  // Convert Unmatched Enquiry to CRM Lead
+  const handleConvertToLead = async (conversationId: string) => {
+    try {
+      const defaultName =
+        activeConversation?.customer?.fullName ||
+        activeConversation?.lead?.name ||
+        `Contact ${activeConversation?.phone?.slice(-4) || ""}`;
+      const name = prompt("Enter contact name for this new solar lead:", defaultName);
+      if (name === null) return;
+
+      const res = await fetch("/api/v1/admin/whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "convert_to_lead", conversationId, name }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchConversations(true);
+      }
+    } catch (e) {
+      console.error("Failed to convert lead:", e);
+    }
+  };
+
+  // Dismiss Unmatched Enquiry
+  const handleDismissUnmatched = async (conversationId: string) => {
+    try {
+      const res = await fetch("/api/v1/admin/whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "dismiss_unmatched", conversationId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchConversations(false);
+      }
+    } catch (e) {
+      console.error("Failed to dismiss unmatched enquiry:", e);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* ─── TOP STATUS BANNER ─── */}
@@ -448,7 +520,9 @@ export default function WhatsAppInboxPage() {
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs">
             <span
               className={`w-2.5 h-2.5 rounded-full ${
-                gatewayStatus.isConnected
+                gatewayStatus.accountMismatch
+                  ? "bg-amber-500 animate-pulse"
+                  : gatewayStatus.isConnected
                   ? "bg-emerald-500 shadow-xs shadow-emerald-500/50"
                   : gatewayStatus.status === "QR_READY"
                   ? "bg-amber-500 animate-pulse"
@@ -456,7 +530,9 @@ export default function WhatsAppInboxPage() {
               }`}
             />
             <span className="font-semibold text-slate-700">
-              {gatewayStatus.isConnected
+              {gatewayStatus.accountMismatch
+                ? "Account Mismatch (Paused)"
+                : gatewayStatus.isConnected
                 ? `Connected (${gatewayStatus.phone || "Active"})`
                 : gatewayStatus.status === "QR_READY"
                 ? "Scan QR Code"
@@ -495,6 +571,25 @@ export default function WhatsAppInboxPage() {
         </div>
       </div>
 
+      {/* Account Isolation Safeguard Alert Banner */}
+      {gatewayStatus.accountMismatch && (
+        <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-2xl text-amber-900 text-xs flex items-start gap-3 shadow-xs">
+          <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <div className="font-bold text-amber-950 flex items-center gap-1.5">
+              <span>Gateway Isolation Safeguard Active</span>
+              <span className="px-2 py-0.5 bg-amber-200 text-amber-900 rounded-full text-[10px] uppercase font-extrabold tracking-wider">
+                Outbound Paused
+              </span>
+            </div>
+            <p className="text-amber-800 leading-relaxed">
+              The currently connected Railway WhatsApp gateway belongs to an unauthorized business account ({gatewayStatus.phone ? `+91 ${gatewayStatus.phone.slice(-10)}` : "Foreign Account"}).
+              Outbound message dispatching has been automatically paused to protect both systems. Non-WhatsApp CRM modules and pending queued messages remain completely safe.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ─── THREE COLUMN INBOX ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-210px)] min-h-[600px]">
         {/* ─── COLUMN 1: CONVERSATIONS LIST (3 cols) ─── */}
@@ -515,17 +610,26 @@ export default function WhatsAppInboxPage() {
 
             {/* Filter Tabs */}
             <div className="flex gap-1 overflow-x-auto scrollbar-none pb-0.5 text-xs">
-              {(["all", "unread", "open", "resolved", "unassigned"] as const).map((tab) => (
+              {(
+                [
+                  { id: "all", label: "All" },
+                  { id: "unread", label: "Unread" },
+                  { id: "open", label: "Open" },
+                  { id: "resolved", label: "Resolved" },
+                  { id: "unassigned", label: "Unassigned" },
+                  { id: "unmatched", label: "New Enquiries" },
+                ] as const
+              ).map((tab) => (
                 <button
-                  key={tab}
-                  onClick={() => setFilter(tab)}
-                  className={`px-2.5 py-1 rounded-lg font-semibold text-[11px] capitalize transition-colors shrink-0 ${
-                    filter === tab
+                  key={tab.id}
+                  onClick={() => setFilter(tab.id)}
+                  className={`px-2.5 py-1 rounded-lg font-semibold text-[11px] transition-colors shrink-0 ${
+                    filter === tab.id
                       ? "bg-slate-900 text-white"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
-                  {tab}
+                  {tab.label}
                 </button>
               ))}
             </div>
@@ -725,6 +829,34 @@ export default function WhatsAppInboxPage() {
                 </div>
               </div>
 
+              {/* Triage Banner for Unmatched Enquiries */}
+              {activeConversation.status === "UNMATCHED" && (
+                <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <div>
+                      <span className="font-bold text-amber-900">New Business Enquiry</span>
+                      <p className="text-[11px] text-amber-700">Contact not in client registry. Add to CRM Leads to assign advisor.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleConvertToLead(activeConversation.id)}
+                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-xs cursor-pointer transition-colors"
+                    >
+                      <UserCheck className="w-3.5 h-3.5" />
+                      <span>Convert to Lead</span>
+                    </button>
+                    <button
+                      onClick={() => handleDismissUnmatched(activeConversation.id)}
+                      className="px-2.5 py-1 bg-white border border-amber-300 hover:bg-amber-100 text-amber-800 font-semibold rounded-lg text-xs cursor-pointer transition-colors"
+                    >
+                      <span>Dismiss</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Chat Thread */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/60">
                 {isLoadingMessages ? (
@@ -755,6 +887,13 @@ export default function WhatsAppInboxPage() {
                               : "bg-white text-slate-800 border border-slate-200 rounded-tl-xs"
                           }`}
                         >
+                          {/* Sender indicator for Phone / Linked Device */}
+                          {isOutbound && (msg.senderType === "WHATSAPP_MOBILE" || msg.senderType === "LINKED_DEVICE") && (
+                            <div className="text-[9px] font-bold text-emerald-200 flex items-center gap-1 mb-1">
+                              <span>📱 WhatsApp Account (Linked Device)</span>
+                            </div>
+                          )}
+
                           {/* Template Badge if applicable */}
                           {msg.templateName && (
                             <div
@@ -771,6 +910,42 @@ export default function WhatsAppInboxPage() {
                           <div className="whitespace-pre-wrap leading-relaxed break-words font-medium">
                             {msg.content}
                           </div>
+
+                          {/* Uncertain Transmission Alert & Recovery Action Bar */}
+                          {msg.failureCode === "TRANSMISSION_UNCONFIRMED" && (
+                            <div className="mt-2 p-2 bg-amber-500/20 border border-amber-400/40 rounded-lg text-amber-100 text-[10px]">
+                              <div className="font-semibold flex items-center gap-1 mb-1 text-amber-200">
+                                <AlertCircle className="w-3 h-3 text-amber-300" />
+                                <span>Delivery Unconfirmed (WhatsApp ACK missing)</span>
+                              </div>
+                              <p className="text-[9px] text-amber-100/90 mb-1.5 leading-snug">
+                                Message may have reached the customer. Verify on mobile device before retrying to prevent duplicates.
+                              </p>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => handleReconcileUncertain(msg.id, "CONFIRM_SENT")}
+                                  className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-bold transition-colors cursor-pointer"
+                                  title="Mark as sent if confirmed visible on phone"
+                                >
+                                  Verify Sent
+                                </button>
+                                <button
+                                  onClick={() => handleReconcileUncertain(msg.id, "RESEND")}
+                                  className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[9px] font-bold transition-colors cursor-pointer"
+                                  title="Resend this message"
+                                >
+                                  Resend
+                                </button>
+                                <button
+                                  onClick={() => handleReconcileUncertain(msg.id, "CANCEL")}
+                                  className="px-2 py-0.5 bg-slate-700 hover:bg-slate-800 text-slate-200 rounded text-[9px] font-medium transition-colors cursor-pointer"
+                                  title="Cancel and mark failed"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
 
                           {/* Footer: Time & Status */}
                           <div
@@ -890,30 +1065,43 @@ export default function WhatsAppInboxPage() {
 
               {/* Message Composer */}
               <div className="p-3 bg-white border-t border-slate-200">
+                {gatewayStatus.accountMismatch && (
+                  <div className="mb-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+                    <span>Outbound messaging paused: Gateway account mismatch safeguard active. Message sending is blocked to protect account isolation.</span>
+                  </div>
+                )}
                 <div className="flex items-end gap-2">
                   <textarea
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
+                    disabled={gatewayStatus.accountMismatch}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
-                        handleSendMessage();
+                        if (!gatewayStatus.accountMismatch) {
+                          handleSendMessage();
+                        }
                       }
                     }}
-                    placeholder={`Type message to ${
-                      activeConversation.customer?.fullName ||
-                      activeConversation.lead?.name ||
-                      "customer"
-                    }...`}
+                    placeholder={
+                      gatewayStatus.accountMismatch
+                        ? "Outbound messaging paused (Account Mismatch Safeguard Active)..."
+                        : `Type message to ${
+                            activeConversation.customer?.fullName ||
+                            activeConversation.lead?.name ||
+                            "customer"
+                          }...`
+                    }
                     rows={2}
-                    className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white resize-none"
+                    className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white resize-none disabled:opacity-60 disabled:bg-slate-100"
                   />
 
                   <button
                     onClick={handleSendMessage}
-                    disabled={isSending || !inputText.trim()}
+                    disabled={isSending || !inputText.trim() || gatewayStatus.accountMismatch}
                     className="p-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl shadow-xs transition-colors shrink-0"
-                    title="Send"
+                    title={gatewayStatus.accountMismatch ? "Sending blocked: Account Mismatch Safeguard active" : "Send"}
                   >
                     {isSending ? (
                       <RefreshCw className="w-4 h-4 animate-spin" />

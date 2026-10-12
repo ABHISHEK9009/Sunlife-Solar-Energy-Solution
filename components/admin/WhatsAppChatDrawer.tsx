@@ -30,6 +30,7 @@ interface WhatsAppMessageItem {
   caption?: string | null;
   fileName?: string | null;
   status: "QUEUED" | "SENDING" | "SENT" | "DELIVERED" | "READ" | "FAILED";
+  failureCode?: string | null;
   failureReason?: string | null;
   templateName?: string | null;
   createdAt: string;
@@ -62,6 +63,7 @@ export default function WhatsAppChatDrawer({
   const [isSending, setIsSending] = useState(false);
   const [inputText, setInputText] = useState("");
   const [gatewayStatus, setGatewayStatus] = useState<string>("UNKNOWN");
+  const [isAccountMismatch, setIsAccountMismatch] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -85,6 +87,7 @@ export default function WhatsAppChatDrawer({
       const statusRes = await fetch(`/api/v1/admin/whatsapp?action=gateway_status`);
       const statusData = await statusRes.json();
       setGatewayStatus(statusData.status || "OFFLINE");
+      setIsAccountMismatch(!!statusData.accountMismatch);
     } catch (err: any) {
       console.error("Error loading chat data:", err);
       setErrorMessage("Could not load WhatsApp messages");
@@ -193,7 +196,9 @@ export default function WhatsAppChatDrawer({
                 <span className="flex items-center gap-1.5">
                   <span
                     className={`w-2 h-2 rounded-full ${
-                      gatewayStatus === "CONNECTED"
+                      isAccountMismatch
+                        ? "bg-amber-400"
+                        : gatewayStatus === "CONNECTED"
                         ? "bg-emerald-400"
                         : gatewayStatus === "QR_READY"
                         ? "bg-amber-400 animate-pulse"
@@ -201,7 +206,9 @@ export default function WhatsAppChatDrawer({
                     }`}
                   />
                   <span className="text-slate-300 font-medium">
-                    {gatewayStatus === "CONNECTED"
+                    {isAccountMismatch
+                      ? "Account Mismatch (Outbound Paused)"
+                      : gatewayStatus === "CONNECTED"
                       ? "WhatsApp Gateway Active"
                       : gatewayStatus === "QR_READY"
                       ? "Pairing Needed"
@@ -415,6 +422,13 @@ export default function WhatsAppChatDrawer({
 
         {/* Input Composer */}
         <div className="p-3 bg-white border-t border-slate-200">
+          {isAccountMismatch && (
+            <div className="mb-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+              <span>Outbound messaging paused: Gateway account mismatch safeguard active. Outbound sending is blocked.</span>
+            </div>
+          )}
+
           {errorMessage && (
             <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-center gap-1.5">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
@@ -426,22 +440,29 @@ export default function WhatsAppChatDrawer({
             <textarea
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
+              disabled={isAccountMismatch}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  handleSendMessage();
+                  if (!isAccountMismatch) {
+                    handleSendMessage();
+                  }
                 }
               }}
-              placeholder={`Message ${customerName}...`}
+              placeholder={
+                isAccountMismatch
+                  ? "Outbound messaging paused (Account Mismatch Safeguard Active)..."
+                  : `Message ${customerName}...`
+              }
               rows={3}
-              className="flex-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white resize-none"
+              className="flex-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white resize-none disabled:opacity-60 disabled:bg-slate-100"
             />
 
             <button
               onClick={handleSendMessage}
-              disabled={isSending || !inputText.trim()}
+              disabled={isSending || !inputText.trim() || isAccountMismatch}
               className="p-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl shadow-xs transition-colors flex items-center justify-center shrink-0"
-              title="Send WhatsApp Message"
+              title={isAccountMismatch ? "Sending blocked: Account Mismatch Safeguard active" : "Send WhatsApp Message"}
             >
               {isSending ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />

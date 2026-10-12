@@ -167,6 +167,12 @@ export async function POST(request: Request) {
 
     // Authorization check: If not admin/manager, employee can ONLY punch for their own member ID
     if (!isAdmin) {
+      if (!agent) {
+        return NextResponse.json(
+          { error: "Unauthorized: Attendance punch requires an active employee or administrator session." },
+          { status: 401 }
+        );
+      }
       const isPrivileged = agent.role === "Admin" || agent.role === "Manager";
       if (!isPrivileged && agent.id !== memberId) {
         return NextResponse.json(
