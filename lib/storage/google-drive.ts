@@ -223,15 +223,43 @@ export function isGoogleDriveEnabled(): boolean {
   return Boolean(config.enabled && config.refreshToken);
 }
 
+let tokenValidationCache: { valid: boolean; checkedAt: number } = { valid: false, checkedAt: 0 };
+
+export async function isRefreshTokenValid(refreshToken: string, clientId: string, clientSecret: string): Promise<boolean> {
+  const now = Date.now();
+  if (now - tokenValidationCache.checkedAt < 45000) {
+    return tokenValidationCache.valid;
+  }
+
+  try {
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+    oauth2Client.setCredentials({ refresh_token: refreshToken });
+    const { token } = await oauth2Client.getAccessToken();
+    const isValid = Boolean(token);
+    tokenValidationCache = { valid: isValid, checkedAt: now };
+    return isValid;
+  } catch (err: any) {
+    console.warn("[Google Drive Token Check]: Refresh token invalid or revoked:", err.message);
+    tokenValidationCache = { valid: false, checkedAt: now };
+    return false;
+  }
+}
+
 /**
- * Returns diagnostic connection details for the Admin UI
+ * Returns diagnostic connection details for the Admin UI with live token verification
  */
 export async function getGoogleDriveConfigStatus() {
   const config = await getDriveConfigFromDb();
-  const drive = await getDriveClient();
+
+  let isConnected = false;
+  if (config.enabled && config.authMethod === "OAUTH2" && config.refreshToken && config.clientId && config.clientSecret) {
+    isConnected = await isRefreshTokenValid(config.refreshToken, config.clientId, config.clientSecret);
+  } else if (config.enabled && config.authMethod === "SERVICE_ACCOUNT") {
+    isConnected = Boolean(config.serviceAccountEmail && config.serviceAccountPrivateKey);
+  }
 
   return {
-    connected: Boolean(config.enabled && drive && config.refreshToken),
+    connected: isConnected,
     authMethod: config.authMethod,
     folderId: config.folderId || null,
     folderName: config.folderName || "sunlife solar",
@@ -247,6 +275,7 @@ export async function getGoogleDriveConfigStatus() {
  * Saves Google Drive configuration to database, disk cache, and local .env
  */
 export async function saveGoogleDriveConfig(newConfig: Partial<GoogleDriveConfig>) {
+  tokenValidationCache = { valid: true, checkedAt: Date.now() };
   const existing = cachedDriveConfig || (await getDriveConfigFromDb());
   const merged: GoogleDriveConfig = {
     ...existing,

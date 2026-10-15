@@ -464,6 +464,17 @@ export default function AdminDocumentsPage() {
           uploadedBy: "Rahul Kumar (Admin)",
           verificationStatus: "VERIFIED",
         });
+        if (data.storageProvider === "LOCAL") {
+          setAlertMessage({
+            type: "error",
+            text: "⚠️ Document was saved to Local Server Storage, NOT Google Drive. Google Drive is not connected yet! Click '⚡ 1-Click Connect Google Drive' in the top banner to link your Drive folder.",
+          });
+        } else {
+          setAlertMessage({
+            type: "success",
+            text: "🎉 Document uploaded directly to your 'sunlife solar' Google Drive folder!",
+          });
+        }
         fetchDocuments();
       } else {
         alert(data.error || "Failed to upload document.");
