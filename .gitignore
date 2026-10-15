@@ -96,3 +96,7 @@ whatsapp_qr.png
 data/google-drive-config.json
 
 
+
+# Audit Scripts & Temporary Screenshots (Bugs #33, #34)
+audit_*.py
+screen_check.png

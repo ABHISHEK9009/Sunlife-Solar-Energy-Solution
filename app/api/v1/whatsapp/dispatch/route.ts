@@ -13,12 +13,17 @@ function safeCompare(a: string | null, b: string): boolean {
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get("x-api-key") || req.headers.get("x-webhook-secret");
-    const expectedKey = process.env.WHATSAPP_API_KEY || "sunlife_whatsapp_secret_key_2026";
-    const expectedSecret = process.env.CRM_WEBHOOK_SECRET || "sunlife_webhook_secret_key_2026";
+    const expectedKey = (process.env.WHATSAPP_API_KEY || "").trim();
+    const expectedSecret = (process.env.CRM_WEBHOOK_SECRET || "").trim();
+
+    if (!expectedKey && !expectedSecret) {
+      console.error("[WhatsApp Dispatch] Neither WHATSAPP_API_KEY nor CRM_WEBHOOK_SECRET is configured.");
+      return NextResponse.json({ error: "Server configuration error: Dispatch credentials not set." }, { status: 500 });
+    }
 
     const isAuthorized =
-      safeCompare(authHeader, expectedKey) ||
-      safeCompare(authHeader, expectedSecret);
+      (expectedKey ? safeCompare(authHeader, expectedKey) : false) ||
+      (expectedSecret ? safeCompare(authHeader, expectedSecret) : false);
 
     if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized dispatcher trigger." }, { status: 401 });

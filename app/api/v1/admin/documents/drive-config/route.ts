@@ -9,8 +9,13 @@ import {
   getDriveConfigFromDb,
 } from "@/lib/storage/google-drive";
 import { logAuditEvent } from "@/lib/crm/audit-logger";
+import { authenticateAdminRequest } from "@/lib/crm/admin-auth";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const status = await getGoogleDriveConfigStatus();
     const config = await getDriveConfigFromDb();
@@ -31,6 +36,10 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const {
@@ -158,7 +167,11 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     await disconnectGoogleDrive();
 

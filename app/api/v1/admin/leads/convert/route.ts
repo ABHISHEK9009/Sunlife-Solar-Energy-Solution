@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { convertLeadToCustomerAndProject } from "@/lib/crm/lead-converter";
+import { authenticateAdminRequest } from "@/lib/crm/admin-auth";
 
 export async function POST(req: Request) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const { leadId, plantCapacityKw, solarType, assignedEngineerId, assignedSalesExecutiveId, notes, actorId } = body;

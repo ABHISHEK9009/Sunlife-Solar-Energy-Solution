@@ -6,7 +6,9 @@ export interface AuditLogParams {
   fieldChanged: string;
   previousValue?: string | null;
   newValue?: string | null;
-  action: "CREATE" | "UPDATE" | "DELETE" | "STATUS_CHANGE";
+  newValueText?: string | null;
+  previousValueText?: string | null;
+  action: "CREATE" | "UPDATE" | "DELETE" | "STATUS_CHANGE" | "ASSIGN" | "CONVERT";
   actorId: string;
   actorType?: "ADMIN" | "EMPLOYEE" | "CUSTOMER" | "SYSTEM";
   source?: "CRM" | "APP" | "API" | "WEBHOOK" | "IMPORT";
@@ -17,18 +19,33 @@ export interface AuditLogParams {
 
 /**
  * Enterprise Audit Logger for tracking all state changes,
- * status transitions, and data modifications across the CRM.
+ * status transitions, assignments, and data modifications across the CRM.
  */
 export async function logAuditEvent(params: AuditLogParams) {
   try {
     const db = params.client || prisma;
+
+    const finalPreviousValue =
+      params.previousValueText !== undefined && params.previousValueText !== null
+        ? String(params.previousValueText)
+        : params.previousValue !== undefined && params.previousValue !== null
+        ? String(params.previousValue)
+        : null;
+
+    const finalNewValue =
+      params.newValueText !== undefined && params.newValueText !== null
+        ? String(params.newValueText)
+        : params.newValue !== undefined && params.newValue !== null
+        ? String(params.newValue)
+        : null;
+
     return await db.auditLog.create({
       data: {
         entityType: params.entityType,
         entityId: params.entityId,
         fieldChanged: params.fieldChanged,
-        previousValue: params.previousValue ? String(params.previousValue) : null,
-        newValue: params.newValue ? String(params.newValue) : null,
+        previousValue: finalPreviousValue,
+        newValue: finalNewValue,
         action: params.action,
         actorId: params.actorId,
         actorType: params.actorType || "SYSTEM",

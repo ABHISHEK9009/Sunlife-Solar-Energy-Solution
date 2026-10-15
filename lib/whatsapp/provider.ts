@@ -69,8 +69,8 @@ export class HttpGatewayProvider implements WhatsAppProvider {
     if (rawUrl && !rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
       rawUrl = `https://${rawUrl}`;
     }
-    this.baseUrl = rawUrl.replace(/\/$/, "");
-    this.apiKey = (process.env.WHATSAPP_API_KEY || "sunlife_whatsapp_secret_key_2026").trim();
+    this.baseUrl = rawUrl;
+    this.apiKey = (process.env.WHATSAPP_API_KEY || "").trim();
     this.timeoutMs = 15000;
   }
 

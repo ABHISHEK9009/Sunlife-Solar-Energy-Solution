@@ -3,19 +3,59 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { logAuditEvent } from "@/lib/crm/audit-logger";
+import { generateLeadId } from "@/lib/crm/sequence-generator";
+import { checkRateLimit, buildRateLimitResponse } from "@/lib/security/rate-limiter";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const leads = await prisma.lead.findMany({
-      orderBy: { createdAt: "desc" },
-    });
+    const { searchParams } = new URL(req.url);
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50", 10) || 50));
+    const skip = (page - 1) * limit;
 
-    const estimates = await prisma.calculatorEstimate.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    });
+    const status = searchParams.get("status");
+    const search = searchParams.get("search")?.trim();
 
-    return NextResponse.json({ success: true, leads, estimates });
+    const where: any = {};
+
+    if (status && status.toUpperCase() !== "ALL") {
+      where.status = status;
+    }
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { phone: { contains: search } },
+        { leadId: { contains: search, mode: "insensitive" } },
+        { city: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const [total, leads, estimates] = await Promise.all([
+      prisma.lead.count({ where }),
+      prisma.lead.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        skip,
+        take: limit,
+      }),
+      prisma.calculatorEstimate.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      leads,
+      estimates,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    });
   } catch (error: any) {
     console.error("Error fetching leads:", error);
     return NextResponse.json(
@@ -26,6 +66,15 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const rateLimit = await checkRateLimit(req, {
+    actionName: "LEAD_CREATE_SUBMIT",
+    maxRequests: 20,
+    windowSeconds: 60,
+  });
+  if (!rateLimit.allowed) {
+    return buildRateLimitResponse(rateLimit);
+  }
+
   try {
     const body = await req.json();
     const {
@@ -81,14 +130,18 @@ export async function POST(req: Request) {
       }
     }
 
-    const solution = solarRequirement || interestedSolution || "On-Grid";
+    // Bug #12: interestedSolution takes precedence over solarRequirement
+    const solution = interestedSolution || solarRequirement || "On-Grid";
     const reqType = propertyType || "Residential";
     const src = leadSource || source || "Website";
     const followUp = nextFollowUpDate || surveyRequestedDate ? new Date(nextFollowUpDate || surveyRequestedDate) : null;
-    const remark = notes || message || null;
 
-    const leadCount = await prisma.lead.count();
-    const leadCode = `SL-LEAD-${new Date().getFullYear()}-${String(leadCount + 1).padStart(3, "0")}`;
+    // Bug #10: Preserve notes and message independently
+    const finalNotes = notes !== undefined ? (notes ? notes.trim() : null) : (message ? message.trim() : null);
+    const finalMessage = message !== undefined ? (message ? message.trim() : null) : (notes ? notes.trim() : null);
+
+    // Bug #7 & #15: Concurrency-safe standardized lead ID
+    const leadCode = await generateLeadId();
 
     const lead = await prisma.lead.create({
       data: {
@@ -102,8 +155,8 @@ export async function POST(req: Request) {
         monthlyBill: monthlyBill || null,
         interestedSolution: solution,
         requestedCapacity: capFloat,
-        message: remark,
-        notes: remark,
+        message: finalMessage,
+        notes: finalNotes,
         source: src,
         leadSource: src,
         status: status || "NEW",
@@ -174,18 +227,23 @@ export async function PATCH(req: Request) {
       }
     }
 
+    // Bug #10: Notes and message update independently without overwriting each other
+    // Bug #12: interestedSolution takes precedence over solarRequirement
     const updated = await prisma.lead.update({
       where: { id },
       data: {
         ...(status && { status }),
-        ...(notes !== undefined && { notes, message: notes }),
-        ...(message !== undefined && { message, notes: message }),
+        ...(notes !== undefined && { notes: notes ? notes.trim() : null }),
+        ...(message !== undefined && { message: message ? message.trim() : null }),
         ...(city !== undefined && { city }),
         ...(location !== undefined && { location }),
         ...(propertyType !== undefined && { propertyType }),
         ...(monthlyBill !== undefined && { monthlyBill }),
-        ...(interestedSolution !== undefined && { interestedSolution }),
-        ...(solarRequirement !== undefined && { interestedSolution: solarRequirement }),
+        ...(interestedSolution !== undefined
+          ? { interestedSolution }
+          : solarRequirement !== undefined
+          ? { interestedSolution: solarRequirement }
+          : {}),
         ...(capFloat !== undefined && { requestedCapacity: capFloat }),
         ...(leadSource !== undefined && { leadSource, source: leadSource }),
         ...(followUp !== undefined && { surveyRequestedDate: followUp }),
@@ -219,6 +277,7 @@ export async function PATCH(req: Request) {
       assignedSalesExecutiveId !== undefined &&
       assignedSalesExecutiveId !== existing.assignedSalesExecutiveId;
 
+    // Bug #13, #14, #35: Clean audit logging with ASSIGN action and newValueText
     await logAuditEvent({
       entityType: "Lead",
       entityId: id,
@@ -240,7 +299,7 @@ export async function PATCH(req: Request) {
       newValueText: isAssignChange
         ? `Reassigned lead ${existing.name} to agent ${assignedSalesExecutiveId || "Unassigned"}`
         : `Updated lead ${existing.name}: status=${status || existing.status}`,
-    } as any);
+    });
 
     return NextResponse.json({ success: true, lead: updated });
   } catch (error: any) {
@@ -265,12 +324,19 @@ export async function DELETE(req: Request) {
 
     await prisma.lead.delete({ where: { id } });
 
+    // Bug #30: Preserve snapshot of deleted entity in audit record
     await logAuditEvent({
       entityType: "Lead",
       entityId: id,
       fieldChanged: "all",
-      previousValue: existing.name,
-      newValue: null,
+      previousValue: JSON.stringify({
+        leadId: existing.leadId,
+        name: existing.name,
+        phone: existing.phone,
+        city: existing.city,
+        status: existing.status,
+      }),
+      newValue: "Deleted by administrator",
       action: "DELETE",
       actorId: "ADMIN",
       actorType: "ADMIN",

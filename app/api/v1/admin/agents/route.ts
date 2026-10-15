@@ -3,8 +3,14 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { logAuditEvent } from "@/lib/crm/audit-logger";
+import { authenticateAdminRequest } from "@/lib/crm/admin-auth";
+import { generateAgentId } from "@/lib/crm/sequence-generator";
 
 export async function GET(req: Request) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const includeInactive = searchParams.get("all") === "true";
@@ -38,7 +44,7 @@ export async function GET(req: Request) {
 
     const mappedAgents = agents.map((a) => ({
       ...a,
-      pin: a.serviceArea || "123456",
+      pin: a.serviceArea || "",
     }));
 
     return NextResponse.json(
@@ -56,6 +62,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const {
@@ -149,11 +159,10 @@ export async function POST(req: Request) {
     }
 
     // Generate standard employee ID if not provided
-    const agentCount = await prisma.teamMember.count();
     const finalEmpId =
       employeeId && employeeId.toString().trim().length > 0
         ? employeeId.toString().trim()
-        : `SL-A${100 + agentCount + 1}`;
+        : await generateAgentId();
 
     const newAgent = await prisma.teamMember.create({
       data: {
@@ -214,6 +223,10 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const {
@@ -277,7 +290,7 @@ export async function PATCH(req: Request) {
       success: true,
       agent: {
         ...updated,
-        pin: updated.serviceArea || "123456",
+        pin: updated.serviceArea || "",
       },
     });
   } catch (error: any) {
@@ -287,6 +300,10 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

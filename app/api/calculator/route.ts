@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit, buildRateLimitResponse } from "@/lib/security/rate-limiter";
 
 export async function POST(req: Request) {
+  const rateLimit = await checkRateLimit(req, {
+    actionName: "CALCULATOR_SUBMIT",
+    maxRequests: 20,
+    windowSeconds: 60,
+  });
+  if (!rateLimit.allowed) {
+    return buildRateLimitResponse(rateLimit);
+  }
+
   try {
     const body = await req.json();
     const {

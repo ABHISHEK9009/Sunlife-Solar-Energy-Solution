@@ -2,11 +2,16 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { authenticateAdminRequest } from "@/lib/crm/admin-auth";
 
 export async function GET(
   req: Request,
   { params }: { params: { id: string } }
 ) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const { id } = params;
 

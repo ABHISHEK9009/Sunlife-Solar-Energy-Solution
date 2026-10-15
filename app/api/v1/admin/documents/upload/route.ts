@@ -4,8 +4,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { uploadDocumentToDrive } from "@/lib/storage/google-drive";
 import { logAuditEvent } from "@/lib/crm/audit-logger";
+import { authenticateAdminRequest } from "@/lib/crm/admin-auth";
+import { generateDocumentId } from "@/lib/crm/sequence-generator";
 
 export async function POST(req: NextRequest) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
@@ -55,8 +61,7 @@ export async function POST(req: NextRequest) {
       storageProvider = uploadRes.storageProvider;
     }
 
-    const docCount = await prisma.document.count();
-    const documentId = `SL-DOC-${1000 + docCount + 1}`;
+    const documentId = await generateDocumentId();
 
     const doc = await prisma.document.create({
       data: {

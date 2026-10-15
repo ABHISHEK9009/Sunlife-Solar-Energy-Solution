@@ -23,7 +23,12 @@ const STATUS_RANK: Record<string, number> = {
 export async function POST(req: NextRequest) {
   try {
     const secret = req.headers.get("x-webhook-secret");
-    const expectedSecret = process.env.CRM_WEBHOOK_SECRET || "sunlife_webhook_secret_key_2026";
+    const expectedSecret = (process.env.CRM_WEBHOOK_SECRET || "").trim();
+
+    if (!expectedSecret) {
+      console.error("[WhatsApp Webhook] CRM_WEBHOOK_SECRET is not configured on the server.");
+      return NextResponse.json({ error: "Server configuration error: Webhook secret not configured." }, { status: 500 });
+    }
 
     if (!safeCompare(secret, expectedSecret)) {
       return NextResponse.json({ error: "Unauthorized. Invalid webhook secret." }, { status: 401 });

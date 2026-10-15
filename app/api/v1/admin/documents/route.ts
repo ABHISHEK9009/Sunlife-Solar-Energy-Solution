@@ -3,8 +3,15 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { logAuditEvent } from "@/lib/crm/audit-logger";
+import { authenticateAdminRequest } from "@/lib/crm/admin-auth";
+import { generateDocumentId } from "@/lib/crm/sequence-generator";
+import { deleteDocumentFromDrive } from "@/lib/storage/google-drive";
 
-export async function GET() {
+export async function GET(req: Request) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const documents = await prisma.document.findMany({
       orderBy: { uploadedDate: "desc" },
@@ -21,6 +28,10 @@ export async function GET() {
 }
 
 export async function PATCH(req: Request) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const { id, verificationStatus, customerCanView } = body;
@@ -50,6 +61,10 @@ export async function PATCH(req: Request) {
 }
 
 export async function POST(req: Request) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const {
@@ -71,8 +86,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const docCount = await prisma.document.count();
-    const documentId = `SL-DOC-${1000 + docCount + 1}`;
+    const documentId = await generateDocumentId();
 
     const doc = await prisma.document.create({
       data: {
@@ -112,6 +126,10 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
@@ -122,6 +140,16 @@ export async function DELETE(req: Request) {
     const doc = await prisma.document.findUnique({ where: { id } });
     if (!doc) {
       return NextResponse.json({ error: "Document not found." }, { status: 404 });
+    }
+
+    // Explicit cloud file deletion only if purgeCloudFile is set; preserves cloud storage by default
+    const purgeCloudFile = searchParams.get("purgeCloudFile") === "true";
+    if (purgeCloudFile && doc.fileLocation && !doc.fileLocation.startsWith("/uploads/")) {
+      try {
+        await deleteDocumentFromDrive(doc.fileLocation);
+      } catch (driveErr) {
+        console.warn("[Document DELETE] Could not delete cloud file:", driveErr);
+      }
     }
 
     await prisma.document.delete({
@@ -135,6 +163,13 @@ export async function DELETE(req: Request) {
       action: "DELETE",
       actorId: "ADMIN",
       actorType: "ADMIN",
+      previousValue: JSON.stringify({
+        documentId: doc.documentId,
+        documentName: doc.documentName,
+        documentCategory: doc.documentCategory,
+        customerId: doc.customerId,
+        fileLocation: doc.fileLocation,
+      }),
       newValue: `Deleted document ${doc.documentName} (${doc.documentId})`,
     });
 

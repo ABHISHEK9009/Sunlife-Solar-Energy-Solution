@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { logAuditEvent } from "./audit-logger";
+import { generateCustomerId, generateProjectId } from "./sequence-generator";
 
 export interface LeadConversionOptions {
   leadId: string;
@@ -41,8 +42,7 @@ export async function convertLeadToCustomerAndProject(options: LeadConversionOpt
     });
 
     if (!customer) {
-      const customerCount = await tx.customer.count();
-      const customerCode = `SL-CUST-${1000 + customerCount + 1}`;
+      const customerCode = await generateCustomerId(tx);
 
       customer = await tx.customer.create({
         data: {
@@ -71,9 +71,8 @@ export async function convertLeadToCustomerAndProject(options: LeadConversionOpt
       });
     }
 
-    // 2. Generate unique Project ID
-    const projectCount = await tx.solarProject.count();
-    const projectCode = `SL-PRJ-${1000 + projectCount + 1}`;
+    // 2. Generate unique Project ID using concurrency-safe sequence generator
+    const projectCode = await generateProjectId(tx);
     const capacityKw = options.plantCapacityKw || lead.requestedCapacity || lead.recommendedCapacity || 3.0;
 
     const project = await tx.solarProject.create({

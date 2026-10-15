@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { logAuditEvent } from "@/lib/crm/audit-logger";
 import { authenticateAdminRequest } from "@/lib/crm/admin-auth";
+import { generateCustomerId, generateProjectId } from "@/lib/crm/sequence-generator";
 
 export async function GET(req: Request) {
   if (!(await authenticateAdminRequest(req))) {
@@ -64,11 +65,26 @@ export async function POST(req: Request) {
       billingAddress,
       propertyType,
       assignedSalesExecutiveId,
+      plantCapacityKw,
+      solarType,
     } = body;
 
     if (!fullName || !primaryMobile || !installationAddress) {
       return NextResponse.json(
         { error: "Full name, primary mobile, and installation address are required." },
+        { status: 400 }
+      );
+    }
+
+    const hasCapacity =
+      plantCapacityKw !== undefined &&
+      plantCapacityKw !== null &&
+      String(plantCapacityKw).trim() !== "";
+    const parsedCapacity = hasCapacity ? parseFloat(plantCapacityKw) : null;
+
+    if (hasCapacity && (parsedCapacity === null || isNaN(parsedCapacity) || parsedCapacity <= 0)) {
+      return NextResponse.json(
+        { error: "Valid positive plant capacity in kW (plantCapacityKw) is required when provisioning a project." },
         { status: 400 }
       );
     }
@@ -89,90 +105,72 @@ export async function POST(req: Request) {
       );
     }
 
-    // Collision-proof Customer Code generation
-    const existingCust = await prisma.customer.findMany({
-      where: { customerId: { startsWith: "SL-CUST-" } },
-      select: { customerId: true },
-    });
-    const existingCustNums = new Set(
-      existingCust.map((c) => {
-        const match = c.customerId.match(/SL-CUST-(\d+)/);
-        return match ? parseInt(match[1], 10) : 0;
-      })
-    );
-    let nextCustNum = 1001;
-    while (existingCustNums.has(nextCustNum)) {
-      nextCustNum++;
-    }
-    const customerCode = `SL-CUST-${nextCustNum}`;
+    const { customer, project } = await prisma.$transaction(async (tx) => {
+      const customerCode = await generateCustomerId(tx);
 
-    const customer = await prisma.customer.create({
-      data: {
-        customerId: customerCode,
-        fullName: fullName.trim(),
-        primaryMobile: cleanPhone,
-        alternateMobile: alternateMobile ? alternateMobile.trim() : null,
-        email: email ? email.trim() : null,
-        installationAddress: installationAddress.trim(),
-        billingAddress: billingAddress ? billingAddress.trim() : null,
-        propertyType: propertyType || "RESIDENTIAL",
-        assignedSalesExecutiveId: assignedSalesExecutiveId || null,
-        customerStatus: "ACTIVE",
-        appAccessEnabled: true,
-      },
-    });
+      const newCustomer = await tx.customer.create({
+        data: {
+          customerId: customerCode,
+          fullName: fullName.trim(),
+          primaryMobile: cleanPhone,
+          alternateMobile: alternateMobile ? alternateMobile.trim() : null,
+          email: email ? email.trim() : null,
+          installationAddress: installationAddress.trim(),
+          billingAddress: billingAddress ? billingAddress.trim() : null,
+          propertyType: propertyType || "RESIDENTIAL",
+          assignedSalesExecutiveId: assignedSalesExecutiveId || null,
+          customerStatus: "ACTIVE",
+          appAccessEnabled: true,
+        },
+      });
 
-    // Collision-proof Solar Project ID generation
-    const existingPrj = await prisma.solarProject.findMany({
-      where: { projectId: { startsWith: "SL-PRJ-" } },
-      select: { projectId: true },
-    });
-    const existingPrjNums = new Set(
-      existingPrj.map((p) => {
-        const match = p.projectId.match(/SL-PRJ-(\d+)/);
-        return match ? parseInt(match[1], 10) : 0;
-      })
-    );
-    let nextPrjNum = 1001;
-    while (existingPrjNums.has(nextPrjNum)) {
-      nextPrjNum++;
-    }
-    const projectId = `SL-PRJ-${nextPrjNum}`;
+      let newProject: any = null;
+      if (parsedCapacity !== null) {
+        const projectId = await generateProjectId(tx);
 
-    const project = await prisma.solarProject.create({
-      data: {
-        projectId,
-        customerId: customer.id,
-        projectName: `${customer.fullName}'s Solar Plant`,
-        plantCapacityKw: 5,
-        propertyType: propertyType || "RESIDENTIAL",
-        solarType: "ON_GRID",
-        projectStatus: "IN_PROGRESS",
-        installationAddress: customer.installationAddress,
-        assignedSalesExecutiveId: assignedSalesExecutiveId || null,
-      },
-    });
+        newProject = await tx.solarProject.create({
+          data: {
+            projectId,
+            customerId: newCustomer.id,
+            projectName: `${newCustomer.fullName}'s ${parsedCapacity} kW Solar Plant`,
+            plantCapacityKw: parsedCapacity,
+            propertyType: propertyType || "RESIDENTIAL",
+            solarType: solarType || "ON_GRID",
+            projectStatus: "IN_PROGRESS",
+            installationAddress: newCustomer.installationAddress,
+            assignedSalesExecutiveId: assignedSalesExecutiveId || null,
+          },
+        });
+      }
 
-    await logAuditEvent({
-      entityType: "Customer",
-      entityId: customer.id,
-      fieldChanged: "all",
-      action: "CREATE",
-      actorId: "ADMIN",
-      actorType: "ADMIN",
-      source: "CRM",
-      newValue: `Admin created customer ${customer.customerId} (${customer.fullName}) with project ${projectId}`,
+      await logAuditEvent({
+        entityType: "Customer",
+        entityId: newCustomer.id,
+        fieldChanged: "all",
+        action: "CREATE",
+        actorId: "ADMIN",
+        actorType: "ADMIN",
+        source: "CRM",
+        client: tx,
+        newValue: newProject
+          ? `Admin created customer ${newCustomer.customerId} (${newCustomer.fullName}) with project ${newProject.projectId}`
+          : `Admin created customer ${newCustomer.customerId} (${newCustomer.fullName})`,
+      });
+
+      return { customer: newCustomer, project: newProject };
     });
 
     return NextResponse.json({
       success: true,
       customer,
-      project: {
-        id: project.id,
-        projectId: project.projectId,
-        projectCode: project.projectId,
-        capacityKw: project.plantCapacityKw,
-      },
+      project: project
+        ? {
+            id: project.id,
+            projectId: project.projectId,
+            projectCode: project.projectId,
+            capacityKw: project.plantCapacityKw,
+          }
+        : null,
       loginInstructions: `Client can log in securely using mobile (+91 ${cleanPhone}) via authenticated one-time OTP.`,
     });
   } catch (error: any) {
@@ -214,6 +212,13 @@ export async function DELETE(req: Request) {
       actorId: "ADMIN",
       actorType: "ADMIN",
       source: "CRM",
+      previousValue: JSON.stringify({
+        customerId: customer.customerId,
+        fullName: customer.fullName,
+        primaryMobile: customer.primaryMobile,
+        email: customer.email,
+        installationAddress: customer.installationAddress,
+      }),
       newValue: `Deleted customer ${customer.customerId} (${customer.fullName})`,
     });
 

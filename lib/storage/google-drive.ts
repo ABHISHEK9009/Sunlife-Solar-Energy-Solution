@@ -63,14 +63,14 @@ export async function getDriveConfigFromDb(): Promise<GoogleDriveConfig> {
     });
 
     if (dbRecord) {
-      const folderId = dbRecord.folderId || process.env.GOOGLE_DRIVE_FOLDER_ID || "1G1SVWYntTNcX3Zfjh4WvlASbRkcmEM9J";
+      const folderId = dbRecord.folderId || process.env.GOOGLE_DRIVE_FOLDER_ID || undefined;
       const config: GoogleDriveConfig = {
         enabled: dbRecord.enabled !== false,
         authMethod: (dbRecord.authMethod as any) || "OAUTH2",
         folderId,
         folderName: dbRecord.folderName || "sunlife solar",
-        folderLink: dbRecord.folderLink || `https://drive.google.com/drive/folders/${folderId}`,
-        accountEmail: dbRecord.accountEmail || "abhishekverma092k2@gmail.com",
+        folderLink: dbRecord.folderLink || (folderId ? `https://drive.google.com/drive/folders/${folderId}` : undefined),
+        accountEmail: dbRecord.accountEmail || process.env.ADMIN_EMAIL || undefined,
         clientId: dbRecord.clientId || process.env.GOOGLE_CLIENT_ID || undefined,
         clientSecret: dbRecord.clientSecret || process.env.GOOGLE_CLIENT_SECRET || undefined,
         refreshToken: dbRecord.refreshToken || process.env.GOOGLE_DRIVE_REFRESH_TOKEN || undefined,
@@ -119,7 +119,7 @@ export function getEffectiveDriveConfig(): GoogleDriveConfig {
   const clientId = fileConfig.clientId || process.env.GOOGLE_CLIENT_ID;
   const clientSecret = fileConfig.clientSecret || process.env.GOOGLE_CLIENT_SECRET;
   const refreshToken = fileConfig.refreshToken || process.env.GOOGLE_DRIVE_REFRESH_TOKEN;
-  const folderId = fileConfig.folderId || process.env.GOOGLE_DRIVE_FOLDER_ID || "1G1SVWYntTNcX3Zfjh4WvlASbRkcmEM9J";
+  const folderId = fileConfig.folderId || process.env.GOOGLE_DRIVE_FOLDER_ID || undefined;
   const serviceAccountEmail =
     fileConfig.serviceAccountEmail || process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const serviceAccountPrivateKey =
@@ -154,6 +154,7 @@ export function getEffectiveDriveConfig(): GoogleDriveConfig {
     refreshToken,
   };
 
+  cachedDriveConfig = config;
   return config;
 }
 
@@ -220,7 +221,17 @@ export async function getDriveClient(customConfig?: Partial<GoogleDriveConfig>) 
 
 export function isGoogleDriveEnabled(): boolean {
   const config = getEffectiveDriveConfig();
-  return Boolean(config.enabled && config.refreshToken);
+  if (!config.enabled) return false;
+  if (config.authMethod === "OAUTH2") {
+    return Boolean(config.clientId && config.clientSecret && config.refreshToken);
+  }
+  if (config.authMethod === "SERVICE_ACCOUNT") {
+    return Boolean(
+      (config.serviceAccountEmail && config.serviceAccountPrivateKey) ||
+      (config.serviceAccountKeyFile && fs.existsSync(config.serviceAccountKeyFile))
+    );
+  }
+  return false;
 }
 
 let tokenValidationCache: { valid: boolean; checkedAt: number } = { valid: false, checkedAt: 0 };
@@ -296,10 +307,10 @@ export async function saveGoogleDriveConfig(newConfig: Partial<GoogleDriveConfig
         id: "active",
         enabled: merged.enabled !== false,
         authMethod: merged.authMethod || "OAUTH2",
-        folderId: merged.folderId || "1G1SVWYntTNcX3Zfjh4WvlASbRkcmEM9J",
+        folderId: merged.folderId || null,
         folderName: merged.folderName || "sunlife solar",
         folderLink: merged.folderLink || (merged.folderId ? `https://drive.google.com/drive/folders/${merged.folderId}` : null),
-        accountEmail: merged.accountEmail || "abhishekverma092k2@gmail.com",
+        accountEmail: merged.accountEmail || process.env.ADMIN_EMAIL || null,
         clientId: merged.clientId || process.env.GOOGLE_CLIENT_ID || null,
         clientSecret: merged.clientSecret || process.env.GOOGLE_CLIENT_SECRET || null,
         refreshToken: merged.refreshToken || null,
@@ -321,7 +332,7 @@ export async function saveGoogleDriveConfig(newConfig: Partial<GoogleDriveConfig
     console.error("[Google Drive] Failed to persist config to DB:", dbErr);
   }
 
-  // 2. Disk cache (safe if filesystem is writable)
+  // 2. Disk cache (safe if filesystem is writable, durable in container)
   try {
     const dataDir = path.join(process.cwd(), "data");
     if (!fs.existsSync(dataDir)) {
@@ -332,30 +343,8 @@ export async function saveGoogleDriveConfig(newConfig: Partial<GoogleDriveConfig
     // Non-fatal on read-only serverless
   }
 
-  // 3. Dev .env update
-  try {
-    const envPath = path.join(process.cwd(), ".env");
-    if (fs.existsSync(envPath)) {
-      let envContent = fs.readFileSync(envPath, "utf-8");
-      const updateOrAppend = (key: string, val: string | undefined) => {
-        if (!val) return;
-        const regex = new RegExp(`^${key}=.*$`, "m");
-        const entry = `${key}="${val.replace(/"/g, '\\"')}"`;
-        if (regex.test(envContent)) {
-          envContent = envContent.replace(regex, entry);
-        } else {
-          envContent += `\n${entry}`;
-        }
-      };
-
-      if (merged.folderId) updateOrAppend("GOOGLE_DRIVE_FOLDER_ID", merged.folderId);
-      if (merged.refreshToken) updateOrAppend("GOOGLE_DRIVE_REFRESH_TOKEN", merged.refreshToken);
-
-      fs.writeFileSync(envPath, envContent, "utf-8");
-    }
-  } catch (envErr) {
-    // Non-fatal
-  }
+  // Note: Application code no longer mutates local .env files (Bug #23).
+  // Neon PostgreSQL database and memory cache are the primary runtime storage.
 
   return merged;
 }
@@ -527,23 +516,29 @@ export async function handleGoogleDriveOAuthCallback(code: string, redirectOrigi
     console.warn("Could not get user email:", e);
   }
 
-  // Default to folder 1G1SVWYntTNcX3Zfjh4WvlASbRkcmEM9J ("sunlife solar")
-  let folderId = config.folderId || "1G1SVWYntTNcX3Zfjh4WvlASbRkcmEM9J";
+  // Use configured folder or search for existing "sunlife solar" folder
+  let folderId = config.folderId || process.env.GOOGLE_DRIVE_FOLDER_ID;
   let folderName = config.folderName || "sunlife solar";
 
-  try {
-    const fRes = await drive.files.get({
-      fileId: folderId,
-      fields: "id, name, trashed",
-      supportsAllDrives: true,
-    });
-    if (fRes.data.trashed) {
-      folderId = undefined as any;
-    } else {
-      folderName = fRes.data.name || folderName;
+  if (folderId) {
+    try {
+      const fRes = await drive.files.get({
+        fileId: folderId,
+        fields: "id, name, trashed",
+        supportsAllDrives: true,
+      });
+      if (fRes.data.trashed) {
+        folderId = undefined as any;
+      } else {
+        folderName = fRes.data.name || folderName;
+      }
+    } catch (fErr) {
+      console.warn("Target folder not found by ID, checking by name:", fErr);
+      folderId = undefined;
     }
-  } catch (fErr) {
-    console.warn("Target folder not found by ID, checking by name:", fErr);
+  }
+
+  if (!folderId) {
     try {
       const searchRes = await drive.files.list({
         q: "name = 'sunlife solar' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
@@ -554,18 +549,16 @@ export async function handleGoogleDriveOAuthCallback(code: string, redirectOrigi
         folderId = searchRes.data.files[0].id!;
         folderName = searchRes.data.files[0].name || "sunlife solar";
       } else {
-        const createRes = await drive.files.create({
-          requestBody: {
-            name: "sunlife solar",
-            mimeType: "application/vnd.google-apps.folder",
-          },
-          fields: "id, name",
-        });
-        folderId = createRes.data.id!;
-        folderName = createRes.data.name || "sunlife solar";
+        // Do NOT silently create a new folder. Fail safely and require owner folder configuration.
+        throw new Error(
+          "MANUAL ACTION REQUIRED — OWNER: Destination folder 'sunlife solar' was not found in Google Drive. Please specify an existing Google Drive folder ID in settings."
+        );
       }
-    } catch (cErr) {
-      console.error("Could not find or create folder:", cErr);
+    } catch (cErr: any) {
+      if (cErr.message && cErr.message.includes("MANUAL ACTION REQUIRED")) {
+        throw cErr;
+      }
+      console.error("Could not verify target folder:", cErr);
     }
   }
 
@@ -584,7 +577,7 @@ export async function handleGoogleDriveOAuthCallback(code: string, redirectOrigi
     folderId,
     folderName,
     folderLink: folderId ? `https://drive.google.com/drive/folders/${folderId}` : undefined,
-    accountEmail: accountEmail || config.accountEmail || "abhishekverma092k2@gmail.com",
+    accountEmail: accountEmail || config.accountEmail || process.env.ADMIN_EMAIL || undefined,
   });
 
   return {
@@ -606,7 +599,13 @@ export async function uploadDocumentToDrive(options: UploadOptions): Promise<Upl
   if (drive) {
     try {
       const config = await getDriveConfigFromDb();
-      let targetFolderId = config.folderId || "1G1SVWYntTNcX3Zfjh4WvlASbRkcmEM9J";
+      let targetFolderId = config.folderId || process.env.GOOGLE_DRIVE_FOLDER_ID || undefined;
+
+      if (!targetFolderId) {
+        throw new Error(
+          "MANUAL ACTION REQUIRED — OWNER: Google Drive destination folder ID is missing. Files cannot be saved without an explicit folder destination. Please set GOOGLE_DRIVE_FOLDER_ID in environment or CRM Settings."
+        );
+      }
 
       const cleanFileName = customerName && !fileName.includes(customerName)
         ? `${customerName} - ${fileName}`

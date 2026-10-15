@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { enqueueWhatsAppMessage, normalizePhone, dispatchQueuedMessages } from "@/lib/whatsapp/queue";
 import { getWhatsAppProvider } from "@/lib/whatsapp/provider";
+import { authenticateAdminRequest } from "@/lib/crm/admin-auth";
 
 export async function GET(req: NextRequest) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const action = searchParams.get("action") || "conversations";
@@ -52,7 +57,7 @@ export async function GET(req: NextRequest) {
     const where: any = {};
 
     if (filter === "unmatched") {
-      where.status = "UNMATCHED";
+      where.status = { in: ["UNMATCHED", "QUARANTINED"] };
     } else if (filter === "unread") {
       where.unreadCount = { gt: 0 };
     } else if (filter === "open") {
@@ -138,6 +143,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const { action = "send" } = body;

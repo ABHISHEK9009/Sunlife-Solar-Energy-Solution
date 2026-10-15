@@ -143,18 +143,13 @@ export async function dispatchCustomerOtp(options: SendCustomerOtpOptions): Prom
     }
   }
 
-  // 5. Resilient Fallback Sandbox: When live WhatsApp & SMS gateways are temporarily
-  // unconfigured or disconnected, failover gracefully so onboarding is never hard-blocked.
-  console.log(`\n======================================================`);
-  console.log(`[SUNLIFE OTP DISPATCH - FALLBACK SANDBOX]`);
-  console.log(`Mobile: +91 ${phone}`);
-  console.log(`OTP Code: ${otp} (Bypass Code: 123456)`);
-  console.log(`Expires in: 10 minutes`);
-  console.log(`======================================================\n`);
+  // 5. Fail-Safe Final State: If all delivery channels failed, report delivery failure honestly
+  console.warn(`[SUNLIFE OTP DISPATCH] All delivery channels failed for +91 ${maskedDest}.`);
 
   return {
-    sent: true,
-    channel: "DEV_SANDBOX",
+    sent: false,
+    channel: "SMS",
     destination: maskedDest,
+    error: "Unable to dispatch verification code right now. Please verify your mobile number or try again in a few moments.",
   };
 }

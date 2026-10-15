@@ -3,8 +3,13 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { logAuditEvent } from "@/lib/crm/audit-logger";
+import { authenticateAdminRequest } from "@/lib/crm/admin-auth";
 
-export async function GET() {
+export async function GET(req: Request) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const tickets = await prisma.serviceTicket.findMany({
       orderBy: { submittedDate: "desc" },
@@ -23,6 +28,10 @@ export async function GET() {
 }
 
 export async function PATCH(req: Request) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const { id, status, assignedTechnicianId, scheduledVisit, resolutionDetails, internalNotes } = body;

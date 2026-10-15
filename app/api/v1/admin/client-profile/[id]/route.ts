@@ -3,11 +3,17 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { logAuditEvent } from "@/lib/crm/audit-logger";
+import { authenticateAdminRequest } from "@/lib/crm/admin-auth";
+import { generateProjectId, generateSurveyId, generateDocumentId } from "@/lib/crm/sequence-generator";
 
 export async function GET(
   req: Request,
   { params }: { params: { id: string } }
 ) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const { id } = params;
 
@@ -319,6 +325,10 @@ export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const { id } = params;
     const body = await req.json();
@@ -380,6 +390,10 @@ export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
+  if (!(await authenticateAdminRequest(req))) {
+    return NextResponse.json({ error: "Unauthorized admin access." }, { status: 401 });
+  }
+
   try {
     const { id } = params;
     const body = await req.json();
@@ -402,8 +416,7 @@ export async function POST(
 
       // If no project exists yet, auto-provision one so operations can track it
       if (!activeProject) {
-        const projectCount = await prisma.solarProject.count();
-        const projectId = `SL-PRJ-${1000 + projectCount + 1}`;
+        const projectId = await generateProjectId();
         const lead = customer.leads?.[0];
 
         activeProject = await prisma.solarProject.create({
@@ -536,8 +549,7 @@ export async function POST(
 
       if (!activeProject) {
         // Provision project if not existing
-        const projectCount = await prisma.solarProject.count();
-        const projectId = `SL-PRJ-${1000 + projectCount + 1}`;
+        const projectId = await generateProjectId();
         activeProject = await prisma.solarProject.create({
           data: {
             projectId,
@@ -600,10 +612,10 @@ export async function POST(
             },
           });
         } else {
-          const surveyCount = await prisma.siteSurvey.count();
+          const surveyId = await generateSurveyId();
           await prisma.siteSurvey.create({
             data: {
-              surveyId: `SL-SRV-${1000 + surveyCount + 1}`,
+              surveyId,
               customerId: customer.id,
               projectId: activeProject.id,
               scheduledDateTime: new Date(),
@@ -683,8 +695,7 @@ export async function POST(
         return NextResponse.json({ error: "Scheduled date & time is required." }, { status: 400 });
       }
 
-      const surveyCount = await prisma.siteSurvey.count();
-      const surveyId = `SL-SRV-${1000 + surveyCount + 1}`;
+      const surveyId = await generateSurveyId();
 
       const survey = await prisma.siteSurvey.create({
         data: {
@@ -800,8 +811,7 @@ export async function POST(
         return NextResponse.json({ error: "Document category and name are required." }, { status: 400 });
       }
 
-      const docCount = await prisma.document.count();
-      const documentId = `SL-DOC-${1000 + docCount + 1}`;
+      const documentId = await generateDocumentId();
       const linkedProjectId = projectId || (customer.projects.length > 0 ? customer.projects[0].id : null);
 
       const document = await prisma.document.create({

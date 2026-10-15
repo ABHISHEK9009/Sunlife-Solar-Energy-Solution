@@ -19,7 +19,7 @@ const {
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
-const API_KEY = process.env.WHATSAPP_API_KEY || "sunlife_whatsapp_secret_key_2026";
+const API_KEY = (process.env.WHATSAPP_API_KEY || "").trim();
 
 // Determine CRM URLs with cloud fallback
 let CRM_WEBHOOK_URL = process.env.CRM_WEBHOOK_URL || "https://sunlifesolar.in/api/v1/whatsapp/webhook";
@@ -33,7 +33,7 @@ if (
 const CRM_DISPATCH_URL =
   process.env.CRM_DISPATCH_URL ||
   (CRM_WEBHOOK_URL ? CRM_WEBHOOK_URL.replace(/\/webhook\/?$/, "/dispatch") : "https://sunlifesolar.in/api/v1/whatsapp/dispatch");
-const CRM_WEBHOOK_SECRET = process.env.CRM_WEBHOOK_SECRET || "sunlife_webhook_secret_key_2026";
+const CRM_WEBHOOK_SECRET = (process.env.CRM_WEBHOOK_SECRET || "").trim();
 const CRM_BASE_URL = CRM_WEBHOOK_URL.replace(/\/webhook\/?$/, "");
 const CRM_SESSION_SYNC_URL = process.env.CRM_SESSION_SYNC_URL || `${CRM_BASE_URL}/session-sync`;
 const CRM_GET_MESSAGE_URL = process.env.CRM_GET_MESSAGE_URL || `${CRM_BASE_URL}/get-message`;

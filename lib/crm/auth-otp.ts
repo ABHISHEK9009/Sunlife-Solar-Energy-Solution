@@ -66,10 +66,12 @@ export async function sendCustomerOtp(rawPhone: string) {
       orderBy: { createdAt: "desc" },
       select: { name: true, email: true },
     }),
-    prisma.teamMember.findFirst({
-      where: { phone: cleanPhone },
-      select: { name: true, email: true },
-    }),
+    prisma.teamMember?.findFirst
+      ? prisma.teamMember.findFirst({
+          where: { phone: cleanPhone },
+          select: { name: true, email: true },
+        })
+      : Promise.resolve(null),
   ]);
 
   const customerName = customer?.fullName || lead?.name || teamMember?.name || "Customer";
@@ -108,10 +110,7 @@ export async function sendCustomerOtp(rawPhone: string) {
     deliveryChannel: delivery.channel,
     expiresInSeconds: 600,
     cooldownSeconds: 60,
-    devOtp: delivery.channel === "DEV_SANDBOX" ? "123456" : undefined,
-    message: delivery.channel === "DEV_SANDBOX"
-      ? "Gateway pairing in progress. Use verification code 123456 to continue."
-      : "Verification code sent successfully.",
+    message: "Verification code sent successfully.",
   };
 }
 
@@ -128,41 +127,38 @@ export async function verifyCustomerOtp(rawPhone: string, userOtp: string) {
   }
 
   const challenge = customerOtpCache.get(cleanPhone);
-  const isTestMasterCode = trimmedOtp === "123456";
 
-  if (!challenge && !isTestMasterCode) {
+  if (!challenge) {
     throw new Error("No active verification code found. Please request a new OTP.");
   }
 
   const now = Date.now();
-  if (challenge && challenge.expiresAt < now && !isTestMasterCode) {
+  if (challenge.expiresAt < now) {
     customerOtpCache.delete(cleanPhone);
     throw new Error("This verification code has expired. Please request a new one.");
   }
 
-  if (challenge && challenge.attempts >= 5 && !isTestMasterCode) {
+  if (challenge.attempts >= 5) {
     customerOtpCache.delete(cleanPhone);
     throw new Error("Maximum attempts exceeded. Please request a new verification code.");
   }
 
-  if (!isTestMasterCode && challenge) {
-    const incomingHash = createHash("sha256").update(trimmedOtp).digest("hex");
-    const incomingBuffer = Buffer.from(incomingHash);
-    const targetBuffer = Buffer.from(challenge.otpHash);
+  const incomingHash = createHash("sha256").update(trimmedOtp).digest("hex");
+  const incomingBuffer = Buffer.from(incomingHash);
+  const targetBuffer = Buffer.from(challenge.otpHash);
 
-    const isMatch =
-      incomingBuffer.length === targetBuffer.length &&
-      timingSafeEqual(incomingBuffer, targetBuffer);
+  const isMatch =
+    incomingBuffer.length === targetBuffer.length &&
+    timingSafeEqual(incomingBuffer, targetBuffer);
 
-    if (!isMatch) {
-      challenge.attempts += 1;
-      const remaining = 5 - challenge.attempts;
-      if (remaining <= 0) {
-        customerOtpCache.delete(cleanPhone);
-        throw new Error("Maximum attempts exceeded. Please request a new OTP.");
-      }
-      throw new Error(`Incorrect code. ${remaining} attempts remaining.`);
+  if (!isMatch) {
+    challenge.attempts += 1;
+    const remaining = 5 - challenge.attempts;
+    if (remaining <= 0) {
+      customerOtpCache.delete(cleanPhone);
+      throw new Error("Maximum attempts exceeded. Please request a new OTP.");
     }
+    throw new Error(`Incorrect code. ${remaining} attempts remaining.`);
   }
 
   // ─── RESOLVE ACCOUNT IDENTITY IN CRM ─────────────────────────────────────
@@ -354,31 +350,68 @@ export async function authenticateCustomerRequest(request: Request): Promise<any
       const ageMs = Date.now() - parseInt(timestampStr, 10);
       if (ageMs > 30 * 24 * 60 * 60 * 1000) return null;
 
-      // Check if user has since been promoted to an ACTIVE Customer
-      const activeCustomer = await prisma.customer.findUnique({
-        where: { primaryMobile: phone },
-      });
+      // 1. If token was issued for an existing Customer
+      if (entityType === "customer") {
+        const customer = await prisma.customer.findUnique({
+          where: { id: entityId },
+        });
 
-      if (activeCustomer && activeCustomer.customerStatus === "ACTIVE" && activeCustomer.appAccessEnabled) {
-        return activeCustomer;
+        if (
+          customer &&
+          customer.primaryMobile === phone &&
+          customer.customerStatus === "ACTIVE" &&
+          customer.appAccessEnabled
+        ) {
+          return customer;
+        }
+        return null;
       }
 
-      // If entity is still a Lead
+      // 2. If token was issued for a Lead
       if (entityType === "lead") {
         const lead = await prisma.lead.findUnique({ where: { id: entityId } });
-        if (lead) {
-          // Return customer-like interface for compatibility
-          return {
-            ...lead,
-            id: lead.id,
-            customerId: lead.leadId || lead.id,
-            fullName: lead.name,
-            primaryMobile: lead.phone,
-            appAccessEnabled: true,
-            customerStatus: "LEAD",
-            isLead: true,
-          };
+        if (!lead || lead.phone !== phone) {
+          return null;
         }
+
+        // Check if lead was converted to a Customer
+        if (lead.customerId) {
+          const convertedCustomer = await prisma.customer.findUnique({
+            where: { id: lead.customerId },
+          });
+          if (
+            convertedCustomer &&
+            convertedCustomer.customerStatus === "ACTIVE" &&
+            convertedCustomer.appAccessEnabled
+          ) {
+            return convertedCustomer;
+          }
+        }
+
+        // Check if customer exists by phone
+        const activeCustomer = await prisma.customer.findUnique({
+          where: { primaryMobile: phone },
+        });
+
+        if (
+          activeCustomer &&
+          activeCustomer.customerStatus === "ACTIVE" &&
+          activeCustomer.appAccessEnabled
+        ) {
+          return activeCustomer;
+        }
+
+        // Return customer-like interface for open lead
+        return {
+          ...lead,
+          id: lead.id,
+          customerId: lead.leadId || lead.id,
+          fullName: lead.name,
+          primaryMobile: lead.phone,
+          appAccessEnabled: true,
+          customerStatus: "LEAD",
+          isLead: true,
+        };
       }
 
       return null;
