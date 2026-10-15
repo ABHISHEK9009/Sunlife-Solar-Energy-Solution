@@ -1287,40 +1287,103 @@ export default function AdminDocumentsPage() {
               )}
 
               {/* Tab 2: 1-Click Connect with Google Account (OAuth2) */}
+              {/* Tab 2: 1-Click Connect with Google Account (OAuth2) */}
               {activeDriveTab === "OAUTH2" && (
                 <div className="space-y-4 pt-1">
                   <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs text-slate-700">
                     <div className="font-bold text-slate-900 flex items-center gap-1.5">
                       <Cloud className="w-4 h-4 text-blue-600" />
-                      <span>One-Click Authorization</span>
+                      <span>1-Click Google Drive Connection</span>
                     </div>
                     <p className="text-slate-600 text-[11px] leading-relaxed">
-                      Sign in with your Google Account (e.g. <code>infosses24@gmail.com</code>). The CRM will create a
-                      dedicated <strong>"Sunlife Solar CRM Documents"</strong> folder directly in your personal or company Google Drive.
+                      Authorize access to save customer KYC, Quotations, and WhatsApp media into your Google Drive folder:
+                      <code className="mx-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 font-semibold rounded">sunlife solar (1G1SVWYntTNcX3Zfjh4WvlASbRkcmEM9J)</code>
                     </p>
+                  </div>
+
+                  {/* Google Cloud Console Setup Note */}
+                  <div className="p-4 bg-amber-50/70 rounded-2xl border border-amber-200/80 space-y-2.5 text-xs text-amber-900">
+                    <div className="flex items-center justify-between">
+                      <div className="font-bold flex items-center gap-1.5">
+                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>Google Cloud Redirect URIs</span>
+                      </div>
+                      <a
+                        href="https://console.cloud.google.com/apis/credentials"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[10px] text-amber-800 hover:text-amber-950 underline font-semibold flex items-center gap-1"
+                      >
+                        <span>Open Google Console Credentials</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                    <p className="text-slate-600 text-[11px] leading-relaxed">
+                      If Google displays <strong>Error 400: redirect_uri_mismatch</strong>, add both URLs below under your OAuth Client ID's <strong>Authorized redirect URIs</strong> in Google Cloud Console:
+                    </p>
+                    <div className="space-y-1.5">
+                      {[
+                        "https://sunlifesolar.in/api/auth/callback/google",
+                        "https://sunlifesolar.in/api/v1/admin/documents/drive-auth/callback",
+                      ].map((uri) => (
+                        <div key={uri} className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-amber-200/60 font-mono text-[11px] text-slate-800">
+                          <span className="truncate pr-2">{uri}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(uri);
+                              setCopiedKey(uri);
+                              setTimeout(() => setCopiedKey(null), 2500);
+                            }}
+                            className="text-[10px] font-sans font-bold px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 shrink-0 flex items-center gap-1 cursor-pointer"
+                          >
+                            {copiedKey === uri ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                <span className="text-emerald-700">Copied</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3" />
+                                <span>Copy</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                      Target Folder ID (Optional)
+                      Target Folder ID
                     </label>
                     <input
                       type="text"
                       value={driveFolderInput}
                       onChange={(e) => setDriveFolderInput(e.target.value)}
-                      placeholder="Leave blank to auto-create folder in your Drive"
+                      placeholder="1G1SVWYntTNcX3Zfjh4WvlASbRkcmEM9J (sunlife solar)"
                       className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
                     />
                   </div>
 
-                  <a
-                    href="/api/v1/admin/documents/drive-auth"
-                    className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer"
-                  >
-                    <Cloud className="w-4 h-4 text-blue-400" />
-                    <span>Sign In with Google & Authorize Drive Access</span>
-                    <ExternalLink className="w-3.5 h-3.5 opacity-60" />
-                  </a>
+                  <div className="space-y-2 pt-1">
+                    <a
+                      href="/api/v1/admin/documents/drive-auth?callback=google"
+                      className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer"
+                    >
+                      <Cloud className="w-4 h-4 text-blue-400" />
+                      <span>Sign In with Google (Callback Route A: /api/auth/callback/google)</span>
+                      <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+                    </a>
+                    <a
+                      href="/api/v1/admin/documents/drive-auth?callback=admin"
+                      className="w-full py-2.5 px-4 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                      <span>Alternative: Sign In via Route B (/drive-auth/callback)</span>
+                      <ExternalLink className="w-3 h-3 opacity-60" />
+                    </a>
+                  </div>
                 </div>
               )}
 
