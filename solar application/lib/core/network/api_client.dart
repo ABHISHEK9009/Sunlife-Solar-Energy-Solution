@@ -5,8 +5,12 @@ import '../constants/api_constants.dart';
 import '../storage/secure_storage_service.dart';
 
 class ApiException extends AppFailure {
-  ApiException(String diagnostic, {int? statusCode, dynamic details, FailureKind? kind})
+  ApiException(this.diagnostic, {int? statusCode, dynamic details, FailureKind? kind})
       : super(kind ?? ErrorMapper.fromStatus(statusCode).kind, statusCode: statusCode);
+  final String diagnostic;
+
+  @override
+  String get message => diagnostic.trim().isNotEmpty ? diagnostic.trim() : super.message;
 }
 
 class ApiClient {
@@ -151,6 +155,14 @@ class ApiClient {
 
   ApiException _handleDioError(DioException error) {
     final failure = ErrorMapper.map(error);
-    return ApiException('', statusCode: failure.statusCode, kind: failure.kind);
+    String serverMsg = '';
+    final resData = error.response?.data;
+    if (resData is Map) {
+      final msg = resData['error'] ?? resData['message'];
+      if (msg != null && msg.toString().trim().isNotEmpty) {
+        serverMsg = msg.toString().trim();
+      }
+    }
+    return ApiException(serverMsg, statusCode: failure.statusCode, kind: failure.kind);
   }
 }

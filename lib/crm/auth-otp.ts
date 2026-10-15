@@ -55,8 +55,8 @@ export async function sendCustomerOtp(rawPhone: string) {
     throw new Error(`Please wait ${remaining} seconds before requesting a new OTP.`);
   }
 
-  // Find existing customer or lead email for backup delivery if available
-  const [customer, lead] = await Promise.all([
+  // Find existing customer, lead, or team member email for backup delivery if available
+  const [customer, lead, teamMember] = await Promise.all([
     prisma.customer.findUnique({
       where: { primaryMobile: cleanPhone },
       select: { fullName: true, email: true },
@@ -66,10 +66,14 @@ export async function sendCustomerOtp(rawPhone: string) {
       orderBy: { createdAt: "desc" },
       select: { name: true, email: true },
     }),
+    prisma.teamMember.findFirst({
+      where: { phone: cleanPhone },
+      select: { name: true, email: true },
+    }),
   ]);
 
-  const customerName = customer?.fullName || lead?.name || "Customer";
-  const email = customer?.email || lead?.email;
+  const customerName = customer?.fullName || lead?.name || teamMember?.name || "Customer";
+  const email = customer?.email || lead?.email || teamMember?.email;
 
   // Single cryptographically secure 6-digit OTP
   const otp = randomInt(100000, 1000000).toString();
