@@ -215,21 +215,25 @@ export default function WhatsAppInboxPage() {
     }
   };
 
-  // Fetch QR Code for pairing
-  const fetchQrCode = async () => {
-    setIsLoadingQr(true);
+  // Fetch QR Code for pairing (prevents flicker on background refreshes)
+  const fetchQrCode = async (isInitial = false) => {
+    if (isInitial && !qrCodeData) {
+      setIsLoadingQr(true);
+    }
     try {
       const res = await fetch("/api/v1/admin/whatsapp?action=gateway_qr");
       const data = await res.json();
       if (data.qr) {
-        setQrCodeData(data.qr);
-      } else {
+        setQrCodeData((prev) => (prev !== data.qr ? data.qr : prev));
+      } else if (!qrCodeData) {
         setQrCodeData(null);
       }
     } catch (e) {
       console.error("Failed to fetch QR code:", e);
     } finally {
-      setIsLoadingQr(false);
+      if (isInitial) {
+        setIsLoadingQr(false);
+      }
     }
   };
 
@@ -282,19 +286,19 @@ export default function WhatsAppInboxPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // QR Modal Polling
+  // QR Modal Polling (smooth background check every 4s, avoids flickering/shaking)
   useEffect(() => {
     let qrInterval: NodeJS.Timeout | null = null;
     if (showQrModal) {
-      fetchQrCode();
+      fetchQrCode(true);
       qrInterval = setInterval(async () => {
         await fetchGatewayStatus();
         if (gatewayStatus.isConnected) {
           setShowQrModal(false);
         } else {
-          fetchQrCode();
+          fetchQrCode(false);
         }
-      }, 3000);
+      }, 4000);
     }
     return () => {
       if (qrInterval) clearInterval(qrInterval);
@@ -1301,24 +1305,29 @@ export default function WhatsAppInboxPage() {
             </div>
 
             {/* QR Display */}
-            <div className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-xl border border-slate-100 min-h-[220px]">
-              {isLoadingQr ? (
+            <div className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-xl border border-slate-100 min-h-[240px]">
+              {isLoadingQr && !qrCodeData ? (
                 <div className="flex flex-col items-center gap-2 text-xs text-slate-500">
                   <RefreshCw className="w-6 h-6 animate-spin text-emerald-600" />
-                  <span>Generating QR code...</span>
+                  <span>Loading pairing QR code...</span>
                 </div>
               ) : qrCodeData ? (
-                <img
-                  src={qrCodeData}
-                  alt="WhatsApp QR Code"
-                  className="w-48 h-48 rounded-lg shadow-xs border border-slate-200"
-                />
+                <div className="flex flex-col items-center gap-2">
+                  <img
+                    src={qrCodeData}
+                    alt="WhatsApp QR Code"
+                    className="w-52 h-52 rounded-xl shadow-xs border border-slate-200 bg-white p-2"
+                  />
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    WhatsApp refreshes security keys every ~25–30s
+                  </p>
+                </div>
               ) : (
                 <div className="text-center text-xs text-slate-500 space-y-2">
-                  <p>QR Code not ready yet or Gateway is offline.</p>
+                  <p>QR Code not ready yet or Gateway is initializing...</p>
                   <button
-                    onClick={fetchQrCode}
-                    className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-bold"
+                    onClick={() => fetchQrCode(true)}
+                    className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-bold cursor-pointer"
                   >
                     Retry
                   </button>
