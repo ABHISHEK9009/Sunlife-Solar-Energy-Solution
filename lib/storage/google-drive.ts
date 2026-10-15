@@ -487,7 +487,6 @@ export function getGoogleDriveAuthUrl(redirectOrigin: string, customPath?: strin
     access_type: "offline",
     prompt: "consent select_account",
     scope: SCOPES,
-    include_granted_scopes: true,
   });
 }
 
@@ -570,11 +569,18 @@ export async function handleGoogleDriveOAuthCallback(code: string, redirectOrigi
     }
   }
 
+  const effectiveRefreshToken = tokens.refresh_token || config.refreshToken;
+  if (!effectiveRefreshToken) {
+    throw new Error(
+      "Google did not issue a permanent Refresh Token because access was previously granted. Please visit https://myaccount.google.com/permissions, select 'Sunlife Solar' -> 'Remove access', then click Connect again."
+    );
+  }
+
   // Save config into Neon PostgreSQL
   await saveGoogleDriveConfig({
     enabled: true,
     authMethod: "OAUTH2",
-    refreshToken: tokens.refresh_token || config.refreshToken,
+    refreshToken: effectiveRefreshToken,
     folderId,
     folderName,
     folderLink: folderId ? `https://drive.google.com/drive/folders/${folderId}` : undefined,
