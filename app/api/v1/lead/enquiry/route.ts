@@ -18,10 +18,14 @@ export async function POST(req: Request) {
       name,
       city,
       pinCode,
+      localArea,
       propertyType,
       monthlyBill,
       roofSize,
       rooftopArea,
+      roofType,
+      solarSystemType,
+      discom,
       interestedSolution,
       requestedCapacity,
       surveyRequestedDate,
@@ -42,6 +46,13 @@ export async function POST(req: Request) {
 
       const territory = await assignLeadToSales(city, pinCode);
 
+      const extraNotes = [
+        solarSystemType ? `System: ${solarSystemType}` : null,
+        roofType ? `Roof: ${roofType}` : null,
+        discom ? `DISCOM: ${discom}` : null,
+        localArea ? `Area: ${localArea}` : null,
+      ].filter(Boolean).join(" | ");
+
       if (!openLead) {
         const count = await prisma.lead.count();
         const leadCode = `SL-LEAD-${new Date().getFullYear()}-${String(count + 1).padStart(4, "0")}`;
@@ -52,12 +63,14 @@ export async function POST(req: Request) {
             name: name || entity.fullName || "Customer",
             phone,
             city: city || "Narmadapuram",
+            location: localArea ? `${localArea}, ${city || "Narmadapuram"}` : (city || "Narmadapuram"),
             propertyType: propertyType || "Commercial",
             monthlyBill: monthlyBill ? String(monthlyBill) : null,
             roofSize: roofSize ? String(roofSize) : null,
             requestedCapacity: requestedCapacity ? parseFloat(requestedCapacity) : null,
-            interestedSolution: interestedSolution || "Rooftop Solar",
+            interestedSolution: interestedSolution || solarSystemType || "Rooftop Solar",
             surveyRequestedDate: surveyRequestedDate ? new Date(surveyRequestedDate) : null,
+            notes: extraNotes || null,
             status: "NEW",
             source: "Sunlife Solar Mobile App (Additional Property)",
             leadSource: "Sunlife Solar Mobile App",
@@ -70,11 +83,14 @@ export async function POST(req: Request) {
           data: {
             name: name || openLead.name,
             city: city || openLead.city,
+            location: localArea ? `${localArea}, ${city || openLead.city}` : (city || openLead.city),
             propertyType: propertyType || openLead.propertyType,
             monthlyBill: monthlyBill ? String(monthlyBill) : openLead.monthlyBill,
             roofSize: roofSize ? String(roofSize) : openLead.roofSize,
             requestedCapacity: requestedCapacity ? parseFloat(requestedCapacity) : openLead.requestedCapacity,
+            interestedSolution: interestedSolution || solarSystemType || openLead.interestedSolution,
             surveyRequestedDate: surveyRequestedDate ? new Date(surveyRequestedDate) : openLead.surveyRequestedDate,
+            notes: extraNotes ? (openLead.notes ? `${openLead.notes}\n${extraNotes}` : extraNotes) : openLead.notes,
             status: "NEW",
           },
         });
@@ -100,15 +116,29 @@ export async function POST(req: Request) {
     if (name) updateData.name = name.trim();
     if (city) {
       updateData.city = city.trim();
-      updateData.location = city.trim();
+      updateData.location = localArea ? `${localArea.trim()}, ${city.trim()}` : city.trim();
+    } else if (localArea) {
+      updateData.location = `${localArea.trim()}, ${existingLead.city || "Narmadapuram"}`;
     }
     if (propertyType) updateData.propertyType = propertyType;
     if (monthlyBill) updateData.monthlyBill = String(monthlyBill);
     if (roofSize) updateData.roofSize = String(roofSize);
     if (rooftopArea) updateData.rooftopArea = String(rooftopArea);
     if (interestedSolution) updateData.interestedSolution = interestedSolution;
+    if (solarSystemType && !interestedSolution) updateData.interestedSolution = solarSystemType;
     if (requestedCapacity) updateData.requestedCapacity = parseFloat(requestedCapacity);
     if (surveyRequestedDate) updateData.surveyRequestedDate = new Date(surveyRequestedDate);
+
+    const extraLeadNotes = [
+      solarSystemType ? `System: ${solarSystemType}` : null,
+      roofType ? `Roof: ${roofType}` : null,
+      discom ? `DISCOM: ${discom}` : null,
+      pinCode ? `PIN: ${pinCode}` : null,
+    ].filter(Boolean).join(" | ");
+
+    if (extraLeadNotes) {
+      updateData.notes = existingLead.notes ? `${existingLead.notes}\n${extraLeadNotes}` : extraLeadNotes;
+    }
 
     // If city is updated, re-evaluate territory assignment if not yet assigned
     if (city && !existingLead.assignedSalesExecutiveId) {
