@@ -100,7 +100,8 @@ class AuthRepository extends ChangeNotifier {
       final data = _toMap(res.data);
       if ((res.statusCode == 200 || res.statusCode == 201) && data != null && data['success'] == true) {
         final destination = (data['maskedMobile'] ?? data['maskedDestination']) as String?;
-        const message = AppMessages.codeSent;
+        final serverMsg = data['message'] as String?;
+        final message = (serverMsg != null && serverMsg.isNotEmpty) ? serverMsg : AppMessages.codeSent;
         return OtpRequestResult(
           success: true,
           maskedEmail: destination,
