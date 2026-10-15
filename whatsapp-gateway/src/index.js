@@ -275,9 +275,37 @@ function calculateBackoffMs(attempt) {
   return Math.floor(base + jitter);
 }
 
+// ─────────────────────────────────────────────────────────────
+// Presence Heartbeat (Prevents WhatsApp Inactivity Logout)
+// Sends 'available' presence every 45s to keep companion connection active 24/7
+// ─────────────────────────────────────────────────────────────
+let presenceHeartbeatInterval = null;
+function startPresenceHeartbeat() {
+  if (presenceHeartbeatInterval) return;
+  logger.info("Starting WhatsApp keep-alive presence heartbeat (every 45s)...");
+  presenceHeartbeatInterval = setInterval(async () => {
+    if (connectionStatus === "CONNECTED" && sock) {
+      try {
+        await sock.sendPresenceUpdate("available");
+      } catch (err) {
+        // non-fatal
+      }
+    }
+  }, 45000);
+}
+
+function stopPresenceHeartbeat() {
+  if (presenceHeartbeatInterval) {
+    clearInterval(presenceHeartbeatInterval);
+    presenceHeartbeatInterval = null;
+    logger.info("Stopped WhatsApp presence heartbeat.");
+  }
+}
+
 // Helper: Cleanly destroy existing socket and event listeners
 async function destroySocket() {
   stopQueueDispatcher();
+  stopPresenceHeartbeat();
   if (reconnectTimer) {
     clearTimeout(reconnectTimer);
     reconnectTimer = null;
@@ -346,6 +374,15 @@ async function connectToWhatsApp() {
 
     // 2. Load auth state from MultiFile
     const { state, saveCreds } = await useMultiFileAuthState(SESSIONS_DIR);
+
+    // CRITICAL: Hook into state.keys.set to capture ANY pre-key, session, sender-key, or app-state change!
+    // Without this, rotated keys stay only on local disk and cause 401 logouts after container restarts!
+    const originalKeysSet = state.keys.set;
+    state.keys.set = async (data) => {
+      await originalKeysSet(data);
+      triggerDebouncedSessionSync();
+    };
+
     const { version, isLatest } = await fetchLatestBaileysVersion();
 
     logger.info(`Starting Baileys v${version.join(".")} (isLatest: ${isLatest}) with Ubuntu/Chrome fingerprint`);
@@ -361,7 +398,7 @@ async function connectToWhatsApp() {
       syncFullHistory: false,
       generateHighQualityLinkPreview: false,
       markOnlineOnConnect: true,
-      keepAliveIntervalMs: 30000,
+      keepAliveIntervalMs: 25000,
       connectTimeoutMs: 60000,
       defaultQueryTimeoutMs: 60000,
       msgRetryCounterCache,
@@ -429,6 +466,7 @@ async function connectToWhatsApp() {
 
       if (connection === "close") {
         stopQueueDispatcher();
+        stopPresenceHeartbeat();
         isConnecting = false;
         const statusCode = lastDisconnect?.error?.output?.statusCode;
         const isLoggedOut = statusCode === DisconnectReason.loggedOut;
@@ -436,19 +474,23 @@ async function connectToWhatsApp() {
         logger.warn(`WhatsApp connection closed. StatusCode: ${statusCode}. LoggedOut: ${isLoggedOut}`);
 
         if (isLoggedOut) {
+          // PROTECT ACCOUNT: NEVER delete database credentials on transient 401s!
           connectionStatus = "AUTHENTICATION_REQUIRED";
           currentQrCodeDataUrl = null;
           currentQrRaw = null;
           connectedUser = null;
-          await clearSessionDatabase();
+
+          // Archive disk session files for recovery rather than deleting
           try {
-            const files = fs.readdirSync(SESSIONS_DIR);
-            for (const f of files) {
-              fs.unlinkSync(path.join(SESSIONS_DIR, f));
+            const recoveryDir = path.join(__dirname, "..", `sessions_recovery_${Date.now()}`);
+            if (fs.existsSync(SESSIONS_DIR)) {
+              fs.cpSync(SESSIONS_DIR, recoveryDir, { recursive: true });
+              logger.warn(`Active session safely archived to: ${recoveryDir}`);
             }
           } catch (e) {}
-          logger.error("WhatsApp session logged out. Session files cleared. Prompting for new QR scan.");
-          scheduleReconnect(1000);
+
+          logger.warn("Received loggedOut (401). Retrying with existing credentials before prompting for QR...");
+          scheduleReconnect(5000);
         } else if (statusCode === DisconnectReason.restartRequired) {
           // Code 515: Baileys requires IMMEDIATE reconnect without exponential backoff
           logger.info("Restart required (515). Reconnecting immediately in 250ms...");
@@ -459,6 +501,10 @@ async function connectToWhatsApp() {
           // Code 428: Transient network socket closure. Quick reconnect.
           logger.info("Connection closed (428). Quick reconnect in 1.5s...");
           scheduleReconnect(1500);
+        } else if (statusCode === DisconnectReason.connectionReplaced) {
+          // Code 440: Another process connected (e.g. Railway zero-downtime swap). Cooldown 10s.
+          logger.warn("Connection replaced (440). Waiting 10s for other instance to exit...");
+          scheduleReconnect(10000);
         } else if (!isIntentionalDisconnect) {
           connectionStatus = "DISCONNECTED";
           scheduleReconnect();
@@ -477,6 +523,7 @@ async function connectToWhatsApp() {
         connectedUser = sock.user;
         logger.info(`WhatsApp connected successfully! Phone: ${sock.user?.id?.split(":")[0] || "Unknown"}`);
         startQueueDispatcher();
+        startPresenceHeartbeat();
         // Backup session to cloud DB upon successful authentication
         triggerDebouncedSessionSync();
       }
