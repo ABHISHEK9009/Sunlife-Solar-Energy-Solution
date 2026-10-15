@@ -7,21 +7,39 @@ const crypto = require("crypto");
 const pino = require("pino");
 const QRCode = require("qrcode");
 const qrcodeTerminal = require("qrcode-terminal");
+const NodeCache = require("node-cache");
 
 const {
   default: makeWASocket,
   useMultiFileAuthState,
   DisconnectReason,
   fetchLatestBaileysVersion,
+  Browsers,
 } = require("@whiskeysockets/baileys");
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 const API_KEY = process.env.WHATSAPP_API_KEY || "sunlife_whatsapp_secret_key_2026";
-const CRM_WEBHOOK_URL = process.env.CRM_WEBHOOK_URL || "http://localhost:3000/api/v1/whatsapp/webhook";
-const CRM_DISPATCH_URL = process.env.CRM_DISPATCH_URL || (CRM_WEBHOOK_URL ? CRM_WEBHOOK_URL.replace(/\/webhook\/?$/, "/dispatch") : null);
+
+// Determine CRM URLs with cloud fallback
+let CRM_WEBHOOK_URL = process.env.CRM_WEBHOOK_URL || "https://sunlifesolar.in/api/v1/whatsapp/webhook";
+if (
+  CRM_WEBHOOK_URL.includes("localhost") &&
+  (process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_STATIC_URL)
+) {
+  CRM_WEBHOOK_URL = "https://sunlifesolar.in/api/v1/whatsapp/webhook";
+}
+
+const CRM_DISPATCH_URL =
+  process.env.CRM_DISPATCH_URL ||
+  (CRM_WEBHOOK_URL ? CRM_WEBHOOK_URL.replace(/\/webhook\/?$/, "/dispatch") : "https://sunlifesolar.in/api/v1/whatsapp/dispatch");
 const CRM_WEBHOOK_SECRET = process.env.CRM_WEBHOOK_SECRET || "sunlife_webhook_secret_key_2026";
+const CRM_BASE_URL = CRM_WEBHOOK_URL.replace(/\/webhook\/?$/, "");
+const CRM_SESSION_SYNC_URL = process.env.CRM_SESSION_SYNC_URL || `${CRM_BASE_URL}/session-sync`;
+const CRM_GET_MESSAGE_URL = process.env.CRM_GET_MESSAGE_URL || `${CRM_BASE_URL}/get-message`;
+
 const SESSIONS_DIR = process.env.SESSIONS_DIR || path.join(__dirname, "..", "sessions");
+const MESSAGE_STORE_FILE = path.join(SESSIONS_DIR, "message_store.json");
 
 // Ensure sessions directory exists
 if (!fs.existsSync(SESSIONS_DIR)) {
@@ -47,8 +65,157 @@ let dispatchInterval = null;
 let isPollingDispatch = false;
 
 const logger = pino({ level: process.env.LOG_LEVEL || "info" });
+
+// Message & Retry Caches (Crucial for solving "Waiting for this message" & encryption ratchets)
+const msgRetryCounterCache = new NodeCache({ stdTTL: 7200, checkperiod: 300 });
+const userDevicesCache = new NodeCache({ stdTTL: 7200, checkperiod: 300 });
+const placeholderResendCache = new NodeCache({ stdTTL: 7200, checkperiod: 300 });
 const messageStore = new Map();
 
+// Helper: Load persisted messages on startup to service E2EE retry requests after restarts
+function loadPersistedMessages() {
+  try {
+    if (fs.existsSync(MESSAGE_STORE_FILE)) {
+      const raw = fs.readFileSync(MESSAGE_STORE_FILE, "utf8");
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        for (const [k, v] of parsed) {
+          messageStore.set(k, v);
+        }
+        logger.info(`Loaded ${messageStore.size} cached messages from disk store.`);
+      }
+    }
+  } catch (err) {
+    logger.warn(`Could not load message store from disk: ${err.message}`);
+  }
+}
+
+let persistMessageTimer = null;
+function persistMessageStore() {
+  if (persistMessageTimer) return;
+  persistMessageTimer = setTimeout(() => {
+    persistMessageTimer = null;
+    try {
+      if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+      const entries = Array.from(messageStore.entries()).slice(-2000);
+      fs.writeFileSync(MESSAGE_STORE_FILE, JSON.stringify(entries), "utf8");
+    } catch (err) {
+      // non-fatal
+    }
+  }, 2000);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Cloud Session Persistence (PostgreSQL DB Backup & Restore)
+// Ensures WhatsApp NEVER loses login credentials on Railway restarts!
+// ─────────────────────────────────────────────────────────────
+async function restoreSessionFromCloud() {
+  const credsFile = path.join(SESSIONS_DIR, "creds.json");
+  if (fs.existsSync(credsFile)) {
+    try {
+      const stat = fs.statSync(credsFile);
+      if (stat.size > 50) {
+        logger.info("Valid local session credentials found on disk.");
+        return true;
+      }
+    } catch (e) {}
+  }
+
+  logger.info(`Attempting to restore session from Cloud DB: ${CRM_SESSION_SYNC_URL}`);
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+    const res = await fetch(CRM_SESSION_SYNC_URL, {
+      method: "GET",
+      headers: { "x-webhook-secret": CRM_WEBHOOK_SECRET },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      logger.warn(`Session sync GET returned HTTP ${res.status}`);
+      return false;
+    }
+
+    const data = await res.json();
+    if (data.success && data.hasCreds && data.files) {
+      for (const [filename, content] of Object.entries(data.files)) {
+        const safeName = path.basename(filename);
+        fs.writeFileSync(path.join(SESSIONS_DIR, safeName), content, "utf8");
+      }
+      logger.info(`Successfully restored ${Object.keys(data.files).length} session auth files from PostgreSQL!`);
+      return true;
+    } else {
+      logger.info("No existing session credentials found in Cloud DB.");
+    }
+  } catch (err) {
+    logger.warn(`Session cloud restore skipped/failed: ${err.message}`);
+  }
+  return false;
+}
+
+let sessionSyncTimer = null;
+function triggerDebouncedSessionSync() {
+  if (sessionSyncTimer) clearTimeout(sessionSyncTimer);
+  sessionSyncTimer = setTimeout(async () => {
+    sessionSyncTimer = null;
+    try {
+      if (!fs.existsSync(SESSIONS_DIR)) return;
+      const files = {};
+      const list = fs.readdirSync(SESSIONS_DIR);
+      for (const file of list) {
+        if (
+          file.endsWith(".json") ||
+          file.startsWith("app-state") ||
+          file.startsWith("pre-key") ||
+          file.startsWith("session-") ||
+          file.startsWith("sender-key")
+        ) {
+          const fullPath = path.join(SESSIONS_DIR, file);
+          try {
+            const stat = fs.statSync(fullPath);
+            if (stat.isFile() && stat.size < 2 * 1024 * 1024) {
+              files[file] = fs.readFileSync(fullPath, "utf8");
+            }
+          } catch (e) {}
+        }
+      }
+
+      if (Object.keys(files).length > 0 && files["creds.json"]) {
+        const res = await fetch(CRM_SESSION_SYNC_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-webhook-secret": CRM_WEBHOOK_SECRET,
+          },
+          body: JSON.stringify({ files }),
+        });
+        if (res.ok) {
+          logger.info(`Synced ${Object.keys(files).length} session files to Cloud PostgreSQL DB.`);
+        }
+      }
+    } catch (err) {
+      logger.warn(`Session cloud sync error: ${err.message}`);
+    }
+  }, 2500);
+}
+
+async function clearSessionDatabase() {
+  try {
+    await fetch(`${CRM_SESSION_SYNC_URL}?all=true`, {
+      method: "DELETE",
+      headers: { "x-webhook-secret": CRM_WEBHOOK_SECRET },
+    });
+    logger.info("Cleared session files from Cloud PostgreSQL DB.");
+  } catch (err) {
+    logger.warn(`Failed to clear session from Cloud DB: ${err.message}`);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Queue Dispatcher (Non-Blocking Railway Outbound Worker)
+// ─────────────────────────────────────────────────────────────
 function startQueueDispatcher() {
   if (dispatchInterval) return;
   if (!CRM_DISPATCH_URL) {
@@ -58,7 +225,7 @@ function startQueueDispatcher() {
   logger.info(`Starting persistent Railway outbound queue worker: polling ${CRM_DISPATCH_URL} every 5s`);
   dispatchInterval = setInterval(async () => {
     if (connectionStatus !== "CONNECTED" || !sock) return;
-    if (isPollingDispatch) return; // Prevent overlapping dispatcher requests
+    if (isPollingDispatch) return;
     isPollingDispatch = true;
 
     const controller = new AbortController();
@@ -77,7 +244,7 @@ function startQueueDispatcher() {
     } catch (err) {
       // transient network poll failure
     } finally {
-      clearTimeout(timeoutId); // Ensure timeout is always cleaned up, including on failed/rejected requests
+      clearTimeout(timeoutId);
       isPollingDispatch = false;
     }
   }, 5000);
@@ -103,8 +270,8 @@ function safeCompare(a, b) {
 
 // Helper: Calculate bounded exponential backoff with jitter
 function calculateBackoffMs(attempt) {
-  const base = Math.min(2000 * Math.pow(1.5, Math.min(attempt, 8)), 45000);
-  const jitter = Math.floor(Math.random() * 3000);
+  const base = Math.min(1500 * Math.pow(1.4, Math.min(attempt, 6)), 25000);
+  const jitter = Math.floor(Math.random() * 1500);
   return Math.floor(base + jitter);
 }
 
@@ -138,7 +305,7 @@ async function destroySocket() {
 }
 
 // Helper: Schedule reconnection safely
-function scheduleReconnect() {
+function scheduleReconnect(overrideDelayMs) {
   if (isIntentionalDisconnect) {
     logger.info("Gateway intentionally disconnected. Reconnect suppressed.");
     return;
@@ -148,14 +315,16 @@ function scheduleReconnect() {
     reconnectTimer = null;
   }
   reconnectAttempts++;
-  const delay = calculateBackoffMs(reconnectAttempts);
+  const delay = overrideDelayMs !== undefined ? overrideDelayMs : calculateBackoffMs(reconnectAttempts);
   logger.info(`Scheduling reconnect in ${Math.round(delay / 1000)}s (Attempt #${reconnectAttempts})...`);
   reconnectTimer = setTimeout(() => {
     connectToWhatsApp().catch((err) => logger.error("Scheduled reconnect error:", err));
   }, delay);
 }
 
+// ─────────────────────────────────────────────────────────────
 // Initialize WhatsApp Socket
+// ─────────────────────────────────────────────────────────────
 async function connectToWhatsApp() {
   if (isIntentionalDisconnect) {
     logger.info("connectToWhatsApp skipped: gateway intentionally disconnected.");
@@ -170,34 +339,78 @@ async function connectToWhatsApp() {
   try {
     await destroySocket();
     connectionStatus = "CONNECTING";
+
+    // 1. Restore credentials from Cloud DB if local sessions folder is empty
+    await restoreSessionFromCloud();
+    loadPersistedMessages();
+
+    // 2. Load auth state from MultiFile
     const { state, saveCreds } = await useMultiFileAuthState(SESSIONS_DIR);
     const { version, isLatest } = await fetchLatestBaileysVersion();
 
-    logger.info(`Starting Baileys v${version.join(".")} (isLatest: ${isLatest})`);
+    logger.info(`Starting Baileys v${version.join(".")} (isLatest: ${isLatest}) with Ubuntu/Chrome fingerprint`);
 
+    // 3. Construct WASocket with robust retry, device caches, and standard browser
     sock = makeWASocket({
       version,
       logger: pino({ level: "silent" }),
       printQRInTerminal: false,
       auth: state,
-      browser: ["Sunlife Solar CRM", "Desktop", "1.0.0"],
+      // Official standard browser description prevents WhatsApp anti-bot heuristic drops
+      browser: Browsers.ubuntu("Chrome"),
       syncFullHistory: false,
-      generateHighQualityLinkPreview: true,
-      keepAliveIntervalMs: 15000,
+      generateHighQualityLinkPreview: false,
+      markOnlineOnConnect: true,
+      keepAliveIntervalMs: 30000,
       connectTimeoutMs: 60000,
       defaultQueryTimeoutMs: 60000,
+      msgRetryCounterCache,
+      userDevicesCache,
+      placeholderResendCache,
+      // Critical: Clean message resolution for E2EE retry requests to eliminate "Waiting for this message..."
       getMessage: async (key) => {
-        if (key && key.id && messageStore.has(key.id)) {
-          return messageStore.get(key.id);
+        if (!key || !key.id) return undefined;
+        const id = key.id;
+        const compositeKey = key.remoteJid ? `${key.remoteJid}:${id}` : null;
+
+        // A. Check memory cache
+        if (messageStore.has(id)) {
+          return messageStore.get(id);
         }
-        return { conversation: "Sunlife Solar Verification" };
+        if (compositeKey && messageStore.has(compositeKey)) {
+          return messageStore.get(compositeKey);
+        }
+
+        // B. Query CRM DB for message content
+        if (CRM_GET_MESSAGE_URL) {
+          try {
+            const resp = await fetch(`${CRM_GET_MESSAGE_URL}?id=${encodeURIComponent(id)}`, {
+              headers: { "x-webhook-secret": CRM_WEBHOOK_SECRET },
+              signal: AbortSignal.timeout(4000),
+            });
+            const data = await resp.json();
+            if (data.found && data.message) {
+              messageStore.set(id, data.message);
+              return data.message;
+            }
+          } catch (err) {
+            // CRM fallback unavailable
+          }
+        }
+
+        // Return undefined if truly missing — NEVER return an arbitrary text string,
+        // as a mismatch breaks Signal cryptographic verification!
+        return undefined;
       },
     });
 
-    // Synchronous setup complete; hand off to socket events
     isConnecting = false;
 
-    sock.ev.on("creds.update", saveCreds);
+    // Handle credentials updates and trigger background cloud backup
+    sock.ev.on("creds.update", async () => {
+      await saveCreds();
+      triggerDebouncedSessionSync();
+    });
 
     sock.ev.on("connection.update", async (update) => {
       const { connection, lastDisconnect, qr } = update;
@@ -219,16 +432,35 @@ async function connectToWhatsApp() {
         isConnecting = false;
         const statusCode = lastDisconnect?.error?.output?.statusCode;
         const isLoggedOut = statusCode === DisconnectReason.loggedOut;
-        connectionStatus = isLoggedOut ? "AUTHENTICATION_REQUIRED" : "DISCONNECTED";
-        currentQrCodeDataUrl = null;
-        currentQrRaw = null;
-        connectedUser = null;
 
-        logger.warn(`Connection closed. StatusCode: ${statusCode}. LoggedOut: ${isLoggedOut}`);
+        logger.warn(`WhatsApp connection closed. StatusCode: ${statusCode}. LoggedOut: ${isLoggedOut}`);
 
         if (isLoggedOut) {
-          logger.error("WhatsApp session revoked/logged out. Authentication required. Session files preserved for recovery.");
+          connectionStatus = "AUTHENTICATION_REQUIRED";
+          currentQrCodeDataUrl = null;
+          currentQrRaw = null;
+          connectedUser = null;
+          await clearSessionDatabase();
+          try {
+            const files = fs.readdirSync(SESSIONS_DIR);
+            for (const f of files) {
+              fs.unlinkSync(path.join(SESSIONS_DIR, f));
+            }
+          } catch (e) {}
+          logger.error("WhatsApp session logged out. Session files cleared. Prompting for new QR scan.");
+          scheduleReconnect(1000);
+        } else if (statusCode === DisconnectReason.restartRequired) {
+          // Code 515: Baileys requires IMMEDIATE reconnect without exponential backoff
+          logger.info("Restart required (515). Reconnecting immediately in 250ms...");
+          setTimeout(() => {
+            connectToWhatsApp().catch((err) => logger.error("Scheduled restart error:", err));
+          }, 250);
+        } else if (statusCode === DisconnectReason.connectionClosed) {
+          // Code 428: Transient network socket closure. Quick reconnect.
+          logger.info("Connection closed (428). Quick reconnect in 1.5s...");
+          scheduleReconnect(1500);
         } else if (!isIntentionalDisconnect) {
+          connectionStatus = "DISCONNECTED";
           scheduleReconnect();
         }
       } else if (connection === "open") {
@@ -245,6 +477,8 @@ async function connectToWhatsApp() {
         connectedUser = sock.user;
         logger.info(`WhatsApp connected successfully! Phone: ${sock.user?.id?.split(":")[0] || "Unknown"}`);
         startQueueDispatcher();
+        // Backup session to cloud DB upon successful authentication
+        triggerDebouncedSessionSync();
       }
     });
 
@@ -253,9 +487,18 @@ async function connectToWhatsApp() {
       if (type !== "notify" && type !== "append") return;
 
       for (const msg of messages) {
+        // Cache every incoming or companion message payload for E2EE retry resolution
+        if (msg.key?.id && msg.message) {
+          messageStore.set(msg.key.id, msg.message);
+          if (msg.key.remoteJid) {
+            messageStore.set(`${msg.key.remoteJid}:${msg.key.id}`, msg.message);
+          }
+          persistMessageStore();
+        }
+
         // Skip broadcast / status messages
         if (msg.key.remoteJid === "status@broadcast" || msg.key.remoteJid?.endsWith("@broadcast")) continue;
-        // Skip group messages (personal family/friends groups)
+        // Skip group messages
         if (msg.key.remoteJid?.endsWith("@g.us")) continue;
         // Skip newsletters / channels
         if (msg.key.remoteJid?.endsWith("@newsletter")) continue;
@@ -314,7 +557,7 @@ async function connectToWhatsApp() {
           continue;
         }
 
-        // Scenario A: Customer sent message to Sunlife Solar (Inbound)
+        // Customer sent message to Sunlife Solar (Inbound)
         logger.info(`[Inbound WhatsApp] From: ${cleanPhone} (${pushName}): "${text}" [Type: ${messageType}]`);
 
         if (CRM_WEBHOOK_URL) {
@@ -355,7 +598,6 @@ async function connectToWhatsApp() {
         const { key, update: statusUpdate } = update;
         if (!key?.id) continue;
 
-        // Baileys WAMessageStatus: 3 = DELIVERED, 4/5 = READ
         let statusStr = null;
         if (statusUpdate?.status === 3) statusStr = "DELIVERED";
         else if (statusUpdate?.status === 4 || statusUpdate?.status === 5) statusStr = "READ";
@@ -401,10 +643,6 @@ function authMiddleware(req, res, next) {
   const headerKey = req.headers["x-api-key"];
   const queryKey = req.query.apiKey;
 
-  if (queryKey && !headerKey) {
-    logger.warn("Deprecated authentication method: apiKey query parameter will be removed in future releases. Migrate to x-api-key header.");
-  }
-
   const supplied = headerKey || queryKey;
   if (!supplied || !API_KEY || !safeCompare(String(supplied), String(API_KEY))) {
     return res.status(401).json({ error: "Unauthorized. Invalid API Key." });
@@ -416,7 +654,7 @@ function authMiddleware(req, res, next) {
 // REST API ENDPOINTS
 // ─────────────────────────────────────────────────────────────
 
-// 1. Healthcheck (Minimal public health probe for monitoring)
+// 1. Healthcheck
 app.get("/health", (req, res) => {
   res.json({
     status: "ok",
@@ -487,14 +725,10 @@ async function handleSendText(req, res) {
     const sent = await sock.sendMessage(jid, { text: String(message).trim() });
 
     if (sent?.key?.id && sent?.message) {
-      messageStore.set(sent.key.id, {
-        ...sent.message,
-        crmMessageId: req.body.crmMessageId || null,
-      });
-      if (messageStore.size > 2000) {
-        const oldestKey = messageStore.keys().next().value;
-        messageStore.delete(oldestKey);
-      }
+      // Store exact proto.IMessage cleanly without extra fields that corrupt protobuf
+      messageStore.set(sent.key.id, sent.message);
+      messageStore.set(`${jid}:${sent.key.id}`, sent.message);
+      persistMessageStore();
     }
 
     return res.json({
@@ -551,7 +785,10 @@ app.post("/send-media", authMiddleware, async (req, res) => {
         };
       }
     } else {
-      const isPdf = mimeType === "application/pdf" || (mediaUrl || "").toLowerCase().endsWith(".pdf") || effectiveFileName.toLowerCase().endsWith(".pdf");
+      const isPdf =
+        mimeType === "application/pdf" ||
+        (mediaUrl || "").toLowerCase().endsWith(".pdf") ||
+        effectiveFileName.toLowerCase().endsWith(".pdf");
       if (isPdf) {
         messagePayload = {
           document: { url: mediaUrl },
@@ -569,12 +806,10 @@ app.post("/send-media", authMiddleware, async (req, res) => {
 
     const sent = await sock.sendMessage(jid, messagePayload);
 
-    if (sent?.key?.id) {
-      messageStore.set(sent.key.id, { crmMessageId: req.body.crmMessageId || null });
-      if (messageStore.size > 2000) {
-        const oldestKey = messageStore.keys().next().value;
-        messageStore.delete(oldestKey);
-      }
+    if (sent?.key?.id && sent?.message) {
+      messageStore.set(sent.key.id, sent.message);
+      messageStore.set(`${jid}:${sent.key.id}`, sent.message);
+      persistMessageStore();
     }
 
     return res.json({
@@ -611,12 +846,10 @@ app.post("/send-document", authMiddleware, async (req, res) => {
       caption: caption || undefined,
     });
 
-    if (sent?.key?.id) {
-      messageStore.set(sent.key.id, { crmMessageId: req.body.crmMessageId || null });
-      if (messageStore.size > 2000) {
-        const oldestKey = messageStore.keys().next().value;
-        messageStore.delete(oldestKey);
-      }
+    if (sent?.key?.id && sent?.message) {
+      messageStore.set(sent.key.id, sent.message);
+      messageStore.set(`${jid}:${sent.key.id}`, sent.message);
+      persistMessageStore();
     }
 
     return res.json({
@@ -658,27 +891,19 @@ app.post("/connect", authMiddleware, async (req, res) => {
   }
 });
 
-// 9. Unpair / Revoke Session (Requires explicit confirmation, archives backup)
+// 9. Unpair / Revoke Session (Requires explicit confirmation, clears cloud backup)
 app.post("/logout", authMiddleware, async (req, res) => {
   try {
     const { confirmUnpair } = req.body || {};
     if (!confirmUnpair) {
       return res.status(400).json({
-        error: "Unpairing permanently revokes WhatsApp credentials. Pass { confirmUnpair: true } to proceed, or use POST /disconnect to temporarily disconnect safely without losing credentials.",
+        error:
+          "Unpairing permanently revokes WhatsApp credentials. Pass { confirmUnpair: true } to proceed, or use POST /disconnect to temporarily disconnect safely without losing credentials.",
       });
     }
 
-    logger.warn("Explicit unpair requested. Creating session archive before revoking...");
-    // Archive session before unpairing
-    const archiveDir = path.join(__dirname, "..", `sessions_backup_${Date.now()}`);
-    if (fs.existsSync(SESSIONS_DIR)) {
-      try {
-        fs.cpSync(SESSIONS_DIR, archiveDir, { recursive: true });
-        logger.info(`Session archived safely to: ${archiveDir}`);
-      } catch (archErr) {
-        logger.warn(`Failed to archive session prior to unpair: ${archErr.message}`);
-      }
-    }
+    logger.warn("Explicit unpair requested. Clearing cloud session backup...");
+    await clearSessionDatabase();
 
     if (sock && typeof sock.logout === "function") {
       try {
@@ -688,12 +913,19 @@ app.post("/logout", authMiddleware, async (req, res) => {
       }
     }
 
+    try {
+      const files = fs.readdirSync(SESSIONS_DIR);
+      for (const f of files) {
+        fs.unlinkSync(path.join(SESSIONS_DIR, f));
+      }
+    } catch (e) {}
+
     await destroySocket();
     connectionStatus = "DISCONNECTED";
     currentQrCodeDataUrl = null;
     connectedUser = null;
 
-    return res.json({ success: true, message: "Logged out and uncoupled. Pre-unpair backup archived safely." });
+    return res.json({ success: true, message: "Logged out and uncoupled. Cloud session cleared." });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -775,13 +1007,23 @@ module.exports = {
   connectToWhatsApp,
   scheduleReconnect,
   getConnectionStatus: () => connectionStatus,
-  setConnectionStatus: (st) => { connectionStatus = st; },
+  setConnectionStatus: (st) => {
+    connectionStatus = st;
+  },
   getIsConnecting: () => isConnecting,
-  setIsConnecting: (val) => { isConnecting = val; },
+  setIsConnecting: (val) => {
+    isConnecting = val;
+  },
   getIsIntentionalDisconnect: () => isIntentionalDisconnect,
-  setIsIntentionalDisconnect: (val) => { isIntentionalDisconnect = val; },
+  setIsIntentionalDisconnect: (val) => {
+    isIntentionalDisconnect = val;
+  },
   getReconnectAttempts: () => reconnectAttempts,
-  setReconnectAttempts: (n) => { reconnectAttempts = n; },
-  setQrCodeData: (qr) => { currentQrCodeDataUrl = qr; },
+  setReconnectAttempts: (n) => {
+    reconnectAttempts = n;
+  },
+  setQrCodeData: (qr) => {
+    currentQrCodeDataUrl = qr;
+  },
   getServer: () => activeServer,
 };

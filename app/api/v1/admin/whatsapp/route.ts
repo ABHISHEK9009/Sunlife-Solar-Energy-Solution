@@ -49,23 +49,11 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search")?.trim() || "";
     const assignedToId = searchParams.get("assignedToId");
 
-    // Conversation filtering: Default to registered clients (Privacy Filter).
-    // If filter === "unmatched", show only unmatched incoming enquiries awaiting triage.
-    const where: any =
-      filter === "unmatched"
-        ? { status: "UNMATCHED" }
-        : {
-            AND: [
-              {
-                OR: [
-                  { customerId: { not: null } },
-                  { leadId: { not: null } },
-                ],
-              },
-            ],
-          };
+    const where: any = {};
 
-    if (filter === "unread") {
+    if (filter === "unmatched") {
+      where.status = "UNMATCHED";
+    } else if (filter === "unread") {
       where.unreadCount = { gt: 0 };
     } else if (filter === "open") {
       where.status = "OPEN";
@@ -82,6 +70,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (search) {
+      if (!where.AND) where.AND = [];
       where.AND.push({
         OR: [
           { phone: { contains: search } },

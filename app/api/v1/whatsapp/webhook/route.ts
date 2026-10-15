@@ -294,27 +294,34 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const lead = !customer
+    let lead = !customer
       ? await prisma.lead.findFirst({
           where: { OR: [{ phone: phone }, { phone: tenDigit }] },
         })
       : null;
 
-    const isClient = Boolean(customer || lead);
-    const privacyPolicy = process.env.WHATSAPP_PRIVACY_POLICY || "STRICT_CLIENTS_ONLY";
-
-    // PRIVACY POLICY ENFORCEMENT
-    if (!isClient) {
-      if (privacyPolicy === "STRICT_CLIENTS_ONLY") {
-        // Strict Privacy Baseline: Completely ignore non-client messages to protect personal privacy
-        return NextResponse.json({
-          success: true,
-          ignored: true,
-          reason: "Sender not registered in Client Registry. Protected by strict privacy policy.",
+    // If sender is neither an existing customer nor lead, auto-enroll as new enquiry lead
+    if (!customer && !lead) {
+      try {
+        const leadCount = await prisma.lead.count();
+        const leadCode = `SL-LEAD-${new Date().getFullYear()}-${String(leadCount + 1).padStart(4, "0")}`;
+        lead = await prisma.lead.create({
+          data: {
+            leadId: leadCode,
+            name: senderName || "New Applicant",
+            phone: phone,
+            source: "WhatsApp Inbound",
+            leadSource: "WhatsApp Inbound",
+            status: "NEW",
+            notes: `Enquiry received directly via WhatsApp: "${(content || caption || "").slice(0, 300)}"`,
+          },
         });
+      } catch (leadCreateErr) {
+        console.error("[Auto-create Lead Error]:", leadCreateErr);
       }
-      // If PERMISSIONED_TRIAGE policy is configured: allow quarantine
     }
+
+    const isClient = Boolean(customer || lead);
 
     // Transactional Upsert and Insertion with inside-transaction concurrency protection
     const inbResult = await prisma.$transaction(async (tx) => {

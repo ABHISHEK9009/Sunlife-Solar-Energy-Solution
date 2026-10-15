@@ -833,3 +833,13 @@ model WhatsAppMessage {
   @@index([status])
   @@schema("sunlife")
 }
+
+model WhatsAppGatewaySession {
+  id        String   @id @map("id") @db.VarChar(255)
+  data      String   @db.Text
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("whatsapp_gateway_sessions")
+  @@schema("sunlife")
+}
+
