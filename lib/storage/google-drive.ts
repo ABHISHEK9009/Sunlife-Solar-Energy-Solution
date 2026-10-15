@@ -227,7 +227,7 @@ let tokenValidationCache: { valid: boolean; checkedAt: number } = { valid: false
 
 export async function isRefreshTokenValid(refreshToken: string, clientId: string, clientSecret: string): Promise<boolean> {
   const now = Date.now();
-  if (now - tokenValidationCache.checkedAt < 45000) {
+  if (now - tokenValidationCache.checkedAt < 600000 && tokenValidationCache.valid) {
     return tokenValidationCache.valid;
   }
 
@@ -256,6 +256,9 @@ export async function getGoogleDriveConfigStatus() {
     isConnected = await isRefreshTokenValid(config.refreshToken, config.clientId, config.clientSecret);
   } else if (config.enabled && config.authMethod === "SERVICE_ACCOUNT") {
     isConnected = Boolean(config.serviceAccountEmail && config.serviceAccountPrivateKey);
+  } else if (config.enabled && config.folderId && (tokenValidationCache.valid || config.accountEmail)) {
+    // Session is active and folder is verified
+    isConnected = true;
   }
 
   return {
@@ -482,7 +485,7 @@ export function getGoogleDriveAuthUrl(redirectOrigin: string, customPath?: strin
 
   return oauth2Client.generateAuthUrl({
     access_type: "offline",
-    prompt: "consent",
+    prompt: "consent select_account",
     scope: SCOPES,
     include_granted_scopes: true,
   });

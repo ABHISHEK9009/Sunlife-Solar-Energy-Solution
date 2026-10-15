@@ -986,7 +986,7 @@ export default function AdminDocumentsPage() {
               </div>
 
               {/* Google Drive Status inside Upload Modal */}
-              {!driveStatus.connected ? (
+              {!driveStatus.connected && !driveStatus.folderId ? (
                 <div className="p-3.5 bg-amber-50 rounded-2xl border border-amber-300 text-xs flex items-start gap-2.5">
                   <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   <div className="space-y-1">
