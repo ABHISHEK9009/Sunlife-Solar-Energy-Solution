@@ -843,3 +843,20 @@ model WhatsAppGatewaySession {
   @@schema("sunlife")
 }
 
+model GoogleDriveConfigRecord {
+  id           String    @id @default("active") @map("id") @db.VarChar(255)
+  enabled      Boolean   @default(true)
+  authMethod   String    @default("OAUTH2") @db.VarChar(50)
+  folderId     String?   @db.Text
+  folderName   String?   @default("Sunlife Solar CRM Documents") @db.Text
+  folderLink   String?   @db.Text
+  accountEmail String?   @db.Text
+  clientId     String?   @db.Text
+  clientSecret String?   @db.Text
+  refreshToken String?   @db.Text
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@map("google_drive_configs")
+  @@schema("sunlife")
+}
+

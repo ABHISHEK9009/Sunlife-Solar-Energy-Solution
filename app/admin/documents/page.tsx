@@ -78,7 +78,8 @@ export default function AdminDocumentsPage() {
   });
 
   // Setup Modal State
-  const [activeDriveTab, setActiveDriveTab] = useState<"SERVICE_ACCOUNT" | "OAUTH2" | "MANUAL">("SERVICE_ACCOUNT");
+  const [activeDriveTab, setActiveDriveTab] = useState<"SERVICE_ACCOUNT" | "OAUTH2" | "MANUAL">("OAUTH2");
+  const [isDragging, setIsDragging] = useState(false);
   const [saJsonText, setSaJsonText] = useState("");
   const [driveFolderInput, setDriveFolderInput] = useState("");
   const [manualSaEmail, setManualSaEmail] = useState("");
@@ -229,6 +230,32 @@ export default function AdminDocumentsPage() {
         ...prev,
         documentName: cleanName,
       }));
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      const cleanName = file.name.replace(/\.[^/.]+$/, "");
+      if (!uploadForm.documentName) {
+        setUploadForm((prev) => ({
+          ...prev,
+          documentName: cleanName,
+        }));
+      }
     }
   };
 
@@ -506,41 +533,64 @@ export default function AdminDocumentsPage() {
               Central Document Repository
             </h2>
 
-            {/* Google Drive Status Pill */}
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => {
-                  setTestFeedback(null);
-                  setShowDriveSetupModal(true);
-                }}
-                className={`px-3 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs ${
-                  driveStatus.connected
-                    ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
-                    : "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100 animate-pulse"
-                }`}
-                title="Configure Google Drive Storage"
-              >
-                <Cloud className="w-3.5 h-3.5" />
-                <span>
-                  {driveStatus.connected
-                    ? "Google Drive Connected ☁️"
-                    : "⚡ Set Up Google Drive"}
-                </span>
-                <Settings className="w-3 h-3 ml-0.5 opacity-60" />
-              </button>
-
-              {driveStatus.connected && driveStatus.folderLink && (
-                <a
-                  href={driveStatus.folderLink}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-slate-600 hover:text-blue-700 transition-colors flex items-center gap-1"
-                  title="Open root Drive folder"
-                >
-                  <FolderOpen className="w-3 h-3" />
-                  <span className="hidden md:inline">Open Drive Folder</span>
-                  <ExternalLink className="w-2.5 h-2.5" />
-                </a>
+            {/* Google Drive Status Pill & 1-Click Connect */}
+            <div className="flex items-center gap-2">
+              {driveStatus.connected ? (
+                <>
+                  <div className="px-3 py-1.5 rounded-xl text-[11px] font-bold border bg-emerald-50 text-emerald-800 border-emerald-200 flex items-center gap-1.5 shadow-2xs">
+                    <Cloud className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Google Drive Connected ☁️</span>
+                    {driveStatus.accountEmail && (
+                      <span className="font-medium text-emerald-700 opacity-90 hidden md:inline">
+                        ({driveStatus.accountEmail})
+                      </span>
+                    )}
+                  </div>
+                  {driveStatus.folderLink && (
+                    <a
+                      href={driveStatus.folderLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-slate-600 hover:text-blue-700 transition-colors flex items-center gap-1"
+                      title="Open root Drive folder in new tab"
+                    >
+                      <FolderOpen className="w-3.5 h-3.5 text-blue-600" />
+                      <span className="hidden sm:inline">Drive Folder</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  )}
+                  <button
+                    onClick={() => {
+                      setTestFeedback(null);
+                      setShowDriveSetupModal(true);
+                    }}
+                    className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
+                    title="Google Drive Settings"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <a
+                    href="/api/v1/admin/documents/drive-auth"
+                    className="px-3.5 py-1.5 rounded-xl text-[11px] font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 transition-all shadow-xs flex items-center gap-1.5 cursor-pointer animate-pulse"
+                    title="1-Click Connect with Google Account"
+                  >
+                    <Cloud className="w-3.5 h-3.5" />
+                    <span>⚡ 1-Click Connect Google Drive</span>
+                  </a>
+                  <button
+                    onClick={() => {
+                      setTestFeedback(null);
+                      setShowDriveSetupModal(true);
+                    }}
+                    className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+                    title="Advanced Drive Settings"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -859,7 +909,16 @@ export default function AdminDocumentsPage() {
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Select File (PDF, Image, DOC)
                 </label>
-                <div className="border-2 border-dashed border-slate-200 hover:border-emerald-500/50 rounded-2xl p-5 text-center bg-slate-50/50 transition-colors">
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`border-2 border-dashed rounded-2xl p-5 text-center transition-all ${
+                    isDragging
+                      ? "border-emerald-500 bg-emerald-50/80 scale-[1.01]"
+                      : "border-slate-200 hover:border-emerald-500/50 bg-slate-50/50"
+                  }`}
+                >
                   <input
                     type="file"
                     id="doc-file-input"
@@ -871,13 +930,17 @@ export default function AdminDocumentsPage() {
                     htmlFor="doc-file-input"
                     className="cursor-pointer flex flex-col items-center gap-1.5"
                   >
-                    <UploadCloud className="w-7 h-7 text-emerald-600" />
+                    <UploadCloud className={`w-7 h-7 ${isDragging ? "text-emerald-700 animate-bounce" : "text-emerald-600"}`} />
                     <span className="text-xs font-bold text-slate-700">
-                      {selectedFile ? selectedFile.name : "Click to select file from device"}
+                      {isDragging
+                        ? "Drop file here to upload"
+                        : selectedFile
+                        ? selectedFile.name
+                        : "Drag & drop file here or click to browse"}
                     </span>
                     <span className="text-[10px] text-slate-400">
                       {selectedFile
-                        ? `${(selectedFile.size / 1024).toFixed(0)} KB · Ready for upload`
+                        ? `${(selectedFile.size / 1024).toFixed(0)} KB · Ready for Google Drive upload`
                         : "PDF, JPG, PNG, DOC up to 25MB"}
                     </span>
                   </label>
@@ -1051,20 +1114,6 @@ export default function AdminDocumentsPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setActiveDriveTab("SERVICE_ACCOUNT");
-                    setTestFeedback(null);
-                  }}
-                  className={`flex-1 py-2 text-center rounded-xl transition-all cursor-pointer ${
-                    activeDriveTab === "SERVICE_ACCOUNT"
-                      ? "bg-white text-slate-900 shadow-2xs font-bold"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  1. Service Account JSON
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
                     setActiveDriveTab("OAUTH2");
                     setTestFeedback(null);
                   }}
@@ -1074,7 +1123,21 @@ export default function AdminDocumentsPage() {
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  2. Sign-In (OAuth)
+                  ⚡ 1. 1-Click Google Sign-In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveDriveTab("SERVICE_ACCOUNT");
+                    setTestFeedback(null);
+                  }}
+                  className={`flex-1 py-2 text-center rounded-xl transition-all cursor-pointer ${
+                    activeDriveTab === "SERVICE_ACCOUNT"
+                      ? "bg-white text-slate-900 shadow-2xs font-bold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  2. Service Account JSON
                 </button>
                 <button
                   type="button"

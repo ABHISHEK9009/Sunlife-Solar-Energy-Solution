@@ -6,14 +6,14 @@ import {
   testGoogleDriveConnection,
   saveGoogleDriveConfig,
   disconnectGoogleDrive,
-  getEffectiveDriveConfig,
+  getDriveConfigFromDb,
 } from "@/lib/storage/google-drive";
 import { logAuditEvent } from "@/lib/crm/audit-logger";
 
 export async function GET() {
   try {
-    const status = getGoogleDriveConfigStatus();
-    const config = getEffectiveDriveConfig();
+    const status = await getGoogleDriveConfigStatus();
+    const config = await getDriveConfigFromDb();
 
     return NextResponse.json({
       success: true,
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Save configuration
-    const saved = saveGoogleDriveConfig({
+    const saved = await saveGoogleDriveConfig({
       ...candidateConfig,
       folderId: testResult.folderId || candidateConfig.folderId,
       folderName: testResult.folderName,
@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE() {
   try {
-    disconnectGoogleDrive();
+    await disconnectGoogleDrive();
 
     await logAuditEvent({
       entityType: "SystemSetting",

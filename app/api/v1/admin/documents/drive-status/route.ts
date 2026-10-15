@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { getGoogleDriveConfigStatus } from "@/lib/storage/google-drive";
 
 export async function GET() {
-  const status = getGoogleDriveConfigStatus();
+  const status = await getGoogleDriveConfigStatus();
   return NextResponse.json({
     success: true,
     ...status,
