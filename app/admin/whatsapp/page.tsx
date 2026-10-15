@@ -28,6 +28,7 @@ import {
   Filter,
   Paperclip,
   FileText,
+  Cloud,
 } from "lucide-react";
 import { SolarLifecycleEvent, formatSolarLifecycleMessage } from "@/lib/whatsapp/queue";
 
@@ -1171,8 +1172,9 @@ export default function WhatsAppInboxPage() {
                       <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span className="font-bold text-emerald-950 truncate">{attachmentFile.name}</span>
                       <span className="text-[10px] text-emerald-700">({(attachmentFile.size / 1024).toFixed(0)} KB)</span>
-                      <span className="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full font-semibold hidden sm:inline">
-                        ☁️ Uploads to Google Drive
+                      <span className="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full font-semibold hidden sm:inline-flex items-center gap-1">
+                        <Cloud className="w-3 h-3 text-emerald-600" />
+                        <span>Uploads to Google Drive</span>
                       </span>
                     </div>
                     <button

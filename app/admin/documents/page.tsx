@@ -160,7 +160,7 @@ export default function AdminDocumentsPage() {
       if (params.get("drive_connected") === "1") {
         setAlertMessage({
           type: "success",
-          text: "🎉 Google Drive successfully connected! Documents will now sync directly to your Google Drive.",
+          text: "Google Drive successfully connected! Documents will now sync directly to your Google Drive.",
         });
         window.history.replaceState({}, "", "/admin/documents");
       } else if (params.get("drive_error")) {
@@ -467,12 +467,12 @@ export default function AdminDocumentsPage() {
         if (data.storageProvider === "LOCAL") {
           setAlertMessage({
             type: "error",
-            text: "⚠️ Document was saved to Local Server Storage, NOT Google Drive. Google Drive is not connected yet! Click '⚡ 1-Click Connect Google Drive' in the top banner to link your Drive folder.",
+            text: "Document was saved to Local Server Storage, NOT Google Drive. Google Drive is not connected yet! Click 'Connect Google Drive' in the top banner to link your Drive folder.",
           });
         } else {
           setAlertMessage({
             type: "success",
-            text: "🎉 Document uploaded directly to your 'sunlife solar' Google Drive folder!",
+            text: "Document uploaded directly to your 'sunlife solar' Google Drive folder!",
           });
         }
         fetchDocuments();
@@ -548,10 +548,12 @@ export default function AdminDocumentsPage() {
             <div className="flex items-center gap-2">
               {driveStatus.connected ? (
                 <>
-                  <div className="px-3 py-1.5 rounded-xl text-[11px] font-bold border bg-emerald-50 text-emerald-800 border-emerald-200 flex items-center gap-1.5 shadow-2xs">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  <div
+                    className="px-3 py-1.5 rounded-xl text-[11px] font-bold border bg-emerald-50 text-emerald-800 border-emerald-200 flex items-center gap-1.5 shadow-2xs"
+                    title="Google Drive Connected & Active"
+                  >
                     <Cloud className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Google Drive Connected</span>
+                    <span>Connected</span>
                   </div>
                   {driveStatus.folderLink && (
                     <a
@@ -585,7 +587,7 @@ export default function AdminDocumentsPage() {
                     title="1-Click Connect with Google Account"
                   >
                     <Cloud className="w-3.5 h-3.5" />
-                    <span>⚡ 1-Click Connect Google Drive</span>
+                    <span>Connect Google Drive</span>
                   </a>
                   <button
                     onClick={() => {
@@ -1161,7 +1163,7 @@ export default function AdminDocumentsPage() {
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  ⚡ 1. 1-Click Google Sign-In
+                  1. Google Sign-In
                 </button>
                 <button
                   type="button"
