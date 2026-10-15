@@ -1,4 +1,5 @@
 import { sendMail, maskEmail } from "./mailer";
+import { getWhatsAppProvider } from "@/lib/whatsapp/provider";
 
 interface SendCustomerOtpOptions {
   phone: string;
@@ -27,43 +28,25 @@ export async function dispatchCustomerOtp(options: SendCustomerOtpOptions): Prom
   const maskedDest = `+91 ******${phone.slice(-4)}`;
 
   // 1. WhatsApp Gateway (High Priority)
-  const whatsappUrl = process.env.WHATSAPP_GATEWAY_URL;
-  const whatsappKey = process.env.WHATSAPP_API_KEY;
+  try {
+    const provider = getWhatsAppProvider();
+    const formattedPhone = phone.startsWith("91") ? phone : `91${phone}`;
+    const waRes = await provider.sendText(
+      formattedPhone,
+      `Your Sunlife Solar verification code is *${otp}*.\n\nValid for 10 minutes. Please do not share this code with anyone.`
+    );
 
-  if (whatsappUrl && whatsappKey) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500); // 3.5s fast timeout
-
-      const waRes = await fetch(`${whatsappUrl.replace(/\/$/, "")}/send-message`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": whatsappKey,
-        },
-        body: JSON.stringify({
-          phone: `91${phone}`,
-          message: `Your Sunlife Solar verification code is *${otp}*.\n\nValid for 10 minutes. Please do not share this code with anyone.`,
-        }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (waRes.ok) {
-        const waData = await waRes.json().catch(() => null);
-        if (waData?.success || waData?.status === "SENT" || waData?.status === "QUEUED") {
-          return {
-            sent: true,
-            channel: "WHATSAPP",
-            destination: maskedDest,
-          };
-        }
-      }
-    } catch (err: any) {
-      console.warn("[WhatsApp Gateway Fast-Failover]:", err?.message || err);
-      // Immediately proceed to SMS / Email failover
+    if (waRes.success) {
+      return {
+        sent: true,
+        channel: "WHATSAPP",
+        destination: maskedDest,
+      };
     }
+    console.warn("[WhatsApp Gateway Fast-Failover]:", waRes.error);
+  } catch (err: any) {
+    console.warn("[WhatsApp Gateway Fast-Failover]:", err?.message || err);
+    // Immediately proceed to SMS / Email failover
   }
 
   // 2. Fast2SMS Provider

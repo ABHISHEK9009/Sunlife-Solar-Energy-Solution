@@ -60,7 +60,12 @@ export class HttpGatewayProvider implements WhatsAppProvider {
   private timeoutMs: number;
 
   constructor() {
-    let rawUrl = (process.env.WHATSAPP_GATEWAY_URL || "http://localhost:3001").trim();
+    let rawUrl = (
+      process.env.WHATSAPP_GATEWAY_URL ||
+      (process.env.NODE_ENV === "production"
+        ? "https://superb-commitment-production-5b3e.up.railway.app"
+        : "http://localhost:3001")
+    ).trim();
     if (rawUrl && !rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
       rawUrl = `https://${rawUrl}`;
     }
