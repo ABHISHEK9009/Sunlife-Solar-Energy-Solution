@@ -59,13 +59,19 @@ class _PaymentsPageState extends State<PaymentsPage> {
         final success = await PaymentRepository.instance.processPayment(
           amount: summary.remainingBalance, method: method,
         );
-        if (success && mounted) await _loadPayments();
+        if (success && mounted) {
+          await _loadPayments();
+        }
       } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ErrorMapper.message(e))),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(ErrorMapper.message(e))),
+          );
+        }
       } finally {
-        if (mounted) setState(() => _isPaying = false);
+        if (mounted) {
+          setState(() => _isPaying = false);
+        }
       }
     }
   }
@@ -76,10 +82,12 @@ class _PaymentsPageState extends State<PaymentsPage> {
       return const Scaffold(body: DataState());
     }
     final loadError = PaymentRepository.instance.lastError;
-    if (loadError != null) return Scaffold(
-      appBar: AppBar(title: const Text('Sunlife Solar')),
-      body: DataState(message: loadError, onRetry: () async { await _loadPayments(); }),
-    );
+    if (loadError != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Sunlife Solar')),
+        body: DataState(message: loadError, onRetry: () async { await _loadPayments(); }),
+      );
+    }
     final summary = _summary ?? PaymentSummary.empty();
 
     final progress = summary.netCustomerCost > 0

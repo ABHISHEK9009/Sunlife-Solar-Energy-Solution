@@ -55,10 +55,12 @@ class _AgentVisitsPageState extends State<AgentVisitsPage> {
   @override
   Widget build(BuildContext context) {
     final loadError = AgentRepository.instance.visitsError;
-    if (loadError != null) return Scaffold(
-      appBar: AppBar(title: const Text('Sunlife Solar')),
-      body: DataState(message: loadError, onRetry: () async { await _loadData(force: true); }),
-    );
+    if (loadError != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Sunlife Solar')),
+        body: DataState(message: loadError, onRetry: () async { await _loadData(force: true); }),
+      );
+    }
     final completedCount = _visits.where((v) => v.isCompleted).length;
     final totalCount = _visits.length;
     final pendingCount = totalCount - completedCount;

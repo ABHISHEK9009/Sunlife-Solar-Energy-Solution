@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateCustomerRequest } from "@/lib/crm/auth-otp";
 import { assignLeadToSales } from "@/lib/crm/territory-router";
+import { logAuditEvent } from "@/lib/crm/audit-logger";
 
 export async function POST(req: Request) {
   const entity = await authenticateCustomerRequest(req);
@@ -97,7 +98,10 @@ export async function POST(req: Request) {
     const updateData: any = {};
 
     if (name) updateData.name = name.trim();
-    if (city) updateData.city = city.trim();
+    if (city) {
+      updateData.city = city.trim();
+      updateData.location = city.trim();
+    }
     if (propertyType) updateData.propertyType = propertyType;
     if (monthlyBill) updateData.monthlyBill = String(monthlyBill);
     if (roofSize) updateData.roofSize = String(roofSize);
@@ -123,6 +127,19 @@ export async function POST(req: Request) {
       where: { id: leadId },
       data: updateData,
     });
+
+    try {
+      await logAuditEvent({
+        entityType: "Lead",
+        entityId: leadId,
+        fieldChanged: "profile",
+        action: "UPDATE",
+        actorId: leadId,
+        actorType: "CUSTOMER",
+        source: "APP",
+        newValue: `Lead profile updated: Name="${updated.name}", City="${updated.city || ""}", Property="${updated.propertyType || ""}"`,
+      });
+    } catch (_) {}
 
     return NextResponse.json({
       success: true,

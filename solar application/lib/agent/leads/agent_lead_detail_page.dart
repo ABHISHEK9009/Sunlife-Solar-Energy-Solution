@@ -164,15 +164,21 @@ class _AgentLeadDetailPageState extends State<AgentLeadDetailPage> {
     setState(() => isSaving = true);
     try {
       await AgentRepository.instance.updateLeadStage(widget.lead?.id ?? widget.name, stage);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppMessages.saved)),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppMessages.saved)),
+        );
+      }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ErrorMapper.message(e))),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ErrorMapper.message(e))),
+        );
+      }
     } finally {
-      if (mounted) setState(() => isSaving = false);
+      if (mounted) {
+        setState(() => isSaving = false);
+      }
     }
   }
 

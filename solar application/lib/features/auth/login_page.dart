@@ -105,32 +105,32 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 18),
 
                 // Hero Title
                 const Text(
                   'Power your home\nwith sunshine ☀️',
                   style: TextStyle(
-                    fontSize: 34,
+                    fontSize: 32,
                     height: 1.1,
                     fontWeight: FontWeight.w900,
                     color: AppColors.ink,
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 const Text(
                   'New to Sunlife Solar? Get a free rooftop design & quote.\nExisting customer? Track your plant & subsidy.',
                   style: TextStyle(
-                    fontSize: 14,
-                    height: 1.45,
+                    fontSize: 13,
+                    height: 1.4,
                     color: AppColors.muted,
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 14),
 
                 // Dual Audience Welcome Banner
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: AppColors.softGreen,
                     borderRadius: BorderRadius.circular(16),
@@ -178,7 +178,7 @@ class _LoginPageState extends State<LoginPage> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 18),
 
                 // Phone Input Card
                 CardBox(
@@ -248,6 +248,7 @@ class _LoginPageState extends State<LoginPage> {
                             fontWeight: FontWeight.normal,
                           ),
                           errorText: _errorMessage,
+                          errorMaxLines: 2,
                           filled: true,
                           fillColor: AppColors.canvas,
                           border: OutlineInputBorder(

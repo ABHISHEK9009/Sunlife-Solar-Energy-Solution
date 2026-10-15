@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/models/user_profile.dart';
 import '../../core/repositories/auth_repository.dart';
 import '../../core/repositories/project_repository.dart';
 import '../../core/theme/app_colors.dart';
@@ -257,9 +256,9 @@ class _AppShellState extends State<AppShell> {
               label: 'My Solar',
             ),
             NavigationDestination(
-              icon: Icon(Icons.support_agent_outlined),
-              selectedIcon: Icon(Icons.support_agent),
-              label: 'Support',
+              icon: Icon(Icons.miscellaneous_services_outlined),
+              selectedIcon: Icon(Icons.miscellaneous_services_rounded),
+              label: 'Services',
             ),
             NavigationDestination(
               icon: Icon(Icons.folder_outlined),

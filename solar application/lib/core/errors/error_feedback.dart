@@ -9,7 +9,7 @@ abstract final class ErrorFeedback {
 
   static void show(Object error) {
     final failure = ErrorMapper.map(error);
-    if (kDebugMode) debugPrint('Sunlife operation failed: ${failure.kind.name}');
+    if (kDebugMode) debugPrint('Sunlife operation failed: ${failure.kind.name} | details: $error');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final messenger = messengerKey.currentState;
       if (messenger == null) return;
@@ -20,7 +20,14 @@ abstract final class ErrorFeedback {
 
   static void install() {
     ErrorWidget.builder = (_) => const SafeErrorView();
-    FlutterError.onError = (details) => show(details.exception);
+    FlutterError.onError = (details) {
+      final msg = details.exceptionAsString();
+      if (msg.contains('overflowed') || msg.contains('RenderFlex')) {
+        FlutterError.presentError(details);
+        return;
+      }
+      show(details.exception);
+    };
     PlatformDispatcher.instance.onError = (error, stack) {
       show(error);
       return true;

@@ -22,7 +22,6 @@ import '../calculator/calculator_page.dart';
 import '../documents/documents_page.dart';
 import '../enquiry/solar_services_page.dart';
 import '../payments/payments_page.dart';
-import '../project/project_detail_page.dart';
 import '../project/widgets/progress_tracker.dart';
 import '../project/widgets/update_tile.dart';
 import '../subsidy/subsidy_page.dart';
@@ -127,14 +126,18 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final error = ProjectRepository.instance.lastError ?? PaymentRepository.instance.lastError ?? DocumentRepository.instance.lastError ?? SubsidyRepository.instance.lastError;
-    if (error != null) return DataState(message: error, onRetry: () async {
-      await ProjectRepository.instance.getCurrentProject(forceRefresh: true);
-      await PaymentRepository.instance.getPaymentSummary(forceRefresh: true);
-      await DocumentRepository.instance.getDocuments(forceRefresh: true);
-      await SubsidyRepository.instance.getSubsidyStatus(forceRefresh: true);
-      await _loadData();
-    });
-    if (!ProjectRepository.instance.hasFetched) return const DataState();
+    if (error != null) {
+      return DataState(message: error, onRetry: () async {
+        await ProjectRepository.instance.getCurrentProject(forceRefresh: true);
+        await PaymentRepository.instance.getPaymentSummary(forceRefresh: true);
+        await DocumentRepository.instance.getDocuments(forceRefresh: true);
+        await SubsidyRepository.instance.getSubsidyStatus(forceRefresh: true);
+        await _loadData();
+      });
+    }
+    if (!ProjectRepository.instance.hasFetched) {
+      return const DataState();
+    }
     final project = _project;
     final user = AuthRepository.instance.currentUser;
     final isEnquiryContext = project == null || ProjectRepository.instance.isEnquirySelected;

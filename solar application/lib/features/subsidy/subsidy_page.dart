@@ -40,10 +40,12 @@ class _SubsidyPageState extends State<SubsidyPage> {
       return const Scaffold(body: DataState());
     }
     final loadError = SubsidyRepository.instance.lastError;
-    if (loadError != null) return Scaffold(
-      appBar: AppBar(title: const Text('Sunlife Solar')),
-      body: DataState(message: loadError, onRetry: () async { await _loadStatus(); }),
-    );
+    if (loadError != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Sunlife Solar')),
+        body: DataState(message: loadError, onRetry: () async { await _loadStatus(); }),
+      );
+    }
     final s = _status ?? SubsidyStatus.notInitiated();
 
     return SubPage(

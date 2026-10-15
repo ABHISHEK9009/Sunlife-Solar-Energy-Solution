@@ -68,10 +68,12 @@ class _AgentLeadsPageState extends State<AgentLeadsPage> {
   @override
   Widget build(BuildContext context) {
     final loadError = AgentRepository.instance.leadsError;
-    if (loadError != null) return Scaffold(
-      appBar: AppBar(title: const Text('Sunlife Solar')),
-      body: DataState(message: loadError, onRetry: () async { await _loadLeads(force: true); }),
-    );
+    if (loadError != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Sunlife Solar')),
+        body: DataState(message: loadError, onRetry: () async { await _loadLeads(force: true); }),
+      );
+    }
     final visible = _leads.where((lead) {
       final matchesQuery = query.isEmpty ||
           lead.name.toLowerCase().contains(query.toLowerCase()) ||

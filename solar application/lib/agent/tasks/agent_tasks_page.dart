@@ -127,10 +127,12 @@ class _AgentTasksPageState extends State<AgentTasksPage> {
   @override
   Widget build(BuildContext context) {
     final loadError = AgentRepository.instance.tasksError;
-    if (loadError != null) return Scaffold(
-      appBar: AppBar(title: const Text('Sunlife Solar')),
-      body: DataState(message: loadError, onRetry: () async { await _loadTasks(force: true); }),
-    );
+    if (loadError != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Sunlife Solar')),
+        body: DataState(message: loadError, onRetry: () async { await _loadTasks(force: true); }),
+      );
+    }
     final remainingCount = _tasks.where((t) => !t.isCompleted).length;
 
     return Frame(

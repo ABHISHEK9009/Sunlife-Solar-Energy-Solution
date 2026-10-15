@@ -158,9 +158,6 @@ export async function verifyCustomerOtp(rawPhone: string, userOtp: string) {
     }
   }
 
-  // Atomically consume challenge
-  customerOtpCache.delete(cleanPhone);
-
   // ─── RESOLVE ACCOUNT IDENTITY IN CRM ─────────────────────────────────────
   // 1. Check if an active Customer exists
   const existingCustomer = await prisma.customer.findUnique({
@@ -180,9 +177,17 @@ export async function verifyCustomerOtp(rawPhone: string, userOtp: string) {
     },
   });
 
-  const timestamp = Date.now();
+  if (existingCustomer) {
+    if (existingCustomer.customerStatus !== "ACTIVE" || !existingCustomer.appAccessEnabled) {
+      customerOtpCache.delete(cleanPhone);
+      throw new Error("This account is currently inactive or suspended. Please contact Sunlife Solar support.");
+    }
 
-  if (existingCustomer && existingCustomer.customerStatus === "ACTIVE" && existingCustomer.appAccessEnabled) {
+    // Atomically consume challenge on successful verification
+    customerOtpCache.delete(cleanPhone);
+
+    const timestamp = Date.now();
+
     // Update login timestamp
     await prisma.customer.update({
       where: { id: existingCustomer.id },
@@ -213,11 +218,13 @@ export async function verifyCustomerOtp(rawPhone: string, userOtp: string) {
     };
   }
 
-  // 2. Check for an existing OPEN Lead
+  const timestamp = Date.now();
+
+  // 2. Check for an existing Lead
   let lead = await prisma.lead.findFirst({
     where: {
       phone: cleanPhone,
-      status: { in: ["NEW", "VERIFIED_INCOMPLETE", "CONTACTED", "SURVEY_SCHEDULED"] },
+      status: { notIn: ["CONVERTED"] },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -227,22 +234,51 @@ export async function verifyCustomerOtp(rawPhone: string, userOtp: string) {
   // 3. If no open lead, create a new idempotent Verified Lead skeleton
   if (!lead) {
     isNewUser = true;
-    const territory = await assignLeadToSales();
+    let territory: { salesExecutiveId: string | null; territoryName: string };
+    try {
+      territory = await assignLeadToSales("Narmadapuram");
+    } catch (_) {
+      territory = { salesExecutiveId: null, territoryName: "Central Desk" };
+    }
+
+    // Generate collision-proof lead ID
+    const year = new Date().getFullYear();
     const count = await prisma.lead.count();
-    const leadCode = `SL-LEAD-${new Date().getFullYear()}-${String(count + 1).padStart(4, "0")}`;
+    let seq = count + 1;
+    let leadCode = `SL-LEAD-${year}-${String(seq).padStart(4, "0")}`;
+    const findExistingLead = async (code: string) => {
+      if (typeof (prisma.lead as any).findUnique === "function") {
+        return await (prisma.lead as any).findUnique({ where: { leadId: code } });
+      }
+      if (typeof prisma.lead.findFirst === "function") {
+        return await prisma.lead.findFirst({ where: { leadId: code } });
+      }
+      return null;
+    };
+    while (await findExistingLead(leadCode)) {
+      seq++;
+      leadCode = `SL-LEAD-${year}-${String(seq).padStart(4, "0")}`;
+    }
 
     lead = await prisma.lead.create({
       data: {
         leadId: leadCode,
         name: "New Applicant",
         phone: cleanPhone,
-        status: "VERIFIED_INCOMPLETE",
+        city: "Narmadapuram",
+        location: "Narmadapuram",
+        propertyType: "Residential",
+        status: "NEW",
         source: "Sunlife Solar Mobile App",
         leadSource: "Sunlife Solar Mobile App",
+        notes: "Registered via Mobile App OTP verification.",
         assignedSalesExecutiveId: territory.salesExecutiveId,
       },
     });
   }
+
+  // Atomically consume challenge on successful verification
+  customerOtpCache.delete(cleanPhone);
 
   const payload = `${lead.id}:lead:${cleanPhone}:${timestamp}`;
   const signature = createHmac("sha256", getAuthSecret()).update(payload).digest("hex");

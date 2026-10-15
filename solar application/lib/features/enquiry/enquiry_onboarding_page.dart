@@ -150,10 +150,12 @@ class _EnquiryOnboardingPageState extends State<EnquiryOnboardingPage> {
         'step': 'REQUIREMENT',
       });
     } catch (e) {
-      if (mounted) setState(() {
-        _errorMessage = ErrorMapper.message(e);
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = ErrorMapper.message(e);
+          _isLoading = false;
+        });
+      }
       return;
     }
 

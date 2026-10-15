@@ -1,8 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sunlife_solar/core/models/solar_project.dart';
-import 'package:sunlife_solar/core/models/user_profile.dart';
-import 'package:sunlife_solar/core/repositories/auth_repository.dart';
 import 'package:sunlife_solar/core/repositories/project_repository.dart';
 import 'package:sunlife_solar/core/storage/secure_storage_service.dart';
 

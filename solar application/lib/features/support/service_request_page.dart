@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/models/service_ticket.dart';
+import '../../core/repositories/auth_repository.dart';
 import '../../core/repositories/support_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/sub_page.dart';
@@ -20,7 +21,26 @@ class ServiceRequestPage extends StatefulWidget {
 }
 
 class _ServiceRequestPageState extends State<ServiceRequestPage> {
-  late String category = widget.initialCategory;
+  static const List<String> _categories = [
+    '3D Rooftop Feasibility & Shadow Survey',
+    'PM Surya Ghar Subsidy Sanction',
+    'DISCOM Net-Metering & Bi-Directional Meter',
+    'System Expansion & Battery Storage (BESS)',
+    'Plant Health Audit, Inverter Error or AMC',
+    '25-Year Equipment Warranty Claim',
+    'Commercial & Industrial Solar EPC Advisory',
+    'Project status query',
+    'Document help',
+    'Payment query',
+    'Subsidy query',
+    'Installation issue',
+    'Warranty or service',
+    'Other Technical Inquiry',
+  ];
+
+  late String category = _categories.contains(widget.initialCategory)
+      ? widget.initialCategory
+      : _categories.first;
   final description = TextEditingController();
   String? _attachedPhotoPath;
   String? _validationError;
@@ -57,6 +77,11 @@ class _ServiceRequestPageState extends State<ServiceRequestPage> {
     final text = description.text.trim();
     if (text.isEmpty) {
       setState(() => _validationError = 'Please describe your query or request');
+      return;
+    }
+
+    if (AuthRepository.instance.currentUser == null) {
+      setState(() => _validationError = 'Please sign in to log a service request, or contact our support desk.');
       return;
     }
 
@@ -150,33 +175,47 @@ class _ServiceRequestPageState extends State<ServiceRequestPage> {
       ),
       children: [
         const Text(
-          'What do you need help with?',
+          'Consultancy or Service Category',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           initialValue: category,
+          isExpanded: true,
           decoration: InputDecoration(
             filled: true,
             fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
             ),
           ),
-          items: const [
-            'Project status query',
-            'Document help',
-            'Payment query',
-            'Subsidy query',
-            'Installation issue',
-            'Warranty or service',
-            'Other',
-          ]
+          items: _categories
               .map(
-                (item) => DropdownMenuItem(value: item, child: Text(item)),
+                (item) => DropdownMenuItem(
+                  value: item,
+                  child: Text(
+                    item,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
               )
               .toList(),
+          selectedItemBuilder: (context) {
+            return _categories.map((item) {
+              return Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  item,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              );
+            }).toList();
+          },
           onChanged: (value) => setState(() => category = value!),
         ),
         const SizedBox(height: 18),

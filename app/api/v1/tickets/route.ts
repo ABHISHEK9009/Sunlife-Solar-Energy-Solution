@@ -12,8 +12,16 @@ export async function GET(req: Request) {
   }
 
   try {
+    const customerIds = [customer.id];
+    const linkedCust = await prisma.customer.findUnique({
+      where: { primaryMobile: customer.primaryMobile || customer.phone },
+    });
+    if (linkedCust && !customerIds.includes(linkedCust.id)) {
+      customerIds.push(linkedCust.id);
+    }
+
     const tickets = await prisma.serviceTicket.findMany({
-      where: { customerId: customer.id },
+      where: { customerId: { in: customerIds } },
       orderBy: { submittedDate: "desc" },
       include: {
         attachments: true,
@@ -50,13 +58,46 @@ export async function POST(req: Request) {
       );
     }
 
+    let targetCustomerId = customer.id;
+    let actorId = customer.customerId || customer.id;
+
+    if (customer.isLead || customer.customerStatus === "LEAD") {
+      let cust = await prisma.customer.findUnique({
+        where: { primaryMobile: customer.primaryMobile || customer.phone },
+      });
+      if (!cust) {
+        const year = new Date().getFullYear();
+        const count = await prisma.customer.count();
+        let seq = count + 1;
+        let custId = `SL-CUST-${year}-${String(seq).padStart(4, "0")}`;
+        while (await prisma.customer.findUnique({ where: { customerId: custId } })) {
+          seq++;
+          custId = `SL-CUST-${year}-${String(seq).padStart(4, "0")}`;
+        }
+        cust = await prisma.customer.create({
+          data: {
+            customerId: custId,
+            fullName: customer.fullName || customer.name || "Customer",
+            primaryMobile: customer.primaryMobile || customer.phone,
+            email: customer.email || null,
+            installationAddress: customer.location || customer.city || customer.address || "Site Address",
+            propertyType: customer.propertyType || "RESIDENTIAL",
+            customerStatus: "ACTIVE",
+            appAccessEnabled: true,
+          },
+        });
+      }
+      targetCustomerId = cust.id;
+      actorId = cust.customerId;
+    }
+
     const ticketCount = await prisma.serviceTicket.count();
     const ticketCode = `SL-TCK-${1000 + ticketCount + 1}`;
 
     const ticket = await prisma.serviceTicket.create({
       data: {
         ticketId: ticketCode,
-        customerId: customer.id,
+        customerId: targetCustomerId,
         projectId: projectId || null,
         issueCategory,
         description,
@@ -66,7 +107,7 @@ export async function POST(req: Request) {
           create: attachments.map((att: any) => ({
             fileUrl: att.fileUrl,
             fileType: att.fileType || "IMAGE",
-            uploadedBy: customer.customerId,
+            uploadedBy: actorId,
           })),
         } : undefined,
       },
@@ -80,7 +121,7 @@ export async function POST(req: Request) {
       entityId: ticket.id,
       fieldChanged: "status",
       action: "CREATE",
-      actorId: customer.customerId,
+      actorId: actorId,
       actorType: "CUSTOMER",
       source: "APP",
       newValue: `Created service ticket ${ticket.ticketId}: ${issueCategory}`,

@@ -17,9 +17,13 @@ export async function POST(req: Request) {
     return NextResponse.json(result);
   } catch (error: any) {
     console.error("[OTP Send Error]:", error);
+    const msg = error.message || "Failed to dispatch OTP.";
+    const isValidation = msg.includes("valid 10-digit");
+    const isRateLimit = msg.includes("wait");
+    const status = isValidation ? 400 : (isRateLimit ? 429 : 503);
     return NextResponse.json(
-      { error: error.message || "Failed to dispatch OTP." },
-      { status: 400 }
+      { error: msg },
+      { status }
     );
   }
 }

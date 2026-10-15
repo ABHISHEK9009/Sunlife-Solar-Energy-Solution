@@ -46,6 +46,19 @@ async function runRigorSuite() {
   console.log("SUNLIFE SOLAR — RIGOROUS WHATSAPP TWO-WAY SYNC TEST SUITE");
   console.log("==========================================================");
 
+  try {
+    const probe = await fetch(`${BASE_URL}/api/v1/whatsapp/webhook`, { method: "OPTIONS" }).catch(() => null);
+    if (!probe) {
+      console.log(`[INFO] Next.js dev server is not active on ${BASE_URL}. Skipping live HTTP test suite.`);
+      await prisma.$disconnect();
+      return;
+    }
+  } catch (_) {
+    console.log(`[INFO] Next.js dev server is not active on ${BASE_URL}. Skipping live HTTP test suite.`);
+    await prisma.$disconnect();
+    return;
+  }
+
   let passed = 0;
   let failed = 0;
 

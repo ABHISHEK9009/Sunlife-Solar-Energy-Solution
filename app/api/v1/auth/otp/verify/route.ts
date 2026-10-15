@@ -16,9 +16,24 @@ export async function POST(req: Request) {
 
     const result = await verifyCustomerOtp(phone, otp);
 
-    // Audit log successful app login
+    // Audit log successful app login / registration
     const actorId = result.user?.id || result.user?.customerId || phone;
     const entityType = result.accountState === "CUSTOMER" ? "Customer" : "Lead";
+
+    if (result.isNewUser && result.user?.id) {
+      try {
+        await logAuditEvent({
+          entityType: "Lead",
+          entityId: result.user.id,
+          fieldChanged: "all",
+          action: "CREATE",
+          actorId: actorId,
+          actorType: "CUSTOMER",
+          source: "APP",
+          newValue: `New Lead registered in CRM via Mobile App OTP verification (${phone})`,
+        });
+      } catch (_) {}
+    }
 
     try {
       await logAuditEvent({

@@ -112,10 +112,12 @@ class _DocumentsHomePageState extends State<DocumentsHomePage> {
   @override
   Widget build(BuildContext context) {
     final loadError = DocumentRepository.instance.lastError;
-    if (loadError != null) return Scaffold(
-      appBar: AppBar(title: const Text('Sunlife Solar')),
-      body: DataState(message: loadError, onRetry: () async { await _loadState(); }),
-    );
+    if (loadError != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Sunlife Solar')),
+        body: DataState(message: loadError, onRetry: () async { await _loadState(); }),
+      );
+    }
     final previewDocs = _documents.take(4).toList();
 
     return Frame(

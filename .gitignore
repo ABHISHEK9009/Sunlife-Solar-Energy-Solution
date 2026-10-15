@@ -90,6 +90,7 @@ whatsapp-gateway/node_modules/
 whatsapp-gateway/sessions/
 whatsapp-gateway/.env
 sessions/
+whatsapp_qr.png
 
 # Google Drive Local Config
 data/google-drive-config.json

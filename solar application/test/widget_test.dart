@@ -14,7 +14,6 @@ import 'package:sunlife_solar/core/repositories/project_repository.dart';
 import 'package:sunlife_solar/core/repositories/subsidy_repository.dart';
 import 'package:sunlife_solar/core/repositories/support_repository.dart';
 import 'package:sunlife_solar/core/storage/secure_storage_service.dart';
-import 'package:sunlife_solar/features/dashboard/app_shell.dart';
 import 'package:sunlife_solar/features/profile/profile_page.dart';
 import 'package:sunlife_solar/main.dart';
 import 'package:sunlife_solar/main_agent.dart';
@@ -364,7 +363,7 @@ void main() {
 
     expect(find.text('Customer requirement'), findsOneWidget);
     expect(find.text('Update lead stage'), findsOneWidget);
-    expect(find.text('Save to CRM'), findsOneWidget);
+    expect(find.text('Save changes'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

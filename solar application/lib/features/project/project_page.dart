@@ -62,10 +62,12 @@ class _ProjectPageState extends State<ProjectPage> {
       return const Scaffold(body: DataState());
     }
     final loadError = ProjectRepository.instance.lastError;
-    if (loadError != null) return Scaffold(
-      appBar: AppBar(title: const Text('Sunlife Solar')),
-      body: DataState(message: loadError, onRetry: () async { await _loadProject(forceRefresh: true); }),
-    );
+    if (loadError != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Sunlife Solar')),
+        body: DataState(message: loadError, onRetry: () async { await _loadProject(forceRefresh: true); }),
+      );
+    }
     final p = _project;
     final user = AuthRepository.instance.currentUser;
     final isEnquiryContext = p == null || ProjectRepository.instance.isEnquirySelected;

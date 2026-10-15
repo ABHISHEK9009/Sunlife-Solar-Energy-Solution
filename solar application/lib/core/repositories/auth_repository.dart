@@ -1,4 +1,3 @@
-import '../errors/error_feedback.dart';
 import '../errors/app_error.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -295,7 +294,7 @@ class AuthRepository extends ChangeNotifier {
         return updatedUser;
       }
     } catch (err) {
-
+      // Retain current session identity if background refresh fails
     } finally {
       _isResolvingIdentity = false;
       notifyListeners();
