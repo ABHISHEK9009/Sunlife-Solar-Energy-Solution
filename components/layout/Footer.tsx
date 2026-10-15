@@ -161,6 +161,10 @@ export function Footer() {
             © {new Date().getFullYear()} {siteConfig.name}. All rights reserved.
           </div>
           <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+            <Link href="/privacy-policy" className="hover:text-sun-amber transition-colors underline">
+              Privacy Policy
+            </Link>
+            <span>•</span>
             <span>Clean Energy • Engineering Excellence • Local Trust</span>
           </div>
         </div>

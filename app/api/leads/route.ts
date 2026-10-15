@@ -8,6 +8,7 @@ import { checkRateLimit, buildRateLimitResponse } from "@/lib/security/rate-limi
 
 export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
     const hasPagination = searchParams.has("limit") || searchParams.has("page");
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
     const limit = hasPagination
@@ -54,8 +55,8 @@ export async function GET(req: Request) {
       pagination: {
         total,
         page,
-        limit,
-        totalPages: Math.ceil(total / limit) || 1,
+        limit: limit || total,
+        totalPages: limit ? Math.ceil(total / limit) || 1 : 1,
       },
     });
   } catch (error: any) {
