@@ -549,13 +549,9 @@ export default function AdminDocumentsPage() {
               {driveStatus.connected ? (
                 <>
                   <div className="px-3 py-1.5 rounded-xl text-[11px] font-bold border bg-emerald-50 text-emerald-800 border-emerald-200 flex items-center gap-1.5 shadow-2xs">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                     <Cloud className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Google Drive Connected ☁️</span>
-                    {driveStatus.accountEmail && (
-                      <span className="font-medium text-emerald-700 opacity-90 hidden md:inline">
-                        ({driveStatus.accountEmail})
-                      </span>
-                    )}
+                    <span>Google Drive Connected</span>
                   </div>
                   {driveStatus.folderLink && (
                     <a
@@ -1013,7 +1009,7 @@ export default function AdminDocumentsPage() {
                 <div className="px-3.5 py-2.5 bg-emerald-50 rounded-xl border border-emerald-200 text-xs flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 text-emerald-900 text-[11px]">
                     <Cloud className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Saving to Google Drive: <strong>{driveStatus.folderName}</strong> ({driveStatus.accountEmail})</span>
+                    <span>Saving to Google Drive: <strong>{driveStatus.folderName}</strong></span>
                   </div>
                 </div>
               )}
@@ -1109,9 +1105,9 @@ export default function AdminDocumentsPage() {
                 {driveStatus.connected ? (
                   <div className="mt-2.5 space-y-1.5 text-xs text-slate-600">
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Connected Account:</span>
-                      <span className="font-semibold text-slate-800">
-                        {driveStatus.accountEmail || "Authorized"}
+                      <span className="text-slate-500">Storage:</span>
+                      <span className="font-semibold text-emerald-700">
+                        Connected & Active
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
