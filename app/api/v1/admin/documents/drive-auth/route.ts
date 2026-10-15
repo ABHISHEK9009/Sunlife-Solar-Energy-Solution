@@ -6,7 +6,13 @@ import { getGoogleDriveAuthUrl } from "@/lib/storage/google-drive";
 export async function GET(req: NextRequest) {
   try {
     const origin = req.nextUrl.origin || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-    const authUrl = getGoogleDriveAuthUrl(origin);
+    const callbackParam = req.nextUrl.searchParams.get("callback");
+    const customPath = callbackParam === "admin"
+      ? "/api/v1/admin/documents/drive-auth/callback"
+      : callbackParam === "google"
+      ? "/api/auth/callback/google"
+      : undefined;
+    const authUrl = getGoogleDriveAuthUrl(origin, customPath);
     return NextResponse.redirect(authUrl);
   } catch (error: any) {
     console.error("[Google Drive OAuth Init Error]:", error);

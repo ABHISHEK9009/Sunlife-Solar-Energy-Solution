@@ -434,7 +434,7 @@ export async function testGoogleDriveConnection(customConfig?: Partial<GoogleDri
 /**
  * Builds Google OAuth authorization URL for 1-click admin connect
  */
-export function getGoogleDriveAuthUrl(redirectOrigin: string): string {
+export function getGoogleDriveAuthUrl(redirectOrigin: string, customPath?: string): string {
   const config = getEffectiveDriveConfig();
   const clientId = config.clientId || process.env.GOOGLE_CLIENT_ID;
   const clientSecret = config.clientSecret || process.env.GOOGLE_CLIENT_SECRET;
@@ -443,7 +443,12 @@ export function getGoogleDriveAuthUrl(redirectOrigin: string): string {
     throw new Error("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set in .env");
   }
 
-  const callbackUrl = `${redirectOrigin}/api/v1/admin/documents/drive-auth/callback`;
+  const path = customPath || (
+    redirectOrigin.includes("sunlifesolar.in")
+      ? "/api/auth/callback/google"
+      : "/api/v1/admin/documents/drive-auth/callback"
+  );
+  const callbackUrl = `${redirectOrigin}${path}`;
   const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, callbackUrl);
 
   return oauth2Client.generateAuthUrl({
@@ -457,11 +462,16 @@ export function getGoogleDriveAuthUrl(redirectOrigin: string): string {
 /**
  * Handles Google OAuth callback code exchange
  */
-export async function handleGoogleDriveOAuthCallback(code: string, redirectOrigin: string) {
+export async function handleGoogleDriveOAuthCallback(code: string, redirectOrigin: string, customPath?: string) {
   const config = await getDriveConfigFromDb();
   const clientId = config.clientId || process.env.GOOGLE_CLIENT_ID;
   const clientSecret = config.clientSecret || process.env.GOOGLE_CLIENT_SECRET;
-  const callbackUrl = `${redirectOrigin}/api/v1/admin/documents/drive-auth/callback`;
+  const path = customPath || (
+    redirectOrigin.includes("sunlifesolar.in")
+      ? "/api/auth/callback/google"
+      : "/api/v1/admin/documents/drive-auth/callback"
+  );
+  const callbackUrl = `${redirectOrigin}${path}`;
 
   if (!clientId || !clientSecret) {
     throw new Error("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required.");

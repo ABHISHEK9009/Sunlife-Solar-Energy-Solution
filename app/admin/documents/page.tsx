@@ -976,6 +976,37 @@ export default function AdminDocumentsPage() {
                 </div>
               </div>
 
+              {/* Google Drive Status inside Upload Modal */}
+              {!driveStatus.connected ? (
+                <div className="p-3.5 bg-amber-50 rounded-2xl border border-amber-300 text-xs flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-bold text-amber-950">
+                      Google Drive is not connected yet!
+                    </p>
+                    <p className="text-amber-800 text-[11px] leading-relaxed">
+                      Files uploaded right now will save to local server storage instead of Google Drive.
+                      To save directly into your <strong>&quot;sunlife solar&quot;</strong> Drive folder:
+                    </p>
+                    <a
+                      href="/api/v1/admin/documents/drive-auth"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] transition-colors mt-1"
+                    >
+                      <Cloud className="w-3.5 h-3.5" />
+                      <span>Connect with Google Account</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div className="px-3.5 py-2.5 bg-emerald-50 rounded-xl border border-emerald-200 text-xs flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-emerald-900 text-[11px]">
+                    <Cloud className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Saving to Google Drive: <strong>{driveStatus.folderName}</strong> ({driveStatus.accountEmail})</span>
+                  </div>
+                </div>
+              )}
+
               <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
                 <button
                   type="button"
