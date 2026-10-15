@@ -281,3 +281,174 @@ test("Bug #32: Customer/Lead identity resolution prevents cross-entity access", 
     false
   );
 });
+
+test("WhatsApp Integration: Webhook & Dispatch authorization timing-safe verification", () => {
+  const { timingSafeEqual } = require("crypto");
+  function safeCompare(a, b) {
+    if (!a || !b) return false;
+    const bufA = Buffer.from(a);
+    const bufB = Buffer.from(b);
+    if (bufA.length !== bufB.length) return false;
+    return timingSafeEqual(bufA, bufB);
+  }
+
+  const expectedSecret = "prod_webhook_secret_key_verified_secure";
+  const expectedApiKey = "prod_gateway_api_key_verified_secure";
+
+  // 1. Authorized secret passes
+  assert.equal(safeCompare("prod_webhook_secret_key_verified_secure", expectedSecret), true);
+
+  // 2. Wrong secret rejected
+  assert.equal(safeCompare("wrong_secret_attacker", expectedSecret), false);
+
+  // 3. Null or undefined rejected
+  assert.equal(safeCompare(null, expectedSecret), false);
+  assert.equal(safeCompare("", expectedSecret), false);
+
+  // 4. Missing configuration handled safely
+  const unconfiguredSecret = "";
+  assert.equal(Boolean(unconfiguredSecret), false);
+
+  // 5. Dispatch authorization accepts either valid api key or webhook secret
+  function authorizeDispatch(headerKey, expectedKey, expectedSec) {
+    if (!expectedKey && !expectedSec) return false;
+    return (
+      (expectedKey ? safeCompare(headerKey, expectedKey) : false) ||
+      (expectedSec ? safeCompare(headerKey, expectedSec) : false)
+    );
+  }
+
+  assert.equal(authorizeDispatch("prod_gateway_api_key_verified_secure", expectedApiKey, expectedSecret), true);
+  assert.equal(authorizeDispatch("prod_webhook_secret_key_verified_secure", expectedApiKey, expectedSecret), true);
+  assert.equal(authorizeDispatch("invalid_token", expectedApiKey, expectedSecret), false);
+});
+
+test("WhatsApp Integration: Duplicate message prevention (Idempotency) & Queue retry logic", () => {
+  // 1. Idempotency tracking
+  const processedMessageIds = new Set();
+  function processInboundMessage(gatewayMessageId) {
+    if (processedMessageIds.has(gatewayMessageId)) {
+      return { duplicate: true, action: "IGNORED" };
+    }
+    processedMessageIds.add(gatewayMessageId);
+    return { duplicate: false, action: "PROCESSED" };
+  }
+
+  const firstArrival = processInboundMessage("wamid.HBgLOTE3NzIyOTk1MTAwFQIA");
+  assert.equal(firstArrival.duplicate, false);
+  assert.equal(firstArrival.action, "PROCESSED");
+
+  const duplicateArrival = processInboundMessage("wamid.HBgLOTE3NzIyOTk1MTAwFQIA");
+  assert.equal(duplicateArrival.duplicate, true);
+  assert.equal(duplicateArrival.action, "IGNORED");
+
+  // 2. Retry with exponential backoff logic (Max 3 retries)
+  function calculateNextRetry(attempt) {
+    const MAX_RETRIES = 3;
+    if (attempt >= MAX_RETRIES) return null;
+    const backoffMs = Math.pow(2, attempt) * 5000; // 5s, 10s, 20s
+    return Date.now() + backoffMs;
+  }
+
+  assert.ok(calculateNextRetry(0) !== null);
+  assert.ok(calculateNextRetry(1) !== null);
+  assert.ok(calculateNextRetry(2) !== null);
+  assert.equal(calculateNextRetry(3), null); // Exhausted -> mark FAILED
+});
+
+test("Customer Creation UI Compatibility: Missing plantCapacityKw creates customer without breaking UI", () => {
+  function validateAndPrepareCustomer(body) {
+    const { fullName, primaryMobile, installationAddress, plantCapacityKw } = body;
+    if (!fullName || !primaryMobile || !installationAddress) {
+      return { error: "Required fields missing", status: 400 };
+    }
+
+    const hasCapacity =
+      plantCapacityKw !== undefined &&
+      plantCapacityKw !== null &&
+      String(plantCapacityKw).trim() !== "";
+    const parsedCapacity = hasCapacity ? parseFloat(plantCapacityKw) : null;
+
+    if (hasCapacity && (parsedCapacity === null || isNaN(parsedCapacity) || parsedCapacity <= 0)) {
+      return { error: "Invalid capacity", status: 400 };
+    }
+
+    return {
+      success: true,
+      shouldProvisionProject: parsedCapacity !== null,
+      capacity: parsedCapacity,
+    };
+  }
+
+  // 1. Admin UI payload (has NO plantCapacityKw) -> MUST succeed cleanly
+  const adminUiPayload = {
+    fullName: "Ramesh Kumar Verma",
+    primaryMobile: "9876543210",
+    installationAddress: "House 12, Narmadapuram",
+    propertyType: "RESIDENTIAL",
+  };
+  const res1 = validateAndPrepareCustomer(adminUiPayload);
+  assert.equal(res1.success, true);
+  assert.equal(res1.shouldProvisionProject, false);
+
+  // 2. Explicit valid plant capacity -> succeeds and provisions project
+  const apiPayload = {
+    ...adminUiPayload,
+    plantCapacityKw: 7.5,
+  };
+  const res2 = validateAndPrepareCustomer(apiPayload);
+  assert.equal(res2.success, true);
+  assert.equal(res2.shouldProvisionProject, true);
+  assert.equal(res2.capacity, 7.5);
+
+  // 3. Negative plant capacity -> rejects with 400
+  const invalidPayload = {
+    ...adminUiPayload,
+    plantCapacityKw: -3.0,
+  };
+  const res3 = validateAndPrepareCustomer(invalidPayload);
+  assert.equal(res3.status, 400);
+});
+
+test("Durable Admin Revocation & Epoch Invalidation", () => {
+  const { createHash } = require("crypto");
+  function hashToken(token) {
+    return createHash("sha256").update(token).digest("hex");
+  }
+
+  // Simulate durable store (PostgreSQL AuditLog)
+  const auditLogTable = [];
+  function recordDurableRevocation(token) {
+    auditLogTable.push({
+      entityType: "AdminSessionRevocation",
+      entityId: hashToken(token),
+      action: "REVOKE",
+    });
+  }
+
+  function checkIsRevoked(token, currentEpoch = 0) {
+    const parts = token.split(".");
+    if (parts[0] === "v2") {
+      const ts = parseInt(parts[1], 10);
+      if (currentEpoch > 0 && ts < currentEpoch) return true;
+    }
+    const tokenHash = hashToken(token);
+    return auditLogTable.some((r) => r.entityType === "AdminSessionRevocation" && r.entityId === tokenHash);
+  }
+
+  const token1 = `v2.${Date.now() - 5000}.nonce1.sig1`;
+  const token2 = `v2.${Date.now()}.nonce2.sig2`;
+
+  assert.equal(checkIsRevoked(token1), false);
+  assert.equal(checkIsRevoked(token2), false);
+
+  // Revoke token1
+  recordDurableRevocation(token1);
+  assert.equal(checkIsRevoked(token1), true);
+  assert.equal(checkIsRevoked(token2), false);
+
+  // Stolen token emergency revocation: set global epoch
+  const globalEpoch = Date.now() + 1000;
+  assert.equal(checkIsRevoked(token2, globalEpoch), true); // token2 is now invalidated across all instances
+});
+

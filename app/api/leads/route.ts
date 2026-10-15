@@ -8,10 +8,12 @@ import { checkRateLimit, buildRateLimitResponse } from "@/lib/security/rate-limi
 
 export async function GET(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
+    const hasPagination = searchParams.has("limit") || searchParams.has("page");
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50", 10) || 50));
-    const skip = (page - 1) * limit;
+    const limit = hasPagination
+      ? Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "50", 10) || 50))
+      : undefined;
+    const skip = hasPagination && limit ? (page - 1) * limit : undefined;
 
     const status = searchParams.get("status");
     const search = searchParams.get("search")?.trim();
@@ -36,8 +38,8 @@ export async function GET(req: Request) {
       prisma.lead.findMany({
         where,
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-        skip,
-        take: limit,
+        ...(skip !== undefined ? { skip } : {}),
+        ...(limit !== undefined ? { take: limit } : {}),
       }),
       prisma.calculatorEstimate.findMany({
         orderBy: { createdAt: "desc" },
