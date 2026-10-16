@@ -3,6 +3,29 @@ import { prisma } from "@/lib/prisma";
 import { dispatchCustomerOtp } from "./sms-service";
 import { assignLeadToSales } from "./territory-router";
 
+// Google Play Review helpers with safe fallbacks for test harness isolation
+let isGooglePlayClientPhone = (phone: string) => false;
+let isGooglePlayClientReviewOtp = (otp: string) => false;
+let ensureGooglePlayDemoData = async () => ({}) as any;
+let GOOGLE_PLAY_CONFIG = {
+  CLIENT_PHONE: "9999900001",
+  CLIENT_REVIEW_OTP: "842601",
+  AGENT_PHONE: "9999900002",
+  AGENT_REVIEW_OTP: "715934",
+  DEMO_CLIENT_ID: "SL-DEMO-CUST-01",
+  DEMO_PROJECT_ID: "SL-DEMO-PRJ-01",
+} as any;
+
+try {
+  const gpr = require("./google-play-review");
+  if (gpr && typeof gpr.isGooglePlayClientPhone === "function") {
+    isGooglePlayClientPhone = gpr.isGooglePlayClientPhone;
+    isGooglePlayClientReviewOtp = gpr.isGooglePlayClientReviewOtp;
+    ensureGooglePlayDemoData = gpr.ensureGooglePlayDemoData;
+    GOOGLE_PLAY_CONFIG = gpr.GOOGLE_PLAY_CONFIG;
+  }
+} catch (_) {}
+
 function getAuthSecret(): string {
   const secret = process.env.CUSTOMER_AUTH_SECRET || process.env.AUTH_JWT_SECRET;
   if (!secret) {
@@ -45,6 +68,20 @@ export function normalizeIndianPhone(input: string): string {
  */
 export async function sendCustomerOtp(rawPhone: string) {
   const cleanPhone = normalizeIndianPhone(rawPhone);
+
+  // ─── GOOGLE PLAY REVIEW IDENTITY DISPATCH BYPASS ────────────────────────
+  if (isGooglePlayClientPhone(cleanPhone)) {
+    // Ensure all demo data is initialized in CRM idempotently
+    ensureGooglePlayDemoData().catch(console.error);
+    return {
+      success: true,
+      maskedMobile: `+91 ******${cleanPhone.slice(-4)}`,
+      deliveryChannel: "Demo Review Mode",
+      expiresInSeconds: 86400,
+      cooldownSeconds: 0,
+      message: "Google Play review verification code is active.",
+    };
+  }
 
   const now = Date.now();
   const existing = customerOtpCache.get(cleanPhone);
@@ -124,6 +161,65 @@ export async function verifyCustomerOtp(rawPhone: string, userOtp: string) {
 
   if (trimmedOtp.length !== 6 || !/^\d{6}$/.test(trimmedOtp)) {
     throw new Error("Enter a valid 6-digit verification code.");
+  }
+
+  // ─── GOOGLE PLAY REVIEW IDENTITY VERIFICATION ───────────────────────────
+  if (isGooglePlayClientPhone(cleanPhone)) {
+    if (!isGooglePlayClientReviewOtp(trimmedOtp)) {
+      throw new Error("Invalid review verification code. Use the fixed client code provided in Google Play review notes.");
+    }
+
+    await ensureGooglePlayDemoData();
+
+    const demoCustomer = await prisma.customer.findFirst({
+      where: {
+        OR: [
+          { primaryMobile: cleanPhone },
+          { customerId: GOOGLE_PLAY_CONFIG.DEMO_CLIENT_ID },
+        ],
+      },
+      include: {
+        projects: {
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            projectId: true,
+            projectName: true,
+            plantCapacityKw: true,
+            projectStatus: true,
+            installationAddress: true,
+          },
+        },
+      },
+    });
+
+    if (!demoCustomer) {
+      throw new Error("Google Play demo customer account could not be loaded.");
+    }
+
+    const timestamp = Date.now();
+    const payload = `${demoCustomer.id}:customer:${cleanPhone}:${timestamp}`;
+    const signature = createHmac("sha256", getAuthSecret()).update(payload).digest("hex");
+    const accessToken = Buffer.from(`${payload}:${signature}`).toString("base64url");
+
+    return {
+      success: true,
+      accessToken,
+      accountState: "CUSTOMER" as const,
+      isNewUser: false,
+      profileComplete: true,
+      user: {
+        id: demoCustomer.id,
+        customerId: demoCustomer.customerId,
+        name: demoCustomer.fullName,
+        phone: demoCustomer.primaryMobile,
+        email: demoCustomer.email,
+        address: demoCustomer.installationAddress,
+        propertyType: demoCustomer.propertyType,
+      },
+      projects: demoCustomer.projects,
+      activeProjectId: demoCustomer.projects.length > 0 ? demoCustomer.projects[0].id : null,
+    };
   }
 
   const challenge = customerOtpCache.get(cleanPhone);

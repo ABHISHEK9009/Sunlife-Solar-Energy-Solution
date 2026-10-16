@@ -1,6 +1,28 @@
 import { createHmac, createHash, randomInt, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendAgentOtpEmail, maskEmail } from "@/lib/crm/agent-mailer";
+// Google Play Review helpers with safe fallbacks for test harness isolation
+let isGooglePlayAgentPhone = (identifier: string) => false;
+let isGooglePlayAgentReviewOtp = (otp: string) => false;
+let ensureGooglePlayDemoData = async () => ({}) as any;
+let GOOGLE_PLAY_CONFIG = {
+  AGENT_PHONE: "9999900002",
+  AGENT_REVIEW_OTP: "715934",
+  CLIENT_PHONE: "9999900001",
+  CLIENT_REVIEW_OTP: "842601",
+  DEMO_AGENT_ID: "agent_google_play_demo",
+  DEMO_EMPLOYEE_ID: "SL-DEMO-EMP-01",
+} as any;
+
+try {
+  const gpr = require("./google-play-review");
+  if (gpr && typeof gpr.isGooglePlayAgentPhone === "function") {
+    isGooglePlayAgentPhone = gpr.isGooglePlayAgentPhone;
+    isGooglePlayAgentReviewOtp = gpr.isGooglePlayAgentReviewOtp;
+    ensureGooglePlayDemoData = gpr.ensureGooglePlayDemoData;
+    GOOGLE_PLAY_CONFIG = gpr.GOOGLE_PLAY_CONFIG;
+  }
+} catch (_) {}
 
 function getAgentAuthSecret(): string {
   const secret = process.env.AGENT_AUTH_SECRET || process.env.AUTH_JWT_SECRET;
@@ -45,6 +67,18 @@ function normalizeIndianMobile(input: string): string {
  */
 export async function sendAgentOtp(mobileInput: string) {
   const cleanMobile = normalizeIndianMobile(mobileInput);
+
+  // ─── GOOGLE PLAY REVIEW IDENTITY DISPATCH BYPASS ────────────────────────
+  if (isGooglePlayAgentPhone(cleanMobile)) {
+    ensureGooglePlayDemoData().catch(console.error);
+    return {
+      success: true,
+      maskedEmail: "d****t@sunlifesolar.in",
+      message: "Google Play review verification code is active.",
+      expiresInSeconds: 86400,
+      cooldownSeconds: 0,
+    };
+  }
 
   // Look up active agent by unambiguous exact mobile match
   const member = await prisma.teamMember.findFirst({
@@ -145,6 +179,54 @@ export async function verifyAgentOtp(mobileInput: string, userOtp: string) {
 
   if (cleanOtp.length !== 6 || !/^\d{6}$/.test(cleanOtp)) {
     throw new Error("Enter a valid 6-digit OTP.");
+  }
+
+  // ─── GOOGLE PLAY REVIEW IDENTITY VERIFICATION ───────────────────────────
+  if (isGooglePlayAgentPhone(cleanMobile)) {
+    if (!isGooglePlayAgentReviewOtp(cleanOtp)) {
+      throw new Error("Invalid review OTP. Use the fixed agent code provided in Google Play review notes.");
+    }
+
+    await ensureGooglePlayDemoData();
+
+    const demoAgent = await prisma.teamMember.findFirst({
+      where: {
+        OR: [
+          { phone: cleanMobile },
+          { id: GOOGLE_PLAY_CONFIG.DEMO_AGENT_ID },
+          { employeeId: GOOGLE_PLAY_CONFIG.DEMO_EMPLOYEE_ID },
+        ],
+      },
+    });
+
+    if (!demoAgent) {
+      throw new Error("Google Play demo agent account could not be loaded.");
+    }
+
+    const timestamp = Date.now();
+    const employeeIdentifier = demoAgent.employeeId || demoAgent.id;
+    const payload = `${demoAgent.id}:${employeeIdentifier}:agent:${timestamp}`;
+    const signature = createHmac("sha256", getAgentAuthSecret())
+      .update(payload)
+      .digest("hex");
+
+    const accessToken = Buffer.from(`${payload}:${signature}`).toString("base64url");
+
+    return {
+      success: true,
+      accessToken,
+      agent: {
+        id: demoAgent.id,
+        employeeId: demoAgent.employeeId || demoAgent.id,
+        name: demoAgent.name,
+        role: demoAgent.role,
+        category: demoAgent.category,
+        phone: demoAgent.phone,
+        email: demoAgent.email,
+        territory: demoAgent.territory || "Narmadapuram",
+        department: demoAgent.department || "Field Engineering & Surveys",
+      },
+    };
   }
 
   // Look up agent by exact mobile match

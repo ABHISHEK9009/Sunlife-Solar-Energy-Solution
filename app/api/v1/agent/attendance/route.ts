@@ -3,6 +3,17 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateAgentRequest } from "@/lib/crm/agent-auth";
+// Google Play Review helpers with safe fallbacks for test harness isolation
+let isGooglePlayAgentPhone = (phone: string) => false;
+let handleDemoAgentAttendance: any = null;
+
+try {
+  const gpr = require("@/lib/crm/google-play-review");
+  if (gpr && typeof gpr.isGooglePlayAgentPhone === "function") {
+    isGooglePlayAgentPhone = gpr.isGooglePlayAgentPhone;
+    handleDemoAgentAttendance = gpr.handleDemoAgentAttendance;
+  }
+} catch (_) {}
 
 const toDate = (value: string) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error("A valid attendance date is required.");
@@ -82,6 +93,18 @@ export async function POST(req: Request) {
 
     if (!action || (action !== "punch-in" && action !== "punch-out")) {
       return NextResponse.json({ error: "A valid action ('punch-in' or 'punch-out') is required." }, { status: 400 });
+    }
+
+    // Google Play Review Demonstration Mode: safe repeatable punch without modifying real payroll
+    if (isGooglePlayAgentPhone(agent.phone)) {
+      const demoRecord = await handleDemoAgentAttendance({
+        agent,
+        action,
+        latitude: typeof latitude === "number" ? latitude : undefined,
+        longitude: typeof longitude === "number" ? longitude : undefined,
+        siteName,
+      });
+      return NextResponse.json({ success: true, record: demoRecord });
     }
 
     // Always bind to the authenticated agent's ID to prevent impersonation
