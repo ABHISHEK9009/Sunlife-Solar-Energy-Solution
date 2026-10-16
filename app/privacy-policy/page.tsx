@@ -34,9 +34,9 @@ export default function PrivacyPolicyPage() {
     <div className="bg-slate-50 min-h-screen text-slate-800">
       {/* Header Banner */}
       <section className="bg-gradient-to-r from-solar-dark via-solar-deep to-emerald-950 text-white pt-28 sm:pt-32 pb-16 sm:pb-20">
-        <div className="fluid-container max-w-4xl">
-          <div className="inline-flex items-center gap-2 text-xs font-bold text-sun-amber uppercase tracking-wider bg-white/10 px-3.5 py-1.5 rounded-full mb-3">
-            <ShieldCheck className="w-4 h-4" />
+        <div className="site-container max-w-4xl mx-auto px-4 sm:px-6">
+          <div className="inline-flex items-center gap-2 text-xs font-bold text-sun-amber uppercase tracking-wider bg-white/10 px-3.5 py-1.5 rounded-full mb-3 backdrop-blur-sm border border-white/10">
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
             <span>Legal & Privacy Compliance</span>
           </div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold font-heading tracking-tight leading-tight">
@@ -48,7 +48,7 @@ export default function PrivacyPolicyPage() {
               sunlifesolar.in
             </Link>
             ) and the <strong>Sunlife Solar Energy Solution</strong> Android mobile application (Package:{" "}
-            <code className="text-xs bg-white/15 px-2 py-0.5 rounded font-mono">
+            <code className="text-xs bg-white/15 px-2 py-0.5 rounded font-mono text-emerald-300">
               in.sunlifesolar.customer
             </code>
             ).
@@ -62,8 +62,8 @@ export default function PrivacyPolicyPage() {
       </section>
 
       {/* Main Content */}
-      <div className="fluid-container max-w-4xl py-12 sm:py-16">
-        <div className="bg-white rounded-3xl p-6 sm:p-10 shadow-sm border border-slate-200/80 space-y-10 text-sm sm:text-base leading-relaxed text-slate-700">
+      <div className="site-container max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+        <div className="bg-white rounded-3xl p-6 sm:p-10 md:p-12 shadow-lg shadow-slate-900/5 border border-slate-200/80 space-y-10 text-sm sm:text-base leading-relaxed text-slate-700">
           
           {/* Summary Box */}
           <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-5 sm:p-6 text-emerald-900">
